@@ -41,9 +41,12 @@ export const data = new SlashCommandBuilder()
   .setDescription('Return a list of event scheduled')
   .addStringOption((option) =>
     option
-      .setName('mode')
+      .setName('type')
       .setDescription('Select mode')
-      .addChoices({ name: 'Now', value: 'now' }, { name: 'All', value: 'all' })
+      .addChoices(
+        { name: 'Permanent', value: 'permanent' },
+        { name: 'Limited', value: 'limited' }
+      )
       .setRequired(true)
   );
 
@@ -52,6 +55,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const MHWildsEvents: MHWIldsEventResponse = await parseMHWildsEvents(
       'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
     );
+    const eventType = interaction.options.getString('type', true);
 
     if (
       MHWildsEvents.limitedEventQuests.length === 0 &&
@@ -60,25 +64,28 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return interaction.editReply('No events found.');
     }
 
+    const selectedEvents =
+      eventType === 'permanent'
+        ? MHWildsEvents.permanentQuests
+        : MHWildsEvents.limitedEventQuests[0].eventQuests;
+
     const appearedMonsterFile: IconRef[] = [];
     const appearedQuestType: IconRef[] = [];
 
-    const limitedEvents = MHWildsEvents.limitedEventQuests[0].eventQuests.map(
-      (event) => {
-        const monsterFileName =
-          event.targetMonster.split(' ').join('_') + '_Icon.png';
-        const questTypeFileName = event.questType + '.png';
+    const limitedEvents = selectedEvents.map((event) => {
+      const monsterFileName =
+        event.targetMonster.split(' ').join('_') + '_Icon.png';
+      const questTypeFileName = event.questType + '.png';
 
-        if (!appearedMonsterFile.includes(monsterIcons[monsterFileName])) {
-          appearedMonsterFile.push(monsterIcons[monsterFileName]);
-        }
-
-        if (!appearedQuestType.includes(questTypeIcons[questTypeFileName])) {
-          appearedQuestType.push(questTypeIcons[questTypeFileName]);
-        }
-        return craftEventEmbed(event);
+      if (!appearedMonsterFile.includes(monsterIcons[monsterFileName])) {
+        appearedMonsterFile.push(monsterIcons[monsterFileName]);
       }
-    );
+
+      if (!appearedQuestType.includes(questTypeIcons[questTypeFileName])) {
+        appearedQuestType.push(questTypeIcons[questTypeFileName]);
+      }
+      return craftEventEmbed(event);
+    });
 
     const startDate = new Date(
       MHWildsEvents.limitedEventQuests[0].startDate
@@ -95,7 +102,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const embeds = limitedEvents.flatMap((event) => event.embed);
 
     return interaction.reply({
-      content: `Here are the events during : ${startDate} - ${endDate}`,
+      content:
+        eventType === 'permanent'
+          ? 'Permanent Events'
+          : `Here are the events during : ${startDate} - ${endDate}`,
       embeds,
       files: [
         ...appearedMonsterFile.map((icon) => icon.file),

@@ -1,7 +1,5 @@
-import { AttachmentBuilder, ColorResolvable, EmbedBuilder } from 'discord.js';
+import { ColorResolvable, EmbedBuilder } from 'discord.js';
 import { EventQuestItem } from 'mh-wilds-event-scraper';
-import fs from 'fs';
-import path from 'path';
 
 const toCapitalCase = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -40,10 +38,6 @@ export const craftEventEmbed = (event: EventQuestItem) => {
     .addFields(
       {
         name: '\u200B',
-        value: '',
-      },
-      {
-        name: 'Description',
         value: event.description,
       },
       { name: '\u200B', value: '\u200B' },
