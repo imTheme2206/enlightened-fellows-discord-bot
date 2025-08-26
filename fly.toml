@@ -1,0 +1,22 @@
+app = "enlightened-fellows-bot"  # You may want to change this to a unique name
+primary_region = "sin"  # Singapore region, adjust to your preference
+
+[build]
+  dockerfile = "Dockerfile"
+
+[processes]
+  app = "node dist/index.js"
+
+# No [[services]] block since this is a Discord bot without HTTP endpoints
+
+[deploy]
+  strategy = "immediate"
+  auto_rollback = true
+
+# Scale to a single instance to avoid duplicate cron jobs
+[experimental]
+  auto_scale_memory = 256
+  auto_scale_cpu = 0.5
+
+[env]
+  NODE_ENV = "production"

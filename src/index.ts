@@ -9,11 +9,22 @@ import cron from 'node-cron';
 import { commands } from './commands';
 import { deployCommands } from './deploy-commands';
 
+// Handle graceful shutdown
+function handleShutdown(signal: string) {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  client.destroy();
+  process.exit(0);
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+
 const client = new Client({
   intents: ['Guilds', 'GuildMessages', 'DirectMessages'],
 });
 
-const cronSchedule = '0 10 * * 3'; // every Wednesday at 10:00
+const cronSchedule = '0 10 * * 3'; // every Wednesday at 10:00 (in the timezone specified by TZ env var)
 
 client.once('ready', async () => {
   console.log('Discord bot is ready! 🤖');
@@ -42,7 +53,7 @@ client.once('ready', async () => {
     } catch (err) {
       console.error('Failed scheduled job:', err);
     }
-  });
+  }, { timezone: process.env.TZ || 'UTC' });
 });
 
 client.on('interactionCreate', async (interaction) => {
