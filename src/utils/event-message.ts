@@ -1,4 +1,9 @@
-import { EventQuestItem, MHWIldsEventResponse } from 'mh-wilds-event-scraper';
+import {
+  EventQuestItem,
+  LimitedEventQuestItem,
+  MHWIldsEventResponse,
+  PermanentQuestItem,
+} from 'mh-wilds-event-scraper';
 
 const generateEventMessage = (event: EventQuestItem) => {
   const header = Array(event.difficulty).fill('⭐').join('');
@@ -24,7 +29,10 @@ const generateEventMessage = (event: EventQuestItem) => {
   return combinedMessage;
 };
 
-export const craftEventMessage = (event: MHWIldsEventResponse) => {
+export const craftEventMessage = (
+  event: LimitedEventQuestItem,
+  permanentQuests: PermanentQuestItem
+) => {
   const craftedMessagesArray: string[] = [];
 
   const startDate = new Date(event.startDate).toLocaleString('th-TH', {
@@ -51,6 +59,12 @@ export const craftEventMessage = (event: MHWIldsEventResponse) => {
   craftedMessagesArray.push('\n**Free Challenge Quests**\n');
 
   event.freeChallengeQuests.map((eventQuest) => {
+    craftedMessagesArray.push(generateEventMessage(eventQuest));
+  });
+
+  craftedMessagesArray.push('\n**Permanent Quests**\n');
+
+  permanentQuests.map((eventQuest) => {
     craftedMessagesArray.push(generateEventMessage(eventQuest));
   });
 
