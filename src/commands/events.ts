@@ -11,15 +11,21 @@ export const data = new SlashCommandBuilder()
   .setDescription('Return a list of event scheduled');
 
 export async function execute(interaction: CommandInteraction) {
-  const MHWildsEvents: MHWIldsEventResponse[] = await parseMHWildsEvents(
-    'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
-  );
+  await interaction.deferReply();
 
-  if (MHWildsEvents.length === 0) {
-    return interaction.reply('No events found.');
+  try {
+    const MHWildsEvents: MHWIldsEventResponse[] = await parseMHWildsEvents(
+      'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
+    );
+
+    if (MHWildsEvents.length === 0) {
+      return interaction.editReply('No events found.');
+    }
+
+    const messages: string = MHWildsEvents.map(craftEventMessage).join('\n');
+    return interaction.editReply(messages);
+  } catch (error) {
+    console.error(error);
+    return interaction.editReply('Failed to fetch events.');
   }
-
-  const messages: string = MHWildsEvents.map(craftEventMessage).join('\n');
-
-  return interaction.reply(messages);
 }

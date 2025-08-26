@@ -1,4 +1,8 @@
-import { Client } from 'discord.js';
+import {
+  ChatInputCommandInteraction,
+  Client,
+  CommandInteraction,
+} from 'discord.js';
 import { config } from './config';
 import { commands } from './commands';
 import { deployCommands } from './deploy-commands';
@@ -17,8 +21,9 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
   const { commandName } = interaction;
+  console.log(commands);
   if (commands[commandName as keyof typeof commands]) {
-    commands[commandName as keyof typeof commands].execute(interaction);
+    commands[commandName as keyof typeof commands].execute(interaction as any);
   }
 });
 
