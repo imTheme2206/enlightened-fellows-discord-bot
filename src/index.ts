@@ -30,30 +30,38 @@ client.once('ready', async () => {
   console.log('Discord bot is ready! 🤖');
   await deployCommands();
 
-  cron.schedule(cronSchedule, async () => {
-    console.log('⏰ Running /events limited job...');
-    try {
-      const channel = (await client.channels.fetch(
-        config.EVENTS_CHANNEL_ID
-      )) as TextChannel;
-      if (!channel) return;
+  cron.schedule(
+    cronSchedule,
+    async () => {
+      console.log('⏰ Running /events limited job...');
+      try {
+        const channelIds = config.EVENTS_CHANNEL_ID.split(',');
 
-      const fakeInteraction = {
-        options: {
-          getString: (name: string) => {
-            if (name === 'type') return 'limited';
-            return null;
-          },
-        },
-        reply: (opts: any) => channel.send(opts),
-        editReply: (opts: any) => channel.send(opts),
-      } as any;
+        for (const channelId of channelIds) {
+          const channel = (await client.channels.fetch(
+            channelId
+          )) as TextChannel;
+          if (!channel) return;
 
-      await commands['events'].execute(fakeInteraction);
-    } catch (err) {
-      console.error('Failed scheduled job:', err);
-    }
-  }, { timezone: process.env.TZ || 'UTC' });
+          const fakeInteraction = {
+            options: {
+              getString: (name: string) => {
+                if (name === 'type') return 'limited';
+                return null;
+              },
+            },
+            reply: (opts: any) => channel.send(opts),
+            editReply: (opts: any) => channel.send(opts),
+          } as any;
+
+          await commands['events'].execute(fakeInteraction);
+        }
+      } catch (err) {
+        console.error('Failed scheduled job:', err);
+      }
+    },
+    { timezone: process.env.TZ || 'UTC' }
+  );
 });
 
 client.on('interactionCreate', async (interaction) => {

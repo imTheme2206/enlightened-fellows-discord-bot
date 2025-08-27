@@ -87,17 +87,17 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return craftEventEmbed(event);
     });
 
-    const startDate = new Date(
-      MHWildsEvents.limitedEventQuests[0].startDate
-    ).toLocaleString('th-TH', {
-      timeZone: 'Asia/Bangkok',
-    });
+    const startDate = new Date(MHWildsEvents.limitedEventQuests[0].startDate)
+      .toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+      })
+      .split(' ')[0];
 
-    const endDate = new Date(
-      MHWildsEvents.limitedEventQuests[0].endDate
-    ).toLocaleString('th-TH', {
-      timeZone: 'Asia/Bangkok',
-    });
+    const endDate = new Date(MHWildsEvents.limitedEventQuests[0].endDate)
+      .toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+      })
+      .split(' ')[0];
 
     const embeds = limitedEvents.flatMap((event) => event.embed);
 
