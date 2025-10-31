@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dayjs": "^1.11.19",
     "discord.js": "^14.19.2",
     "dotenv": "^16.5.0",
     "mh-wilds-event-scraper": "git+https://github.com/imTheme2206/mh-wilds-event-scraper.git#main",

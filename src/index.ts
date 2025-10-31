@@ -3,11 +3,11 @@ import {
   Client,
   CommandInteraction,
   TextChannel,
-} from 'discord.js';
-import { config } from './config';
-import cron from 'node-cron';
-import { commands } from './commands';
-import { deployCommands } from './deploy-commands';
+} from "discord.js";
+import { config } from "./config";
+import cron from "node-cron";
+import { commands } from "./commands";
+import { deployCommands } from "./deploy-commands";
 
 // Handle graceful shutdown
 function handleShutdown(signal: string) {
@@ -17,36 +17,36 @@ function handleShutdown(signal: string) {
 }
 
 // Register shutdown handlers
-process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGINT", () => handleShutdown("SIGINT"));
 
 const client = new Client({
-  intents: ['Guilds', 'GuildMessages', 'DirectMessages'],
+  intents: ["Guilds", "GuildMessages", "DirectMessages"],
 });
 
-const cronSchedule = '0 10 * * 3'; // every Wednesday at 10:00 (in the timezone specified by TZ env var)
+const cronSchedule = "0 10 * * 3"; // every Wednesday at 10:00 (in the timezone specified by TZ env var)
 
-client.once('ready', async () => {
-  console.log('Discord bot is ready! 🤖');
+client.on("ready", async () => {
+  console.log("Discord bot is ready! 🤖");
   await deployCommands();
 
   cron.schedule(
     cronSchedule,
     async () => {
-      console.log('⏰ Running /events limited job...');
+      console.log("⏰ Running /events limited job...");
       try {
-        const channelIds = config.EVENTS_CHANNEL_ID.split(',');
+        const channelIds = config.EVENTS_CHANNEL_ID.split(",");
 
         for (const channelId of channelIds) {
           const channel = (await client.channels.fetch(
-            channelId
+            channelId,
           )) as TextChannel;
           if (!channel) return;
 
           const fakeInteraction = {
             options: {
               getString: (name: string) => {
-                if (name === 'type') return 'limited';
+                if (name === "type") return "limited";
                 return null;
               },
             },
@@ -54,17 +54,17 @@ client.once('ready', async () => {
             editReply: (opts: any) => channel.send(opts),
           } as any;
 
-          await commands['events'].execute(fakeInteraction);
+          await commands["events"].execute(fakeInteraction);
         }
       } catch (err) {
-        console.error('Failed scheduled job:', err);
+        console.error("Failed scheduled job:", err);
       }
     },
-    { timezone: process.env.TZ || 'UTC' }
+    { timezone: "Asia/Bangkok" },
   );
 });
 
-client.on('interactionCreate', async (interaction) => {
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) {
     return;
   }

@@ -1,40 +1,80 @@
 import {
   AttachmentBuilder,
   ChatInputCommandInteraction,
-  CommandInteraction,
+  InteractionReplyOptions,
+  Message,
   SlashCommandBuilder,
-} from 'discord.js';
+} from 'discord.js'
 import {
   EventQuestItem,
-  parseMHWildsEvents,
   MHWIldsEventResponse,
-} from 'mh-wilds-event-scraper';
-import { craftEventEmbed } from '../utils/wilds-event-embed';
-import fs from 'fs';
-import path from 'path';
+  parseMHWildsEvents,
+} from 'mh-wilds-event-scraper'
+import { craftEventEmbed } from '../utils/wilds-event-embed'
+import {
+  EmbedPaginationEntry,
+  DEFAULT_PAGINATION_TIMEOUT_MS,
+  DEFAULT_PAGINATION_BUTTON_IDS,
+  buildPaginationComponents,
+  paginateEmbedEntries,
+  registerEmbedPaginationCollector,
+  AttachmentRef,
+} from '../utils/embed-pagination'
+import fs from 'fs'
+import path from 'path'
+import dayjs from 'dayjs'
 
 // Explicit icon reference type to ensure consistent typing across maps and arrays
-type IconRef = { file: AttachmentBuilder; path: string };
+type IconRef = AttachmentRef
+type EventType = 'permanent' | 'limited' | 'all'
+const monsterIcons: Record<string, IconRef> = {}
+const questTypeIcons: Record<string, IconRef> = {}
+const PAGE_SIZE = 5
 
-const monsterIcons: Record<string, IconRef> = {};
-const questTypeIcons: Record<string, IconRef> = {};
+const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>
+  events.map((event) => {
+    const monsterFileName =
+      event.targetMonster !== 'Unknown'
+        ? event.targetMonster.split(' ').join('_') + '_Icon.png'
+        : 'Unknown_Icon.png'
+    const questTypeFileName = `${event.questType}.png`
 
-function preloadIcons() {
-  console.log('Preloading icons...');
-  const monsterDir = 'assets/icons/large';
+    const attachments: IconRef[] = []
+    const monsterIcon = monsterIcons[monsterFileName]
+    const questIcon = questTypeIcons[questTypeFileName]
+
+    if (monsterIcon) {
+      attachments.push(monsterIcon)
+    }
+
+    if (questIcon) {
+      attachments.push(questIcon)
+    }
+
+    const { embed } = craftEventEmbed(event)
+
+    return {
+      embed: embed[0],
+      attachments,
+    }
+  })
+
+const preloadIcons = () => {
+  console.log('Preloading icons...')
+  const monsterDir = 'assets/icons/large'
   fs.readdirSync(monsterDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(monsterDir, filename));
-    monsterIcons[filename] = { file, path: `attachment://${filename}` };
-  });
+    const file = new AttachmentBuilder(path.join(monsterDir, filename))
+    monsterIcons[filename] = { file, key: `attachment://${filename}` }
+  })
 
-  const questDir = 'assets/icons/quest';
+  const questDir = 'assets/icons/quest'
   fs.readdirSync(questDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(questDir, filename));
-    questTypeIcons[filename] = { file, path: `attachment://${filename}` };
-  });
+    const file = new AttachmentBuilder(path.join(questDir, filename))
+    questTypeIcons[filename] = { file, key: `attachment://${filename}` }
+  })
 }
 
-preloadIcons();
+preloadIcons()
 
 export const data = new SlashCommandBuilder()
   .setName('events')
@@ -48,72 +88,91 @@ export const data = new SlashCommandBuilder()
         { name: 'Limited', value: 'limited' }
       )
       .setRequired(true)
-  );
+  )
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const MHWildsEvents: MHWIldsEventResponse = await parseMHWildsEvents(
       'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
-    );
-    const eventType = interaction.options.getString('type', true);
+    )
 
-    if (
-      MHWildsEvents.limitedEventQuests.length === 0 &&
-      MHWildsEvents.permanentQuests.length === 0
-    ) {
-      return interaction.editReply('No events found.');
+    const eventType: EventType =
+      (interaction.options.getString('type', true) as EventType) || 'all'
+
+    if (MHWildsEvents.eventQuests.length === 0) {
+      return interaction.editReply('No events found.')
     }
 
-    const selectedEvents =
-      eventType === 'permanent'
-        ? MHWildsEvents.permanentQuests
-        : MHWildsEvents.limitedEventQuests[0].eventQuests;
+    const selectedEvents = filterEvent(MHWildsEvents.eventQuests, eventType)
+    const eventEntries = buildEventEntries(selectedEvents)
+    const paginatedEvents = paginateEmbedEntries(eventEntries, PAGE_SIZE)
 
-    const appearedMonsterFile: IconRef[] = [];
-    const appearedQuestType: IconRef[] = [];
+    if (paginatedEvents.pages.length === 0) {
+      return interaction.reply('No events found for the selected type.')
+    }
 
-    const limitedEvents = selectedEvents.map((event) => {
-      const monsterFileName =
-        event.targetMonster.split(' ').join('_') + '_Icon.png';
-      const questTypeFileName = event.questType + '.png';
+    const totalPages = paginatedEvents.pages.length
+    let currentPage = 0
 
-      if (!appearedMonsterFile.includes(monsterIcons[monsterFileName])) {
-        appearedMonsterFile.push(monsterIcons[monsterFileName]);
-      }
+    const initialFiles = paginatedEvents.attachmentsByPage[currentPage]
 
-      if (!appearedQuestType.includes(questTypeIcons[questTypeFileName])) {
-        appearedQuestType.push(questTypeIcons[questTypeFileName]);
-      }
-      return craftEventEmbed(event);
-    });
-
-    const startDate = new Date(MHWildsEvents.limitedEventQuests[0].startDate)
-      .toLocaleString('th-TH', {
-        timeZone: 'Asia/Bangkok',
-      })
-      .split(' ')[0];
-
-    const endDate = new Date(MHWildsEvents.limitedEventQuests[0].endDate)
-      .toLocaleString('th-TH', {
-        timeZone: 'Asia/Bangkok',
-      })
-      .split(' ')[0];
-
-    const embeds = limitedEvents.flatMap((event) => event.embed);
-
-    return interaction.reply({
+    const replyPayload: InteractionReplyOptions = {
       content:
-        eventType === 'permanent'
-          ? 'Permanent Events'
-          : `Here are the events during : ${startDate} - ${endDate}`,
-      embeds,
-      files: [
-        ...appearedMonsterFile.map((icon) => icon.file),
-        ...appearedQuestType.map((icon) => icon.file),
-      ],
-    });
+        eventType === 'permanent' ? 'Permanent Events' : `Here are the ongoing events`,
+      embeds: paginatedEvents.pages[currentPage].map((entry) => entry.embed),
+      files: initialFiles,
+      components: buildPaginationComponents(
+        currentPage,
+        totalPages,
+        DEFAULT_PAGINATION_BUTTON_IDS
+      ),
+    }
+
+    await interaction.reply(replyPayload)
+
+    const commandUserId = interaction.user?.id ?? null
+    let message: Message | null = null
+
+    try {
+      message = (await interaction.fetchReply()) as Message
+    } catch (err) {
+      console.error('Failed to fetch reply for pagination:', err)
+    }
+
+    if (
+      totalPages <= 1 ||
+      !message ||
+      typeof message.createMessageComponentCollector !== 'function'
+    ) {
+      return message
+    }
+
+    registerEmbedPaginationCollector(message, paginatedEvents, {
+      commandUserId,
+      timeoutMs: DEFAULT_PAGINATION_TIMEOUT_MS,
+      buttonIds: DEFAULT_PAGINATION_BUTTON_IDS,
+    })
+
+    return message
   } catch (error) {
-    console.error(error);
-    return interaction.editReply('Failed to fetch events.');
+    console.error(error)
+    return interaction.editReply('Failed to fetch events.')
   }
+}
+
+const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
+  if (eventType === 'all') {
+    return events
+  }
+  const filterIsPermanent = eventType === 'permanent'
+  if (filterIsPermanent) {
+    return events.filter((event) => event.isPermanent === filterIsPermanent)
+  }
+
+  const currentDate = dayjs()
+  return events.filter(
+    (event) =>
+      dayjs(event.startAt).isBefore(currentDate) &&
+      dayjs(event.endAt).isAfter(currentDate)
+  )
 }
