@@ -17,6 +17,17 @@ function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(path.join(SEED_DIR, file), 'utf-8')) as T
 }
 
+function buildMetaMap<TRaw extends unknown[], TMeta>(
+  raw: Record<string, TRaw>,
+  factory: (name: string, data: TRaw) => TMeta,
+): Map<string, TMeta> {
+  const map = new Map<string, TMeta>()
+  for (const [name, data] of Object.entries(raw)) {
+    map.set(name, factory(name, data))
+  }
+  return map
+}
+
 /**
  * Builds the in-memory search index from seed JSON files.
  * Does NOT touch Prisma — reads JSON directly for speed.
@@ -34,7 +45,7 @@ export function buildSearchIndex(): SetSearchIndex {
   const groupSkillsRaw = readJson<Record<string, CompactGroupSkill>>('group-skills.json')
   const skillsRaw = readJson<Record<string, number>>('skills.json')
 
-  // Map compact armor → ArmorPiece
+  // Compact armor format: [type, skills, groupSkills, slots, defense, resists, rank, setSkills]
   const mapArmor = (name: string, data: CompactArmor): ArmorPiece => ({
     name,
     type: data[0] as ArmorType,
@@ -47,7 +58,7 @@ export function buildSearchIndex(): SetSearchIndex {
     setSkills: data[7],
   })
 
-  // Map compact talisman → ArmorPiece (shorter format: [type, skills])
+  // Compact talisman format: [type, skills]
   const mapTalisman = (name: string, data: CompactTalisman): ArmorPiece => ({
     name,
     type: 'talisman',
@@ -60,63 +71,58 @@ export function buildSearchIndex(): SetSearchIndex {
     setSkills: [],
   })
 
-  const headPieces = Object.entries(headRaw).map(([n, d]) => mapArmor(n, d))
-  const chestPieces = Object.entries(chestRaw).map(([n, d]) => mapArmor(n, d))
-  const armsPieces = Object.entries(armsRaw).map(([n, d]) => mapArmor(n, d))
-  const waistPieces = Object.entries(waistRaw).map(([n, d]) => mapArmor(n, d))
-  const legsPieces = Object.entries(legsRaw).map(([n, d]) => mapArmor(n, d))
-  const talismanPieces = Object.entries(talismanRaw).map(([n, d]) => mapTalisman(n, d))
+  const armorFiles: [string, Record<string, CompactArmor>][] = [
+    ['head', headRaw],
+    ['chest', chestRaw],
+    ['arms', armsRaw],
+    ['waist', waistRaw],
+    ['legs', legsRaw],
+  ]
 
   const byType: Record<ArmorType, ArmorPiece[]> = {
-    head: headPieces,
-    chest: chestPieces,
-    arms: armsPieces,
-    waist: waistPieces,
-    legs: legsPieces,
-    talisman: talismanPieces,
+    head: [],
+    chest: [],
+    arms: [],
+    waist: [],
+    legs: [],
+    talisman: Object.entries(talismanRaw).map(([n, d]) => mapTalisman(n, d)),
+  }
+
+  for (const [type, raw] of armorFiles) {
+    byType[type as ArmorType] = Object.entries(raw).map(([n, d]) => mapArmor(n, d))
   }
 
   const allArmor: ArmorPiece[] = [
-    ...headPieces,
-    ...chestPieces,
-    ...armsPieces,
-    ...waistPieces,
-    ...legsPieces,
-    ...talismanPieces,
+    ...byType.head,
+    ...byType.chest,
+    ...byType.arms,
+    ...byType.waist,
+    ...byType.legs,
+    ...byType.talisman,
   ]
 
-  // Map decorations
+  // Compact decoration format: [_, skills, slotSize]
   const decorations: DecorationItem[] = Object.entries(decorationRaw).map(
     ([name, data]) => ({
       name,
       skills: data[1],
       slotSize: data[2],
-    })
+    }),
   )
 
-  // Map set skills
-  const setSkills = new Map<string, SetSkillMeta>()
-  for (const [name, data] of Object.entries(setSkillsRaw)) {
-    setSkills.set(name, {
-      name,
-      skillName: data[0],
-      piecesRequired: data[1],
-      bonusLevels: data[2],
-    })
-  }
+  // Compact set-skill format: [skillName, piecesRequired, bonusLevels]
+  const setSkills = buildMetaMap<CompactSetSkill, SetSkillMeta>(
+    setSkillsRaw,
+    (name, data) => ({ name, skillName: data[0], piecesRequired: data[1], bonusLevels: data[2] }),
+  )
 
-  // Map group skills
-  const groupSkills = new Map<string, GroupSkillMeta>()
-  for (const [name, data] of Object.entries(groupSkillsRaw)) {
-    groupSkills.set(name, {
-      name,
-      skillName: data[0],
-      levelGranted: data[1],
-      piecesRequired: data[2],
-    })
-  }
+  // Compact group-skill format: [skillName, levelGranted, piecesRequired]
+  const groupSkills = buildMetaMap<CompactGroupSkill, GroupSkillMeta>(
+    groupSkillsRaw,
+    (name, data) => ({ name, skillName: data[0], levelGranted: data[1], piecesRequired: data[2] }),
+  )
 
-  // Map skills
+  // Skills seed is a plain name → maxLevel map
   const skills = new Map<string, SkillMeta>()
   for (const [name, maxLevel] of Object.entries(skillsRaw)) {
     skills.set(name, { name, maxLevel })
