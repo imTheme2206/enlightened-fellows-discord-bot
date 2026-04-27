@@ -1,6 +1,7 @@
 import {
   AttachmentBuilder,
   ChatInputCommandInteraction,
+  InteractionEditReplyOptions,
   InteractionReplyOptions,
   Message,
   SlashCommandBuilder,
@@ -14,7 +15,6 @@ import { craftEventEmbed } from '../utils/wilds-event-embed'
 import {
   EmbedPaginationEntry,
   DEFAULT_PAGINATION_TIMEOUT_MS,
-  DEFAULT_PAGINATION_BUTTON_IDS,
   buildPaginationComponents,
   paginateEmbedEntries,
   registerEmbedPaginationCollector,
@@ -23,6 +23,8 @@ import {
 import fs from 'fs'
 import path from 'path'
 import dayjs from 'dayjs'
+import logger from '../../config/logger'
+import { Command } from './_types'
 
 // Explicit icon reference type to ensure consistent typing across maps and arrays
 type IconRef = AttachmentRef
@@ -30,6 +32,10 @@ type EventType = 'permanent' | 'limited' | 'all'
 const monsterIcons: Record<string, IconRef> = {}
 const questTypeIcons: Record<string, IconRef> = {}
 const PAGE_SIZE = 5
+const EVENTS_PAGINATION_BUTTON_IDS = {
+  prev: 'events_prev',
+  next: 'events_next',
+} as const
 
 const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>
   events.map((event) => {
@@ -60,7 +66,7 @@ const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>
   })
 
 const preloadIcons = () => {
-  console.log('Preloading icons...')
+  logger.info('Preloading icons...')
   const monsterDir = 'assets/icons/large'
   fs.readdirSync(monsterDir).forEach((filename) => {
     const file = new AttachmentBuilder(path.join(monsterDir, filename))
@@ -90,17 +96,56 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   )
 
-export async function execute(interaction: ChatInputCommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const eventType: EventType =
+    (interaction.options.getString('type', true) as EventType) || 'all'
+
+  let hasDeferred = false
+  let hasSentInitialResponse = false
+  const canDefer = typeof interaction.deferReply === 'function'
+
+  const respond = async (payload: string | InteractionReplyOptions) => {
+    const shouldEdit =
+      hasDeferred ||
+      hasSentInitialResponse ||
+      (typeof interaction.deferred === 'boolean' && interaction.deferred) ||
+      (typeof interaction.replied === 'boolean' && interaction.replied)
+
+    if (shouldEdit && typeof interaction.editReply === 'function') {
+      hasSentInitialResponse = true
+      return interaction.editReply(payload as InteractionEditReplyOptions | string)
+    }
+
+    if (typeof interaction.reply === 'function') {
+      hasSentInitialResponse = true
+      return interaction.reply(payload as InteractionReplyOptions | string)
+    }
+
+    if (typeof interaction.editReply === 'function') {
+      hasSentInitialResponse = true
+      return interaction.editReply(payload as InteractionEditReplyOptions | string)
+    }
+
+    throw new Error('Interaction does not support reply or editReply')
+  }
+
   try {
+    if (
+      canDefer &&
+      typeof interaction.deferReply === 'function' &&
+      !(interaction.deferred || interaction.replied)
+    ) {
+      await interaction.deferReply()
+      hasDeferred = true
+    }
+
     const MHWildsEvents: MHWIldsEventResponse = await parseMHWildsEvents(
       'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
     )
 
-    const eventType: EventType =
-      (interaction.options.getString('type', true) as EventType) || 'all'
-
     if (MHWildsEvents.eventQuests.length === 0) {
-      return interaction.editReply('No events found.')
+      await respond('No events found.')
+      return
     }
 
     const selectedEvents = filterEvent(MHWildsEvents.eventQuests, eventType)
@@ -108,7 +153,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const paginatedEvents = paginateEmbedEntries(eventEntries, PAGE_SIZE)
 
     if (paginatedEvents.pages.length === 0) {
-      return interaction.reply('No events found for the selected type.')
+      await respond('No events found for the selected type.')
+      return
     }
 
     const totalPages = paginatedEvents.pages.length
@@ -124,19 +170,21 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       components: buildPaginationComponents(
         currentPage,
         totalPages,
-        DEFAULT_PAGINATION_BUTTON_IDS
+        EVENTS_PAGINATION_BUTTON_IDS
       ),
     }
 
-    await interaction.reply(replyPayload)
+    await respond(replyPayload)
 
     const commandUserId = interaction.user?.id ?? null
     let message: Message | null = null
 
     try {
-      message = (await interaction.fetchReply()) as Message
+      if (typeof interaction.fetchReply === 'function') {
+        message = (await interaction.fetchReply()) as Message
+      }
     } catch (err) {
-      console.error('Failed to fetch reply for pagination:', err)
+      logger.error('Failed to fetch reply for pagination:', { err })
     }
 
     if (
@@ -144,19 +192,22 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       !message ||
       typeof message.createMessageComponentCollector !== 'function'
     ) {
-      return message
+      return
     }
 
     registerEmbedPaginationCollector(message, paginatedEvents, {
       commandUserId,
       timeoutMs: DEFAULT_PAGINATION_TIMEOUT_MS,
-      buttonIds: DEFAULT_PAGINATION_BUTTON_IDS,
+      buttonIds: EVENTS_PAGINATION_BUTTON_IDS,
+      initialPage: currentPage,
     })
-
-    return message
   } catch (error) {
-    console.error(error)
-    return interaction.editReply('Failed to fetch events.')
+    logger.error('Failed to fetch events:', { error })
+    try {
+      await respond('Failed to fetch events.')
+    } catch (replyError) {
+      logger.error('Failed to send error message:', { replyError })
+    }
   }
 }
 
@@ -176,3 +227,5 @@ const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
       dayjs(event.endAt).isAfter(currentDate)
   )
 }
+
+export default { data, execute } satisfies Command

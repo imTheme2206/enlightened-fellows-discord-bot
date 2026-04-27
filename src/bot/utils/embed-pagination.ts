@@ -8,6 +8,7 @@ import {
   EmbedBuilder,
   Message,
 } from 'discord.js'
+import logger from '../../config/logger'
 
 export type AttachmentRef = {
   key: string
@@ -186,7 +187,7 @@ export const registerEmbedPaginationCollector = (
     try {
       await message.edit({ components: [] })
     } catch (err) {
-      console.error('Failed to clean up pagination components:', err)
+      logger.error('Failed to clean up pagination components:', { err })
     }
 
     if (options.onCollectorEnd) {

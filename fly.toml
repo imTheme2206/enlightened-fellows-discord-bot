@@ -16,6 +16,12 @@ primary_region = 'sin'
 
 [env]
   NODE_ENV = 'production'
+  TZ = 'Asia/Singapore'
+  DATABASE_PATH = '/data/data.db'
+
+[mounts]
+  source = 'enlightened_fellows_data'
+  destination = '/data'
 
 [processes]
   app = 'node dist/index.js'
