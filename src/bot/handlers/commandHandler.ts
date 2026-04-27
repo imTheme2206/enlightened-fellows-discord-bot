@@ -1,43 +1,29 @@
 import { REST, Routes } from "discord.js";
-import fs from "fs";
-import path from "path";
 import { config } from "../../config";
 import logger from "../../config/logger";
 import { Command } from "../commands/_types";
+import * as events from "../commands/events";
+import * as hzv from "../commands/hzv";
+import * as metaGuide from "../commands/meta-guide";
+import * as ping from "../commands/ping";
+import * as searchSet from "../commands/search-set";
 
-/** Dynamically loads all command files and builds a registry map. */
 export async function loadCommands(): Promise<Map<string, Command>> {
   const registry = new Map<string, Command>();
 
-  // Resolve commands directory relative to this file
-  const commandsDir = path.join(__dirname, "..", "commands");
+  const modules: Partial<Command>[] = [events, hzv, metaGuide, ping, searchSet];
 
-  const loadDir = (dir: string) => {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        loadDir(fullPath);
-        continue;
-      }
-      if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".js")) continue;
-      if (entry.name.startsWith("_")) continue;
-
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require(fullPath) as Partial<Command>;
-      if (!mod.data || typeof mod.execute !== "function") {
-        logger.warn(`Skipping ${fullPath}: missing data or execute export`);
-        continue;
-      }
-
-      const cmd = mod as Command;
-      const name = (cmd.data as { name: string }).name;
-      registry.set(name, cmd);
-      logger.debug(`Loaded command: ${name}`);
+  for (const mod of modules) {
+    if (!mod.data || typeof mod.execute !== "function") {
+      logger.warn(`Skipping command module: missing data or execute export`);
+      continue;
     }
-  };
+    const cmd = mod as Command;
+    const name = (cmd.data as { name: string }).name;
+    registry.set(name, cmd);
+    logger.debug(`Loaded command: ${name}`);
+  }
 
-  loadDir(commandsDir);
   logger.info(`Loaded ${registry.size} commands`);
   return registry;
 }
