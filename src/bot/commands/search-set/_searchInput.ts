@@ -10,12 +10,6 @@ export function buildSearchInput(state: SearchState): SearchInput {
   const skills: Record<string, number> = {};
   for (const s of state.skills) skills[s.name] = s.level;
 
-  const slotFilters: Record<string, number> = {};
-  for (const s of state.skills) {
-    const key = String(s.slotSize);
-    slotFilters[key] = (slotFilters[key] ?? 0) + 1;
-  }
-
   const setSkills: Record<string, number> = {};
   const initialSetCounts: Record<string, number> = {};
   for (const s of state.setSkills) {
@@ -32,7 +26,6 @@ export function buildSearchInput(state: SearchState): SearchInput {
 
   return {
     skills,
-    slotFilters,
     ...(Object.keys(setSkills).length > 0 && { setSkills }),
     ...(Object.keys(groupSkills).length > 0 && { groupSkills }),
     ...(Object.keys(initialSetCounts).length > 0 && { initialSetCounts }),
