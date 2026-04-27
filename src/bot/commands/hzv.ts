@@ -1,8 +1,5 @@
-import {
-  ChatInputCommandInteraction,
-  CommandInteraction,
-  SlashCommandBuilder,
-} from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
+import { Command } from './_types'
 
 const apexMonsters = [
   'Arkveld',
@@ -13,7 +10,7 @@ const apexMonsters = [
   'Gore Magala',
   'Mizutsune',
   'Zho Shia',
-];
+]
 
 export const data = new SlashCommandBuilder()
   .setName('hzv')
@@ -29,16 +26,16 @@ export const data = new SlashCommandBuilder()
         }))
       )
       .setRequired(true)
-  );
+  )
 
-export async function execute(interaction: ChatInputCommandInteraction) {
-  const monster = interaction.options.getString('monster', true);
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  const monster = interaction.options.getString('monster', true)
 
-  const HZVImagePath = `./assets/hitzone-value/${monster
-    .split(' ')
-    .join('_')}_HZV.png`;
+  const HZVImagePath = `./assets/hitzone-value/${monster.split(' ').join('_')}_HZV.png`
 
-  return interaction.reply({
+  await interaction.reply({
     files: [HZVImagePath],
-  });
+  })
 }
+
+export default { data, execute } satisfies Command

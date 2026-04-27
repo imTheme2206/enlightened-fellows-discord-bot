@@ -1,22 +1,24 @@
-FROM node:20-alpine
-
-# Needed for Git dependency in package.json
-RUN apk add --no-cache git
-
+FROM node:22-alpine AS deps
 WORKDIR /app
-
-# Enable pnpm via corepack
-RUN corepack enable
-
+RUN apk add --no-cache git
 COPY package.json pnpm-lock.yaml ./
-RUN corepack prepare pnpm@latest --activate \
- && pnpm install --frozen-lockfile
+RUN corepack enable && pnpm install --frozen-lockfile
 
-# Copy source (including assets)
+FROM node:22-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache git
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build TypeScript -> dist
+RUN corepack enable
+RUN npx prisma generate
 RUN pnpm build
 
-# Run the bot
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/assets ./assets
+EXPOSE 3000
 CMD ["node", "dist/index.js"]

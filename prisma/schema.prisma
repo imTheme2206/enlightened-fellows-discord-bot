@@ -1,0 +1,70 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Skill {
+  id             String       @id @default(cuid())
+  name           String       @unique
+  cleanName      String       @unique
+  description    String
+  icon           String?
+  kind           String
+  requiredPieces Int?
+  ranks          SkillRank[]
+  armorSkills    ArmorSkill[]
+}
+
+model SkillRank {
+  id          String @id @default(cuid())
+  level       Int
+  description String
+  skillId     String
+  skill       Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+}
+
+model Armor {
+  id            String       @id @default(cuid())
+  name          String       @unique
+  type          String
+  rank          String       @default("HIGH")
+  rarity        Int
+  defense       Int
+  fireRes       Int          @default(0)
+  waterRes      Int          @default(0)
+  thunderRes    Int          @default(0)
+  iceRes        Int          @default(0)
+  dragonRes     Int          @default(0)
+  slots         Int[]
+  skills        ArmorSkill[]
+  setSkillNames String[]
+}
+
+model ArmorSkill {
+  armorId String
+  skillId String
+  level   Int
+  armor   Armor  @relation(fields: [armorId], references: [id], onDelete: Cascade)
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  @@id([armorId, skillId])
+}
+
+model Decoration {
+  id         String @id @default(cuid())
+  name       String @unique
+  type       String
+  slotSize   Int
+  skillName  String
+  skillLevel Int
+}
+
+model JobLog {
+  id        String   @id @default(cuid())
+  jobName   String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+}

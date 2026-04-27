@@ -16,6 +16,7 @@ primary_region = 'sin'
 
 [env]
   NODE_ENV = 'production'
+  TZ = 'Asia/Singapore'
 
 [processes]
   app = 'node dist/index.js'
