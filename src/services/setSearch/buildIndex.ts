@@ -10,6 +10,7 @@ import type {
   ArmorType,
 } from './types'
 import type { CompactArmor, CompactTalisman, CompactDecoration, CompactSetSkill, CompactGroupSkill } from '../scraper/types'
+import { db } from '../dbService'
 
 const SEED_DIR = path.join(__dirname, '..', '..', 'data', 'seed')
 
@@ -137,4 +138,78 @@ export function buildSearchIndex(): SetSearchIndex {
     groupSkills,
     skills,
   }
+}
+
+export function buildIndexFromDb(): SetSearchIndex {
+  type SkillRow = { name: string; maxLevel: number; isSetSkill: number; isGroupSkill: number; requiredPieces: number | null; effectName: string | null }
+  type ArmorRow = { name: string; type: string; rank: string; defense: number; slots: string; fireRes: number; waterRes: number; thunderRes: number; iceRes: number; dragonRes: number }
+  type ArmorSkillRow = { armorName: string; skillName: string; level: number }
+  type ArmorSetSkillRow = { armorName: string; skillName: string }
+  type DecoRow = { name: string; slotSize: number; skillName: string; skillLevel: number }
+
+  const skillRows = db.prepare('SELECT name, maxLevel, isSetSkill, isGroupSkill, requiredPieces, effectName FROM Skill').all() as SkillRow[]
+
+  const skills = new Map<string, SkillMeta>()
+  const setSkills = new Map<string, SetSkillMeta>()
+  const groupSkills = new Map<string, GroupSkillMeta>()
+
+  for (const row of skillRows) {
+    if (!row.isSetSkill && !row.isGroupSkill) {
+      skills.set(row.name, { name: row.name, maxLevel: row.maxLevel })
+    }
+    if (row.isSetSkill) {
+      setSkills.set(row.name, { name: row.name, skillName: row.effectName ?? row.name, piecesRequired: row.requiredPieces ?? 2, bonusLevels: [] })
+    }
+    if (row.isGroupSkill) {
+      groupSkills.set(row.name, { name: row.name, skillName: row.effectName ?? row.name, levelGranted: 1, piecesRequired: row.requiredPieces ?? 2 })
+    }
+  }
+
+  const decoRows = db.prepare(`
+    SELECT d.name, d.slotSize, s.name AS skillName, d.skillLevel
+    FROM Decoration d JOIN Skill s ON d.skillId = s.id
+  `).all() as DecoRow[]
+
+  const decorations: DecorationItem[] = decoRows.map(row => ({
+    name: row.name,
+    skills: { [row.skillName]: row.skillLevel },
+    slotSize: row.slotSize,
+  }))
+
+  const armorRows = db.prepare('SELECT name, type, rank, defense, slots, fireRes, waterRes, thunderRes, iceRes, dragonRes FROM Armor').all() as ArmorRow[]
+  const armorSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName, ak.level FROM ArmorSkill ak JOIN Armor a ON ak.armorId = a.id JOIN Skill s ON ak.skillId = s.id`).all() as ArmorSkillRow[]
+  const armorSetSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName FROM ArmorSetSkill ask JOIN Armor a ON ask.armorId = a.id JOIN Skill s ON ask.skillId = s.id`).all() as ArmorSetSkillRow[]
+  const armorGroupSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName FROM ArmorGroupSkill agk JOIN Armor a ON agk.armorId = a.id JOIN Skill s ON agk.skillId = s.id`).all() as ArmorSetSkillRow[]
+
+  const armorMap = new Map<string, ArmorPiece>()
+  for (const row of armorRows) {
+    armorMap.set(row.name, {
+      name: row.name,
+      type: row.type as ArmorType,
+      rank: row.rank.toLowerCase() as 'low' | 'high' | 'master',
+      defense: row.defense,
+      slots: JSON.parse(row.slots) as number[],
+      resists: [row.fireRes, row.waterRes, row.thunderRes, row.iceRes, row.dragonRes],
+      skills: {},
+      setSkills: [],
+      groupSkills: [],
+    })
+  }
+
+  for (const row of armorSkillRows) {
+    const piece = armorMap.get(row.armorName)
+    if (piece) piece.skills[row.skillName] = row.level
+  }
+  for (const row of armorSetSkillRows) {
+    armorMap.get(row.armorName)?.setSkills.push(row.skillName)
+  }
+  for (const row of armorGroupSkillRows) {
+    armorMap.get(row.armorName)?.groupSkills.push(row.skillName)
+  }
+
+  const allArmor = Array.from(armorMap.values())
+  const byType: Record<ArmorType, ArmorPiece[]> = { head: [], chest: [], arms: [], waist: [], legs: [], talisman: [] }
+  for (const piece of allArmor) byType[piece.type].push(piece)
+
+  return { version: '1.0.0', byType, allArmor, decorations, setSkills, groupSkills, skills }
 }

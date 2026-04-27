@@ -3,6 +3,7 @@ import { config } from '../../config'
 import logger from '../../config/logger'
 import { isDbEmpty } from '../../services/dbService'
 import { runScraper } from '../../services/scraperService'
+import { initSearchIndex } from '../../services/setSearch'
 
 /**
  * Starts the cron job that periodically re-seeds armor/skill data.
@@ -18,6 +19,10 @@ export function startScraperJob(): void {
     logger.info('[scraperJob] Database is empty — seeding on boot...')
     runScraper({ source: 'boot' }).catch((err) => {
       logger.error('[scraperJob] Boot seed failed:', { err })
+    })
+  } else {
+    initSearchIndex().catch((err) => {
+      logger.error('[scraperJob] Failed to initialize search index on boot:', { err })
     })
   }
 

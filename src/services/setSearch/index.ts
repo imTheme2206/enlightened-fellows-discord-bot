@@ -1,4 +1,4 @@
-import { buildSearchIndex } from './buildIndex'
+import { buildIndexFromDb } from './buildIndex'
 import { search } from './logic'
 import type { SetSearchIndex, SearchInput, SearchResult } from './types'
 import logger from '../../config/logger'
@@ -9,8 +9,8 @@ let currentIndex: SetSearchIndex | null = null
  * Builds (or rebuilds) the in-memory search index from seed JSON files.
  */
 export async function initSearchIndex(): Promise<void> {
-  logger.info('[setSearch] Building search index...')
-  currentIndex = buildSearchIndex()
+  logger.info('[setSearch] Building search index from DB...')
+  currentIndex = buildIndexFromDb()
   logger.info(`[setSearch] Index ready: ${currentIndex.allArmor.length} armor pieces`)
 }
 
