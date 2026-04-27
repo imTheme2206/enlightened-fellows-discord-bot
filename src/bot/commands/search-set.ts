@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
+  LabelBuilder,
   MessageComponentInteraction,
   ModalBuilder,
   ModalSubmitInteraction,
@@ -12,14 +13,18 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { presets } from "../../data/search-presets";
+import {
+  getRecentSearchHistory,
+  saveSearchHistory,
+  type SearchHistoryRow,
+} from "../../services/dbService";
 import { searchSets } from "../../services/setSearch";
 import type { SearchInput } from "../../services/setSearch/types";
 import {
+  getSkillMaxLevels,
   loadArmorSkills,
   loadGroupSkillOptions,
   loadSetSkillOptions,
-  loadWeaponSkills,
 } from "../services/search-set";
 import type { EmbedPaginationEntry } from "../utils/embed-pagination";
 import {
@@ -31,32 +36,30 @@ import {
 import { buildSearchResultEmbed } from "../utils/searchResultEmbed";
 import type { Command } from "./_types";
 
-const MAX_SKILLS = 5;
-const PAGE_SIZE = 23;
+const MAX_SKILLS = 10;
 
-function paginateOptions(
-  options: { label: string; value: string }[],
-  page: number,
-): { label: string; value: string }[] {
-  const slice = options.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  if (page > 0) slice.unshift({ label: "◀ Previous page", value: "__prev__" });
-  if ((page + 1) * PAGE_SIZE < options.length)
-    slice.push({ label: "▶ Next page", value: "__next__" });
-  return slice;
-}
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const RESULTS_PER_PAGE = 3;
 
-type Step =
-  | "main"
-  | "weapon-skill"
-  | "set-skill"
-  | "select-preset"
-  | "remove-skill";
+type Step = "main" | "weapon-skill" | "set-skill" | "history" | "remove-skill";
 
 interface SkillEntry {
   name: string;
   level: number;
+  slotSize: 1 | 2 | 3;
+}
+
+interface SavedSearch {
+  skills: SkillEntry[];
+  setSkills: string[];
+  groupSkills: string[];
+  gogmaSetSkill: string;
+  gogmaGroupSkill: string;
+  rank: "low" | "high" | "master";
+}
+
+interface PendingSkill {
+  name: string;
   slotSize: 1 | 2 | 3;
 }
 
@@ -70,10 +73,10 @@ interface SearchState {
   groupSkills: string[];
   rank: "low" | "high" | "master";
   step: Step;
-  pendingSlotSize: 1 | 2 | 3 | null;
-  pendingSkillName: string | null;
+  pendingSkills: PendingSkill[] | null;
   weaponSkillPage: number;
   slotPages: Partial<Record<1 | 2 | 3, number>>;
+  historyEntries?: SearchHistoryRow[];
 }
 
 const sessions = new Map<string, SearchState>();
@@ -81,17 +84,13 @@ const sessions = new Map<string, SearchState>();
 function getSession(userId: string): SearchState {
   return (
     sessions.get(userId) ?? {
-      gogmaSkills: {
-        groupSkill: "",
-        setSKill: "",
-      },
+      gogmaSkills: { groupSkill: "", setSKill: "" },
       skills: [],
       setSkills: [],
       groupSkills: [],
       rank: "high",
       step: "main",
-      pendingSlotSize: null,
-      pendingSkillName: null,
+      pendingSkills: null,
       weaponSkillPage: 0,
       slotPages: {},
     }
@@ -101,6 +100,17 @@ function getSession(userId: string): SearchState {
 function saveSession(userId: string, state: SearchState): void {
   sessions.set(userId, state);
   setTimeout(() => sessions.delete(userId), SESSION_TTL_MS);
+}
+
+function buildHistoryLabel(state: SearchState): string {
+  const parts = [
+    ...state.skills.map((s) => `${s.name} ${s.level}`),
+    ...state.setSkills,
+    ...state.groupSkills,
+  ];
+  const base = parts.length > 0 ? parts.join(", ") : "Empty search";
+  const labeled = `[${state.rank.toUpperCase()}] ${base}`;
+  return labeled.length > 100 ? labeled.slice(0, 97) + "…" : labeled;
 }
 
 // ─── UI builders ──────────────────────────────────────────────────────────────
@@ -128,7 +138,7 @@ function buildEmbed(state: SearchState): EmbedBuilder {
       "Pick the set and group skills your weapon already provides (counts as 1 level each toward your desired skills).",
     "set-skill":
       "Pick desired set bonuses and group skills. Hit **← Back** when done.",
-    "select-preset": "Pick a preset to load.",
+    history: "Select a previous search to reload.",
     "remove-skill": "Pick a skill to remove.",
   };
 
@@ -168,7 +178,11 @@ function buildComponents(state: SearchState): AnyRow[] {
               ? `Set skill: ${state.gogmaSkills.setSKill}`
               : "Weapon's set skill contribution…",
           )
-          .addOptions(setOptions),
+          .addOptions(
+            setOptions.length
+              ? setOptions
+              : [{ label: "None available", value: "__none__" }],
+          ),
       ),
     );
 
@@ -181,7 +195,11 @@ function buildComponents(state: SearchState): AnyRow[] {
               ? `Group skill: ${state.gogmaSkills.groupSkill}`
               : "Weapon's group skill contribution…",
           )
-          .addOptions(groupOptions),
+          .addOptions(
+            groupOptions.length
+              ? groupOptions
+              : [{ label: "None available", value: "__none__" }],
+          ),
       ),
     );
 
@@ -226,23 +244,23 @@ function buildComponents(state: SearchState): AnyRow[] {
     return rows;
   }
 
-  if (state.step === "select-preset") {
-    const options = presets.map((p) => ({
-      label: p.name,
-      description: `${p.rank.charAt(0).toUpperCase() + p.rank.slice(1)} — ${p.skills.map((s) => `${s.name} ${s.level}`).join(", ")}`,
-      value: p.name,
-    }));
+  if (state.step === "history") {
+    const entries = state.historyEntries ?? [];
+    const options =
+      entries.length > 0
+        ? entries.map((e) => ({
+            label: e.label,
+            description: `Searched: ${e.searchedAt.slice(0, 16)}`,
+            value: e.id,
+          }))
+        : [{ label: "No search history found", value: "__none__" }];
 
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId("search-set:preset-pick")
-          .setPlaceholder("Choose a preset…")
-          .addOptions(
-            options.length
-              ? options
-              : [{ label: "No presets defined", value: "__none__" }],
-          ),
+          .setCustomId("search-set:history-pick")
+          .setPlaceholder("Load a previous search…")
+          .addOptions(options),
       ),
     );
     rows.push(cancelRow());
@@ -273,53 +291,35 @@ function buildComponents(state: SearchState): AnyRow[] {
   const atMax = skillCount >= MAX_SKILLS;
   const addedSkills = new Set(state.skills.map((s) => s.name));
 
+  // const allWeaponOptions = loadWeaponSkills().filter(
+  //   (s) => !addedSkills.has(s.value),
+  // );
+  // const weaponOptions = paginateOptions(
+  //   allWeaponOptions,
+  //   state.weaponSkillPage,
+  // );
+
   // rows.push(
   //   new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
   //     new StringSelectMenuBuilder()
-  //       .setCustomId("search-set:rank-pick")
-  //       .setPlaceholder("Rank filter…")
-  //       .addOptions([
-  //         { label: "Low Rank", value: "low", default: state.rank === "low" },
-  //         { label: "High Rank", value: "high", default: state.rank === "high" },
-  //         {
-  //           label: "Master Rank",
-  //           value: "master",
-  //           default: state.rank === "master",
-  //         },
-  //       ]),
+  //       .setCustomId("search-set:slot-weapon-pick")
+  //       .setPlaceholder("Add Weapon Slot skill…")
+  //       .setDisabled(atMax)
+  //       .addOptions(
+  //         weaponOptions.length
+  //           ? weaponOptions
+  //           : [{ label: "All weapon skills added", value: "__none__" }],
+  //       ),
   //   ),
   // );
-  //
-  //
-  //
-  const allWeaponOptions = loadWeaponSkills().filter(
-    (s) => !addedSkills.has(s.value),
-  );
-  const weaponOptions = paginateOptions(
-    allWeaponOptions,
-    state.weaponSkillPage,
-  );
-
-  rows.push(
-    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId("search-set:slot-weapon-pick")
-        .setPlaceholder("Add Weapon Slot skill…")
-        .setDisabled(atMax)
-        .addOptions(
-          weaponOptions.length
-            ? weaponOptions
-            : [{ label: "All weapon skills added", value: "__none__" }],
-        ),
-    ),
-  );
 
   for (const slot of [1, 2, 3] as const) {
-    const page = state.slotPages[slot] ?? 0;
     const allOptions = loadArmorSkills(slot).filter(
       (s) => !addedSkills.has(s.value),
     );
-    const options = paginateOptions(allOptions, page);
+    const displayOptions = allOptions.length
+      ? allOptions
+      : [{ label: `All slot ${slot} skills added`, value: "__none__" }];
 
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -327,11 +327,9 @@ function buildComponents(state: SearchState): AnyRow[] {
           .setCustomId(`search-set:slot-${slot}-pick`)
           .setPlaceholder(`Add Slot ${slot} skill…`)
           .setDisabled(atMax)
-          .addOptions(
-            options.length
-              ? options
-              : [{ label: `All slot ${slot} skills added`, value: "__none__" }],
-          ),
+          .setMinValues(1)
+          .setMaxValues(Math.min(5, displayOptions.length))
+          .addOptions(displayOptions),
       ),
     );
   }
@@ -344,8 +342,8 @@ function buildComponents(state: SearchState): AnyRow[] {
         .setStyle(ButtonStyle.Danger)
         .setDisabled(!hasSkills),
       new ButtonBuilder()
-        .setCustomId("search-set:btn-preset")
-        .setLabel("Load Preset")
+        .setCustomId("search-set:btn-history")
+        .setLabel("History")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("search-set:btn-weapon")
@@ -375,6 +373,23 @@ function cancelRow(): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
+function buildResultRows(
+  page: number,
+  totalPages: number,
+  buttonIds: { prev: string; next: string },
+): ActionRowBuilder<ButtonBuilder>[] {
+  const rows = buildPaginationComponents(page, totalPages, buttonIds);
+  rows.push(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("search-set:btn-modify")
+        .setLabel("← Modify Search")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  );
+  return rows;
+}
+
 // ─── Command ──────────────────────────────────────────────────────────────────
 
 export const data = new SlashCommandBuilder()
@@ -385,17 +400,13 @@ export async function execute(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
   const state: SearchState = {
-    gogmaSkills: {
-      groupSkill: "",
-      setSKill: "",
-    },
+    gogmaSkills: { groupSkill: "", setSKill: "" },
     skills: [],
     setSkills: [],
     groupSkills: [],
     rank: "high",
     step: "main",
-    pendingSlotSize: null,
-    pendingSkillName: null,
+    pendingSkills: null,
     weaponSkillPage: 0,
     slotPages: {},
   };
@@ -419,6 +430,29 @@ export async function handleComponent(
   )
     return;
 
+  // "Modify Search" button lives on the non-ephemeral results message —
+  // respond with a fresh ephemeral search UI rather than updating the results.
+  if (interaction.customId === "search-set:btn-modify") {
+    const state = getSession(interaction.user.id);
+    if (
+      !state.skills.length &&
+      !state.setSkills.length &&
+      !state.groupSkills.length
+    ) {
+      await interaction.reply({
+        content: "Session expired — run /search-set again.",
+        ephemeral: true,
+      });
+      return;
+    }
+    await interaction.reply({
+      embeds: [buildEmbed({ ...state, step: "main" })],
+      components: buildComponents({ ...state, step: "main" }),
+      ephemeral: true,
+    });
+    return;
+  }
+
   const state = getSession(interaction.user.id);
 
   const update = async (next: SearchState) => {
@@ -431,64 +465,16 @@ export async function handleComponent(
 
   const id = interaction.customId;
 
-  if (id === "search-set:rank-pick" && interaction.isStringSelectMenu()) {
-    await update({
-      ...state,
-      rank: interaction.values[0] as SearchState["rank"],
-    });
-    return;
-  }
-
-  if (
-    id === "search-set:slot-weapon-pick" &&
-    interaction.isStringSelectMenu()
-  ) {
-    const picked = interaction.values[0];
-    if (picked === "__none__") return;
-    if (picked === "__prev__") {
-      await update({
-        ...state,
-        weaponSkillPage: Math.max(0, state.weaponSkillPage - 1),
-      });
-      return;
-    }
-    if (picked === "__next__") {
-      await update({ ...state, weaponSkillPage: state.weaponSkillPage + 1 });
-      return;
-    }
-    saveSession(interaction.user.id, {
-      ...state,
-      pendingSlotSize: 1,
-      pendingSkillName: picked,
-    });
-    await interaction.showModal(
-      new ModalBuilder()
-        .setCustomId("search-set:level-modal")
-        .setTitle(`Level for ${picked}`)
-        .addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId("level")
-              .setLabel("Enter level")
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(2)
-              .setPlaceholder("e.g. 5")
-              .setRequired(true),
-          ),
-        ),
-    );
-    return;
-  }
-
   if (
     id.startsWith("search-set:slot-") &&
     id.endsWith("-pick") &&
     interaction.isStringSelectMenu()
   ) {
     const slotSize = parseInt(id.split("-")[2], 10) as 1 | 2 | 3;
-    const picked = interaction.values[0];
-    if (picked === "__none__") return;
-    if (picked === "__prev__") {
+    const values = interaction.values;
+
+    // Navigation-only selection (single nav token, no real skills alongside)
+    if (values.length === 1 && values[0] === "__prev__") {
       await update({
         ...state,
         slotPages: {
@@ -498,7 +484,7 @@ export async function handleComponent(
       });
       return;
     }
-    if (picked === "__next__") {
+    if (values.length === 1 && values[0] === "__next__") {
       await update({
         ...state,
         slotPages: {
@@ -509,28 +495,21 @@ export async function handleComponent(
       return;
     }
 
-    saveSession(interaction.user.id, {
-      ...state,
-      pendingSlotSize: slotSize,
-      pendingSkillName: picked,
-    });
+    const skillNames = values;
+    if (skillNames.length === 0) {
+      await interaction.deferUpdate();
+      return;
+    }
 
-    await interaction.showModal(
-      new ModalBuilder()
-        .setCustomId("search-set:level-modal")
-        .setTitle(`Level for ${picked}`)
-        .addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(
-            new TextInputBuilder()
-              .setCustomId("level")
-              .setLabel("Enter level")
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(2)
-              .setPlaceholder("e.g. 5")
-              .setRequired(true),
-          ),
-        ),
-    );
+    // Respect the overall skill cap
+    const remaining = MAX_SKILLS - state.skills.length;
+    const pending: PendingSkill[] = skillNames
+      .slice(0, remaining)
+      .map((name) => ({ name, slotSize }));
+
+    saveSession(interaction.user.id, { ...state, pendingSkills: pending });
+    const maxLevels = getSkillMaxLevels(pending.map((p) => p.name));
+    await interaction.showModal(buildLevelModal(pending, maxLevels));
     return;
   }
 
@@ -549,36 +528,33 @@ export async function handleComponent(
     return;
   }
 
-  if (id === "search-set:btn-preset") {
-    await update({ ...state, step: "select-preset" });
+  if (id === "search-set:btn-history") {
+    const entries = getRecentSearchHistory(interaction.user.id);
+    await update({ ...state, step: "history", historyEntries: entries });
     return;
   }
 
   if (id === "search-set:btn-cancel") {
+    await update({ ...state, step: "main", pendingSkills: null });
+    return;
+  }
+
+  if (id === "search-set:set-pick" && interaction.isStringSelectMenu()) {
     await update({
       ...state,
-      step: "main",
-      pendingSlotSize: null,
-      pendingSkillName: null,
+      setSkills: [...state.setSkills, interaction.values[0]],
     });
     return;
   }
 
-  // Set bonus selected (stays on set-skill step)
-  if (id === "search-set:set-pick" && interaction.isStringSelectMenu()) {
-    const picked = interaction.values[0];
-    await update({ ...state, setSkills: [...state.setSkills, picked] });
-    return;
-  }
-
-  // Group skill selected (stays on group-skill step)
   if (id === "search-set:group-pick" && interaction.isStringSelectMenu()) {
-    const picked = interaction.values[0];
-    await update({ ...state, groupSkills: [...state.groupSkills, picked] });
+    await update({
+      ...state,
+      groupSkills: [...state.groupSkills, interaction.values[0]],
+    });
     return;
   }
 
-  // Gogma weapon set skill contribution
   if (id === "search-set:gogma-set-pick" && interaction.isStringSelectMenu()) {
     const picked = interaction.values[0];
     await update({
@@ -592,7 +568,6 @@ export async function handleComponent(
     return;
   }
 
-  // Gogma weapon group skill contribution
   if (
     id === "search-set:gogma-group-pick" &&
     interaction.isStringSelectMenu()
@@ -609,29 +584,34 @@ export async function handleComponent(
     return;
   }
 
-  // Preset selected
-  if (id === "search-set:preset-pick" && interaction.isStringSelectMenu()) {
+  if (id === "search-set:history-pick" && interaction.isStringSelectMenu()) {
     const picked = interaction.values[0];
     if (picked === "__none__") {
-      await update({ ...state, step: "main" });
+      await update({ ...state, step: "main", historyEntries: undefined });
       return;
     }
-    const preset = presets.find((p) => p.name === picked);
-    if (!preset) {
-      await update({ ...state, step: "main" });
+    const entry = state.historyEntries?.find((e) => e.id === picked);
+    if (!entry) {
+      await update({ ...state, step: "main", historyEntries: undefined });
       return;
     }
-
+    const saved = JSON.parse(entry.data) as SavedSearch;
     await update({
       ...state,
-      skills: preset.skills.slice(0, MAX_SKILLS) as SkillEntry[],
-      rank: preset.rank as "low" | "high" | "master",
+      skills: saved.skills,
+      setSkills: saved.setSkills,
+      groupSkills: saved.groupSkills,
+      gogmaSkills: {
+        setSKill: saved.gogmaSetSkill,
+        groupSkill: saved.gogmaGroupSkill,
+      },
+      rank: saved.rank,
       step: "main",
+      historyEntries: undefined,
     });
     return;
   }
 
-  // Remove skill selected
   if (id === "search-set:remove-pick" && interaction.isStringSelectMenu()) {
     await update({
       ...state,
@@ -646,6 +626,49 @@ export async function handleComponent(
   }
 }
 
+// ─── Level modal ─────────────────────────────────────────────────────────────
+
+function buildLevelModal(
+  pending: PendingSkill[],
+  maxLevels: Map<string, number>,
+): ModalBuilder {
+  const builder = new ModalBuilder()
+    .setCustomId("search-set:level-modal")
+    .setTitle("Enter Skill Levels");
+
+  for (let i = 0; i < Math.min(pending.length, 5); i++) {
+    const { name } = pending[i];
+    const maxLevel = maxLevels.get(name) ?? 7;
+    const rawLabel = `${name} (max ${maxLevel})`;
+    const label = rawLabel.length > 45 ? rawLabel.slice(0, 44) + "…" : rawLabel;
+
+    const skillLevelInput = new TextInputBuilder()
+      .setCustomId(`level_${i}`)
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder(`1–${maxLevel}`)
+      .setRequired(true);
+
+    const skillLabel = new LabelBuilder()
+      .setLabel(label)
+      .setTextInputComponent(skillLevelInput);
+
+    builder.addLabelComponents(skillLabel);
+    // builder.addComponents(
+    //   new ActionRowBuilder<TextInputBuilder>().addComponents(
+    //     new TextInputBuilder()
+    //       .setCustomId(`level_${i}`)
+    //       .setLabel(label)
+    //       .setStyle(TextInputStyle.Short)
+    //       .setMaxLength(2)
+    //       .setPlaceholder(`1–${maxLevel}`)
+    //       .setRequired(true),
+    //   ),
+    // );
+  }
+
+  return builder;
+}
+
 // ─── Modal handler (level input) ─────────────────────────────────────────────
 
 export async function handleModal(
@@ -654,7 +677,7 @@ export async function handleModal(
   if (interaction.customId !== "search-set:level-modal") return;
 
   const state = getSession(interaction.user.id);
-  if (!state.pendingSkillName || !state.pendingSlotSize) {
+  if (!state.pendingSkills || state.pendingSkills.length === 0) {
     await interaction.reply({
       content: "Session expired — run /search-set again.",
       ephemeral: true,
@@ -662,27 +685,40 @@ export async function handleModal(
     return;
   }
 
-  const level = Math.max(
-    1,
-    parseInt(interaction.fields.getTextInputValue("level"), 10) || 1,
-  );
-  const entry: SkillEntry = {
-    name: state.pendingSkillName,
-    level,
-    slotSize: state.pendingSlotSize,
-  };
+  const maxLevels = getSkillMaxLevels(state.pendingSkills.map((p) => p.name));
+  const newEntries: SkillEntry[] = state.pendingSkills
+    .slice(0, 5)
+    .map(({ name, slotSize }, i) => {
+      const maxLevel = maxLevels.get(name) ?? 7;
+      const raw = parseInt(
+        interaction.fields.getTextInputValue(`level_${i}`),
+        10,
+      );
+      const level = Math.min(maxLevel, Math.max(1, isNaN(raw) ? 1 : raw));
+      return { name, level, slotSize };
+    });
+
   const next: SearchState = {
     ...state,
-    skills: [...state.skills, entry],
+    skills: [...state.skills, ...newEntries],
     step: "main",
-    pendingSkillName: null,
+    pendingSkills: null,
   };
 
   saveSession(interaction.user.id, next);
-  await interaction.update({
-    embeds: [buildEmbed(next)],
-    components: buildComponents(next),
-  });
+
+  if (interaction.isFromMessage()) {
+    await interaction.update({
+      embeds: [buildEmbed(next)],
+      components: buildComponents(next),
+    });
+  } else {
+    await interaction.reply({
+      embeds: [buildEmbed(next)],
+      components: buildComponents(next),
+      ephemeral: true,
+    });
+  }
 }
 
 // ─── Search execution ─────────────────────────────────────────────────────────
@@ -700,7 +736,6 @@ async function runSearch(
   const skills: Record<string, number> = {};
   for (const s of state.skills) skills[s.name] = s.level;
 
-  // Require 1 extra free slot per skill per slot size after deco placement
   const slotFilters: Record<string, number> = {};
   for (const s of state.skills) {
     const key = String(s.slotSize);
@@ -734,44 +769,64 @@ async function runSearch(
     const msg =
       err instanceof Error ? err.message : "Unknown error during search.";
     await interaction.editReply({
-      embeds: [],
-      components: [],
-      content: `Search failed: ${msg}`,
+      embeds: [buildEmbed(state).setDescription(`Search failed: ${msg}`)],
+      components: buildComponents(state),
     });
     return;
   }
 
-  sessions.delete(interaction.user.id);
+  // Persist this search to history regardless of results
+  saveSearchHistory(
+    interaction.user.id,
+    buildHistoryLabel(state),
+    JSON.stringify({
+      skills: state.skills,
+      setSkills: state.setSkills,
+      groupSkills: state.groupSkills,
+      gogmaSetSkill: state.gogmaSkills.setSKill,
+      gogmaGroupSkill: state.gogmaSkills.groupSkill,
+      rank: state.rank,
+    } satisfies SavedSearch),
+  );
 
   if (results.length === 0) {
     await interaction.editReply({
-      embeds: [],
-      components: [],
-      content: "No armor sets found for those skills.",
+      embeds: [
+        buildEmbed(state).setDescription(
+          "No armor sets found. Adjust your search and try again:",
+        ),
+      ],
+      components: buildComponents(state),
     });
     return;
   }
 
+  const buttonIds = { prev: "search-set:prev", next: "search-set:next" };
   const entries: EmbedPaginationEntry[] = results.map((r, i) => ({
     embed: buildSearchResultEmbed(r, i + 1, results.length),
     attachments: [],
   }));
-
   const paginated = paginateEmbedEntries(entries, RESULTS_PER_PAGE);
   const totalPages = paginated.pages.length;
-  const buttonIds = { prev: "search-set:prev", next: "search-set:next" };
-  const components = buildPaginationComponents(0, totalPages, buttonIds);
 
   const message = await interaction.followUp({
     embeds: paginated.pages[0].map((e) => e.embed),
-    components,
+    components: buildResultRows(0, totalPages, buttonIds),
     ephemeral: false,
+  });
+
+  // Restore the search UI in the original ephemeral message so the user can
+  // keep refining without needing to re-invoke /search-set.
+  await interaction.editReply({
+    embeds: [buildEmbed(state)],
+    components: buildComponents(state),
   });
 
   registerEmbedPaginationCollector(message, paginated, {
     buttonIds,
     timeoutMs: DEFAULT_PAGINATION_TIMEOUT_MS,
     commandUserId: interaction.user.id,
+    buildComponents: (page, total, ids) => buildResultRows(page, total, ids),
   });
 }
 

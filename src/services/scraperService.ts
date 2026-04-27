@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import logger from '../config/logger'
-import { prisma, logJob } from './dbService'
+import { db, logJob } from './dbService'
 import { transformSeedData, SeedDataSchema } from './scraper/transform'
 import type { SeedData } from './scraper/types'
 
@@ -30,7 +31,6 @@ function loadSeedData(): SeedData {
     armorSkills: readSeedJson('armor-skills.json'),
   }
 
-  // Validate using Zod schema
   const parsed = SeedDataSchema.safeParse(raw)
   if (!parsed.success) {
     throw new Error(`Seed data validation failed: ${JSON.stringify(parsed.error.flatten())}`)
@@ -45,13 +45,6 @@ export interface ScraperResult {
   decoCount: number
 }
 
-/**
- * Runs the full data scrape: reads seed JSON, validates, transforms, and
- * writes everything to the database in a single transaction.
- *
- * After a successful run, the in-memory search index is rebuilt via a
- * late dynamic import to avoid circular dependency issues.
- */
 export async function runScraper(
   options: { source?: 'cron' | 'manual' | 'boot' } = {}
 ): Promise<ScraperResult> {
@@ -64,84 +57,118 @@ export async function runScraper(
 
   try {
     const seedData = loadSeedData()
-    const { skills, armor, armorSkills, decorations } = transformSeedData(seedData)
+    const { skills, armor, armorRegularSkills, decorations } = transformSeedData(seedData)
 
-    await prisma.$transaction(async (tx) => {
-      // Clear existing data (order matters for FK constraints)
-      await tx.armorSkill.deleteMany()
-      await tx.skillRank.deleteMany()
-      await tx.decoration.deleteMany()
-      await tx.armor.deleteMany()
-      await tx.skill.deleteMany()
+    const insertSkill = db.prepare(
+      'INSERT INTO Skill (id, name, cleanName, type, maxLevel, isSetSkill, isGroupSkill, requiredPieces, effectName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    const insertArmor = db.prepare(
+      'INSERT INTO Armor (id, name, type, rank, rarity, defense, fireRes, waterRes, thunderRes, iceRes, dragonRes, slots) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    const insertArmorSkill = db.prepare(
+      'INSERT INTO ArmorSkill (armorId, skillId, level) VALUES (?, ?, ?)'
+    )
+    const insertArmorSetSkill = db.prepare(
+      'INSERT INTO ArmorSetSkill (armorId, skillId) VALUES (?, ?)'
+    )
+    const insertArmorGroupSkill = db.prepare(
+      'INSERT INTO ArmorGroupSkill (armorId, skillId) VALUES (?, ?)'
+    )
+    const insertDeco = db.prepare(
+      'INSERT INTO Decoration (id, name, type, slotSize, skillId, skillLevel) VALUES (?, ?, ?, ?, ?, ?)'
+    )
 
-      // Insert skills
+    const seed = db.transaction(() => {
+      db.prepare('DELETE FROM ArmorGroupSkill').run()
+      db.prepare('DELETE FROM ArmorSetSkill').run()
+      db.prepare('DELETE FROM ArmorSkill').run()
+      db.prepare('DELETE FROM Decoration').run()
+      db.prepare('DELETE FROM Armor').run()
+      db.prepare('DELETE FROM Skill').run()
+
+      const skillIdMap = new Map<string, string>()
       for (const skill of skills) {
-        await tx.skill.create({
-          data: {
-            name: skill.name,
-            cleanName: skill.cleanName,
-            description: skill.description,
-            kind: skill.kind,
-            requiredPieces: skill.requiredPieces ?? null,
-            ranks: {
-              create: skill.ranks,
-            },
-          },
-        })
+        const id = randomUUID()
+        skillIdMap.set(skill.name, id)
+        insertSkill.run(
+          id,
+          skill.name,
+          skill.cleanName,
+          skill.type,
+          skill.maxLevel,
+          skill.isSetSkill ? 1 : 0,
+          skill.isGroupSkill ? 1 : 0,
+          skill.requiredPieces ?? null,
+          skill.effectName ?? null
+        )
       }
 
-      // Insert armor pieces
+      const armorIdMap = new Map<string, string>()
       for (const piece of armor) {
-        await tx.armor.create({
-          data: {
-            name: piece.name,
-            type: piece.type,
-            rank: piece.rank,
-            rarity: piece.rarity,
-            defense: piece.defense,
-            fireRes: piece.fireRes,
-            waterRes: piece.waterRes,
-            thunderRes: piece.thunderRes,
-            iceRes: piece.iceRes,
-            dragonRes: piece.dragonRes,
-            slots: piece.slots,
-            setSkillNames: piece.setSkillNames,
-          },
-        })
+        const id = randomUUID()
+        armorIdMap.set(piece.name, id)
+        insertArmor.run(
+          id,
+          piece.name,
+          piece.type,
+          piece.rank,
+          piece.rarity,
+          piece.defense,
+          piece.fireRes,
+          piece.waterRes,
+          piece.thunderRes,
+          piece.iceRes,
+          piece.dragonRes,
+          JSON.stringify(piece.slots)
+        )
       }
 
-      // Insert armor-skill links (must resolve IDs)
-      for (const link of armorSkills) {
-        const armorRow = await tx.armor.findUnique({ where: { name: link.armorName } })
-        const skillRow = await tx.skill.findUnique({ where: { name: link.skillName } })
-        if (!armorRow || !skillRow) {
+      for (const link of armorRegularSkills) {
+        const armorId = armorIdMap.get(link.armorName)
+        const skillId = skillIdMap.get(link.skillName)
+        if (!armorId || !skillId) {
           logger.warn(
             `[scraperService] Skipping ArmorSkill: armor=${link.armorName} skill=${link.skillName} (not found)`
           )
           continue
         }
-        await tx.armorSkill.create({
-          data: {
-            armorId: armorRow.id,
-            skillId: skillRow.id,
-            level: link.level,
-          },
-        })
+        insertArmorSkill.run(armorId, skillId, link.level)
       }
 
-      // Insert decorations
+      for (const piece of armor) {
+        const armorId = armorIdMap.get(piece.name)
+        if (!armorId) continue
+
+        for (const setName of piece.setSkillNames) {
+          const skillId = skillIdMap.get(setName)
+          if (!skillId) {
+            logger.warn(`[scraperService] Skipping ArmorSetSkill: armor=${piece.name} set=${setName} (not found)`)
+            continue
+          }
+          insertArmorSetSkill.run(armorId, skillId)
+        }
+
+        for (const groupName of piece.groupSkillNames) {
+          const skillId = skillIdMap.get(groupName)
+          if (!skillId) {
+            logger.warn(`[scraperService] Skipping ArmorGroupSkill: armor=${piece.name} group=${groupName} (not found)`)
+            continue
+          }
+          insertArmorGroupSkill.run(armorId, skillId)
+        }
+      }
+
       for (const deco of decorations) {
-        await tx.decoration.create({
-          data: {
-            name: deco.name,
-            type: deco.type,
-            slotSize: deco.slotSize,
-            skillName: deco.skillName,
-            skillLevel: deco.skillLevel,
-          },
-        })
+        const skillId = skillIdMap.get(deco.skillName)
+        if (!skillId) {
+          logger.warn(`[scraperService] Skipping Decoration: ${deco.name} (skill=${deco.skillName} not found)`)
+          continue
+        }
+        insertDeco.run(randomUUID(), deco.name, deco.type, deco.slotSize, skillId, deco.skillLevel)
       }
     })
+
+    seed()
 
     result = {
       armorCount: armor.length,
@@ -153,10 +180,8 @@ export async function runScraper(
       `[scraperService] Success: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`
     )
 
-    await logJob(jobName, 'SUCCESS', JSON.stringify(result))
+    logJob(jobName, 'SUCCESS', JSON.stringify(result))
 
-    // Rebuild the in-memory search index without creating a circular import
-    // by using a late dynamic require.
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const setSearchModule = require('./setSearch') as { rebuildSearchIndex: () => Promise<void> }
@@ -170,7 +195,11 @@ export async function runScraper(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     logger.error(`[scraperService] Failed: ${message}`, { err })
-    await logJob(jobName, 'FAILED', message).catch(() => undefined)
+    try {
+      logJob(jobName, 'FAILED', message)
+    } catch {
+      // ignore logging failure
+    }
     throw err
   }
 }

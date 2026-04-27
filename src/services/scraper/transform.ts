@@ -57,19 +57,23 @@ export const SeedDataSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Output types (Prisma create inputs, described as plain objects)
+// Output types
 // ---------------------------------------------------------------------------
 
-export interface PrismaSkillCreateInput {
+export interface SkillInsert {
   name: string
   cleanName: string
-  description: string
-  kind: 'ARMOR' | 'SET' | 'GROUP'
+  /** 'armor' | 'set' | 'group' */
+  type: 'armor' | 'set' | 'group'
+  maxLevel: number
+  isSetSkill: boolean
+  isGroupSkill: boolean
   requiredPieces?: number
-  ranks: Array<{ level: number; description: string }>
+  /** For set/group skills: the actual granted skill name */
+  effectName?: string
 }
 
-export interface PrismaArmorCreateInput {
+export interface ArmorInsert {
   name: string
   type: string
   rank: string
@@ -82,15 +86,16 @@ export interface PrismaArmorCreateInput {
   dragonRes: number
   slots: number[]
   setSkillNames: string[]
+  groupSkillNames: string[]
 }
 
-export interface PrismaArmorSkillCreateInput {
+export interface ArmorRegularSkillInsert {
   armorName: string
   skillName: string
   level: number
 }
 
-export interface PrismaDecorationCreateInput {
+export interface DecorationInsert {
   name: string
   type: string
   slotSize: number
@@ -102,11 +107,6 @@ export interface PrismaDecorationCreateInput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Normalizes a skill name to a clean identifier.
- * Converts to lowercase, replaces spaces with underscores,
- * strips special characters (keeps letters, digits, underscores).
- */
 function toCleanName(name: string): string {
   return name
     .toLowerCase()
@@ -119,73 +119,62 @@ function toCleanName(name: string): string {
 // ---------------------------------------------------------------------------
 
 export interface TransformResult {
-  skills: PrismaSkillCreateInput[]
-  armor: PrismaArmorCreateInput[]
-  armorSkills: PrismaArmorSkillCreateInput[]
-  decorations: PrismaDecorationCreateInput[]
+  skills: SkillInsert[]
+  armor: ArmorInsert[]
+  armorRegularSkills: ArmorRegularSkillInsert[]
+  decorations: DecorationInsert[]
 }
 
-/**
- * Converts validated SeedData into Prisma create input arrays.
- * Validates the source JSON using Zod before transforming.
- */
 export function transformSeedData(data: SeedData): TransformResult {
-  // Validate via Zod (throws on invalid data)
   SeedDataSchema.parse(data)
 
-  const skills: PrismaSkillCreateInput[] = []
-  const armor: PrismaArmorCreateInput[] = []
-  const armorSkillsList: PrismaArmorSkillCreateInput[] = []
-  const decorations: PrismaDecorationCreateInput[] = []
+  const skills: SkillInsert[] = []
+  const armor: ArmorInsert[] = []
+  const armorRegularSkills: ArmorRegularSkillInsert[] = []
+  const decorations: DecorationInsert[] = []
 
-  // --- Skills (kind: ARMOR) ---
+  // --- Regular armor skills ---
   for (const [name, maxLevel] of Object.entries(data.skills)) {
-    const ranks: Array<{ level: number; description: string }> = []
-    for (let lvl = 1; lvl <= maxLevel; lvl++) {
-      ranks.push({ level: lvl, description: '' })
-    }
     skills.push({
       name,
       cleanName: toCleanName(name),
-      description: '',
-      kind: 'ARMOR',
-      ranks,
+      type: 'armor',
+      maxLevel,
+      isSetSkill: false,
+      isGroupSkill: false,
     })
   }
 
-  // --- Set skills (kind: SET) ---
-  for (const [setName, [skillName, piecesRequired, bonusLevels]] of Object.entries(
+  // --- Set skills: stored by SET NAME so armor pieces can reference them ---
+  for (const [setName, [effectName, piecesRequired, bonusLevels]] of Object.entries(
     data.setSkills
   )) {
-    const ranks: Array<{ level: number; description: string }> = bonusLevels.map((_, i) => ({
-      level: i + 1,
-      description: '',
-    }))
     skills.push({
-      name: skillName,
-      cleanName: toCleanName(skillName),
-      description: '',
-      kind: 'SET',
+      name: setName,
+      cleanName: toCleanName(setName),
+      type: 'set',
+      maxLevel: bonusLevels.length,
+      isSetSkill: true,
+      isGroupSkill: false,
       requiredPieces: piecesRequired,
-      ranks,
+      effectName,
     })
-    // Also add the set name as a skill entry for lookup purposes
-    // (set name → skill name mapping handled via setMap)
-    void setName // used by the set map, not stored as a separate skill row
   }
 
-  // --- Group skills (kind: GROUP) ---
-  for (const [groupName, [skillName, , piecesRequired]] of Object.entries(data.groupSkills)) {
-    const ranks = [{ level: 1, description: '' }]
+  // --- Group skills: stored by GROUP NAME so armor pieces can reference them ---
+  for (const [groupName, [effectName, levelGranted, piecesRequired]] of Object.entries(
+    data.groupSkills
+  )) {
     skills.push({
-      name: skillName,
-      cleanName: toCleanName(skillName),
-      description: '',
-      kind: 'GROUP',
+      name: groupName,
+      cleanName: toCleanName(groupName),
+      type: 'group',
+      maxLevel: levelGranted,
+      isSetSkill: false,
+      isGroupSkill: true,
       requiredPieces: piecesRequired,
-      ranks,
+      effectName,
     })
-    void groupName
   }
 
   // --- Armor pieces ---
@@ -193,13 +182,14 @@ export function transformSeedData(data: SeedData): TransformResult {
   for (const armorType of armorTypes) {
     const pieces = data.armor[armorType]
     for (const [name, piece] of Object.entries(pieces)) {
-      const [_type, pieceSkills, , slots, defense, resists, rank, setSkillNames] = piece
+      const [_type, pieceSkills, groupSkillsList, slots, defense, resists, rank, setSkillNames] =
+        piece
 
       armor.push({
         name,
         type: armorType,
         rank: rank.toUpperCase(),
-        rarity: 0, // compact data has no rarity field
+        rarity: 0,
         defense,
         fireRes: resists[0],
         waterRes: resists[1],
@@ -208,11 +198,11 @@ export function transformSeedData(data: SeedData): TransformResult {
         dragonRes: resists[4],
         slots: slots ?? [],
         setSkillNames: setSkillNames ?? [],
+        groupSkillNames: groupSkillsList ?? [],
       })
 
-      // Armor skill links
       for (const [skillName, level] of Object.entries(pieceSkills)) {
-        armorSkillsList.push({ armorName: name, skillName, level })
+        armorRegularSkills.push({ armorName: name, skillName, level })
       }
     }
   }
@@ -224,5 +214,5 @@ export function transformSeedData(data: SeedData): TransformResult {
     decorations.push({ name, type, slotSize, skillName, skillLevel })
   }
 
-  return { skills, armor, armorSkills: armorSkillsList, decorations }
+  return { skills, armor, armorRegularSkills, decorations }
 }

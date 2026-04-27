@@ -1,168 +1,126 @@
-import { readFileSync } from "fs";
-import { join } from "path";
+import { db } from "../../services/dbService";
 
-export const loadWeaponSkills = () => {
-  // try {
-  const raw = readFileSync(
-    join(__dirname, "..", "..", "data", "seed", "decoration.json"),
-    "utf-8",
-  );
-  const data = JSON.parse(raw) as Record<
-    string,
-    [string, Record<string, number>, number]
-  >;
+const EXCLUDE_SLOT_1_SKILLS = [
+  "Survival Expert",
+  "Jump Master",
+  "Leap of Faith",
+  "Jump Master",
+  "Cliffhanger",
+  "Botanist",
+  "Geologist",
+  "Entomologist",
+  "Outdoorsman",
+  "Palico Rally",
+  "Self-Improvement",
+  "Fire Resistance",
+  "Water Resistance",
+  "Thunder Resistance",
+  "Ice Resistance",
+  "Dragon Resistance",
+  "Hunger Resistance",
+  "Bombardier",
+  "Blindsider",
+  "Iron Skin",
+  "Flinch Free",
+  "Blast Resistance",
+  "Entomologist",
+  "Grillmaster",
+  "Poison Resistance",
+  "Paralysis Resistance",
+];
 
-  const allData = Object.keys(data)
-    .filter(
-      (d) => data[d][0] === "weapon" && Object.keys(data[d][1]).length === 1,
-    )
-    .map((d) => {
-      const val = Object.keys(data[d][1])[0];
-      return { label: val, value: val };
-    });
-
-  const uniqueData = Array.from(new Set(allData.map((d) => d.value))).map(
-    (value) => {
-      return allData.find((d) => d.value === value)!;
-    },
-  );
-
-  return uniqueData;
-  // } catch {
-  //   return [];
-  // }
-};
-export const loadArmorSkills = (slot: 1 | 2 | 3) => {
-  // try {
-  const raw = readFileSync(
-    join(__dirname, "..", "..", "data", "seed", "decoration.json"),
-    "utf-8",
-  );
-  const data = JSON.parse(raw) as Record<
-    string,
-    [string, Record<string, number>, number]
-  >;
-
-  const allData = Object.keys(data)
-    .filter((d) => data[d][0] === "armor" && data[d][2] === slot)
-    .map((d) => {
-      const val = Object.keys(data[d][1])[0];
-      return { label: val, value: val };
-    });
-
-  const uniqueData = Array.from(new Set(allData.map((d) => d.value))).map(
-    (value) => {
-      return allData.find((d) => d.value === value)!;
-    },
-  );
-
-  return uniqueData;
-  // } catch {
-  //   return [];
-  // }
-};
-
-export const SKILLS_BY_SLOT: Record<1 | 2 | 3, string[]> = {
-  1: [
-    "Flinch Free",
-    "Stun Resistance",
-    "Constitution",
-    "Quick Sheathe",
-    "Divine Blessing",
-    "Wide-Range",
-    "Recovery Up",
-    "Item Prolonger",
-    "Defense Boost",
-    "Recovery Speed",
-    "Free Meal",
-    "Windproof",
-    "Speed Eating",
-    "Bombardier",
-    "Marathon Runner",
-  ],
-  // Original slot-2 armor skills + weapon-type skills whose cheapest deco is slot 1.
-  2: [
-    "Attack Boost",
-    "Critical Eye",
-    "Critical Boost",
-    "Offensive Guard",
-    "Guard",
-    "Guard Up",
-    "Handicraft",
-    "Focus",
-    "Artillery",
-    "Razor Sharp",
-    "Protective Polish",
-    "Speed Sharpening",
-    "Critical Draw",
-    "Earplugs",
-    "Evade Window",
-    "Evade Extender",
-    "Resentment",
-    "Peak Performance",
-    "Coalescence",
-    "Maximum Might",
-    "Heroics",
-    "Stamina Surge",
-    "Counterstrike",
-    "Partbreaker",
-    "Horn Maestro",
-  ],
-  3: [
-    "Agitator",
-    "Burst",
-    "Weakness Exploit",
-    "Adrenaline Rush",
-    "Foray",
-    "Master's Touch",
-    "Flayer",
-    "Latent Power",
-  ],
-};
-
-// ─── Set / group skill data (loaded from seed files) ─────────────────────────
+interface SkillOption {
+  label: string;
+  value: string;
+}
 
 interface SetSkillOption {
   label: string;
   description: string;
   value: string;
 }
+
 interface GroupSkillOption {
   label: string;
   description: string;
   value: string;
 }
 
-export function loadSetSkillOptions(): SetSkillOption[] {
-  try {
-    const raw = readFileSync(
-      join(__dirname, "..", "..", "data", "seed", "set-skills.json"),
-      "utf-8",
-    );
-    const data = JSON.parse(raw) as Record<string, [string, number, number[]]>;
-    return Object.entries(data).map(([name, [effect]]) => ({
-      label: name,
-      description: `→ ${effect}`,
-      value: name,
-    }));
-  } catch {
-    return [];
-  }
+/** All unique skill names available via weapon-slot decorations. */
+export function loadWeaponSkills(): SkillOption[] {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT s.name
+       FROM Decoration d
+       JOIN Skill s ON d.skillId = s.id
+       WHERE d.type = 'weapon'
+       ORDER BY s.name`,
+    )
+    .all() as { name: string }[];
+
+  return rows.map((r) => ({ label: r.name, value: r.name }));
 }
 
+/** All unique skill names available via armor decorations of the given slot size. */
+export function loadArmorSkills(slot: 1 | 2 | 3): SkillOption[] {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT s.name
+       FROM Decoration d
+       JOIN Skill s ON d.skillId = s.id
+       WHERE d.type = 'armor' AND d.slotSize = ?
+       AND s.name NOT IN (${EXCLUDE_SLOT_1_SKILLS.map((s) => `'${s}'`).join(", ")})
+       ORDER BY s.name`,
+    )
+    .all(slot) as { name: string }[];
+
+  return rows.map((r) => ({ label: r.name, value: r.name }));
+}
+
+/** All set skills (keyed by set name) for the weapon-contribution dropdown. */
+export function loadSetSkillOptions(): SetSkillOption[] {
+  const rows = db
+    .prepare(
+      `SELECT name, effectName
+       FROM Skill
+       WHERE isSetSkill = 1
+       ORDER BY name`,
+    )
+    .all() as { name: string; effectName: string | null }[];
+
+  return rows.map((r) => ({
+    label: r.name,
+    description: r.effectName ? `→ ${r.effectName}` : r.name,
+    value: r.name,
+  }));
+}
+
+/** Max level for each skill name in the given list. */
+export function getSkillMaxLevels(names: string[]): Map<string, number> {
+  if (names.length === 0) return new Map();
+  const placeholders = names.map(() => "?").join(", ");
+  const rows = db
+    .prepare(
+      `SELECT name, maxLevel FROM Skill WHERE name IN (${placeholders})`,
+    )
+    .all(...names) as { name: string; maxLevel: number }[];
+  return new Map(rows.map((r) => [r.name, r.maxLevel]));
+}
+
+/** All group skills (keyed by group name) for the weapon-contribution dropdown. */
 export function loadGroupSkillOptions(): GroupSkillOption[] {
-  try {
-    const raw = readFileSync(
-      join(__dirname, "..", "..", "data", "seed", "group-skills.json"),
-      "utf-8",
-    );
-    const data = JSON.parse(raw) as Record<string, [string, number, number]>;
-    return Object.entries(data).map(([name, [effect]]) => ({
-      label: name,
-      description: `→ ${effect}`,
-      value: name,
-    }));
-  } catch {
-    return [];
-  }
+  const rows = db
+    .prepare(
+      `SELECT name, effectName
+       FROM Skill
+       WHERE isGroupSkill = 1
+       ORDER BY name`,
+    )
+    .all() as { name: string; effectName: string | null }[];
+
+  return rows.map((r) => ({
+    label: r.name,
+    description: r.effectName ? `→ ${r.effectName}` : r.name,
+    value: r.name,
+  }));
 }

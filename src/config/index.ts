@@ -8,7 +8,7 @@ const envSchema = z.object({
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_GUILD_ID: z.string().min(1),
   EVENTS_CHANNEL_ID: z.string().min(1),
-  DATABASE_URL: z.string().min(1),
+  DATABASE_PATH: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production']).default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   WEB_PORT: z.coerce.number().default(3000),
