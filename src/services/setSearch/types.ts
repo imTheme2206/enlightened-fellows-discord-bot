@@ -73,4 +73,5 @@ export interface SearchResult {
   decoNames: string[];
   freeSlots: number[];
   slots: number[];
+  defense: number;
 }

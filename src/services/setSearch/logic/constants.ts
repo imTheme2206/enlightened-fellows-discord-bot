@@ -35,6 +35,7 @@ export interface ArmorComboResult {
   slots: number[]
   setSkills: Record<string, number>
   groupSkills: Record<string, number>
+  defense: number
 }
 
 export interface DecoResult {

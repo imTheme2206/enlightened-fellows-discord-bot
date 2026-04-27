@@ -34,7 +34,7 @@ export function reorder(
     )
   }
 
-  const sorted = [...indexed].sort((a, b) => slottageSizeCompare(a.freeSlots, b.freeSlots))
+  const sorted = [...indexed].sort((a, b) => b.defense - a.defense || slottageSizeCompare(a.freeSlots, b.freeSlots))
   sorted.forEach((d) => d.slots.sort((a, b) => b - a))
 
   let pre: typeof indexed = []

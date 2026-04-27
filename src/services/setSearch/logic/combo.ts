@@ -23,7 +23,9 @@ export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
 
   const setSkillCounts: Record<string, number> = {}
   const groupSkillCounts: Record<string, number> = {}
+  let defense = 0
   for (const [, piece] of armorBodyPieces) {
+    defense += piece.defense
     for (const sk of piece.setSkills) {
       setSkillCounts[sk] = (setSkillCounts[sk] ?? 0) + 1
     }
@@ -38,6 +40,7 @@ export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
     slots,
     setSkills: setSkillCounts,
     groupSkills: groupSkillCounts,
+    defense,
   }
 }
 
@@ -130,6 +133,7 @@ export function testCombo(
       setSkills: armorSet.setSkills,
       groupSkills: armorSet.groupSkills,
       freeSlots: armorSet.slots,
+      defense: armorSet.defense,
     }
   }
 
@@ -154,6 +158,7 @@ export function testCombo(
     setSkills: armorSet.setSkills,
     groupSkills: armorSet.groupSkills,
     freeSlots: decosUsed.freeSlots,
+    defense: armorSet.defense,
   }
 }
 
