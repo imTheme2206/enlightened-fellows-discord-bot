@@ -207,6 +207,28 @@ export function transformSeedData(data: SeedData): TransformResult {
     }
   }
 
+  // --- Talismans ---
+  for (const [name, [_type, talisSkills]] of Object.entries(data.talisman)) {
+    armor.push({
+      name,
+      type: 'talisman',
+      rank: 'HIGH',
+      rarity: 0,
+      defense: 0,
+      fireRes: 0,
+      waterRes: 0,
+      thunderRes: 0,
+      iceRes: 0,
+      dragonRes: 0,
+      slots: [],
+      setSkillNames: [],
+      groupSkillNames: [],
+    })
+    for (const [skillName, level] of Object.entries(talisSkills)) {
+      armorRegularSkills.push({ armorName: name, skillName, level })
+    }
+  }
+
   // --- Decorations ---
   for (const [name, [type, decoSkills, slotSize]] of Object.entries(data.decoration)) {
     const entries = Object.entries(decoSkills)
