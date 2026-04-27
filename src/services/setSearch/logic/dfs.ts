@@ -9,6 +9,8 @@ export function rollCombosDfs(
   desiredSkills: Record<string, number>,
   setSkills: Record<string, number>,
   groupSkills: Record<string, number>,
+  initialSetCounts: Record<string, number> = {},
+  initialGroupCounts: Record<string, number> = {},
 ): SearchResult[] {
   const results: SearchResult[] = []
 
@@ -112,6 +114,6 @@ export function rollCombosDfs(
     }
   }
 
-  dfs(0, {}, new Set(), {}, {})
+  dfs(0, {}, new Set(), { ...initialSetCounts }, { ...initialGroupCounts })
   return results
 }

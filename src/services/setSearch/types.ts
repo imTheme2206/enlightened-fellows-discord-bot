@@ -57,6 +57,8 @@ export interface SearchInput {
   skills: Record<string, number>;
   setSkills?: Record<string, number>;
   groupSkills?: Record<string, number>;
+  initialSetCounts?: Record<string, number>;
+  initialGroupCounts?: Record<string, number>;
   mandatoryArmor?: (string | null)[]; // [head, chest, arms, waist, legs, talisman]
   blacklistedArmor?: string[];
   slotFilters?: Record<string, number>; // {"3": 2} = need 2 free 3-slots

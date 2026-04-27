@@ -34,7 +34,7 @@ export function search(input: SearchInput, index: SetSearchIndex): SearchResult[
     rank,
   )
 
-  let rolls = rollCombosDfs(gear, skills, setSkills, groupSkills)
+  let rolls = rollCombosDfs(gear, skills, setSkills, groupSkills, input.initialSetCounts ?? {}, input.initialGroupCounts ?? {})
 
   // Apply slot filters post-search
   if (Object.keys(slotFilters).length > 0) {
