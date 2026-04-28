@@ -1,7 +1,7 @@
 import type { ArmorPiece, DecorationItem } from '../types'
 import type { SearchResult } from '../types'
 import type { GearPool, PieceEntry } from './constants'
-import { ARMOR_SLOT_TYPES, MAX_RESULTS } from './constants'
+import { ARMOR_SLOT_TYPES, LIMIT } from './constants'
 import { armorCombo, testCombo, canArmorFulfillSkill } from './combo'
 
 export function rollCombosDfs(
@@ -13,6 +13,7 @@ export function rollCombosDfs(
   initialGroupCounts: Record<string, number> = {},
 ): SearchResult[] {
   const results: SearchResult[] = []
+  let visited = 0
 
   function dfs(
     index: number,
@@ -21,7 +22,7 @@ export function rollCombosDfs(
     setCounts: Record<string, number>,
     groupCounts: Record<string, number>,
   ): void {
-    if (results.length >= MAX_RESULTS) return
+    if (++visited > LIMIT) return
 
     if (index === ARMOR_SLOT_TYPES.length) {
       const pieces = ARMOR_SLOT_TYPES.map((t) => currentArmor[t] as PieceEntry)
@@ -33,6 +34,7 @@ export function rollCombosDfs(
       )
       if (result) {
         result.armorNames = [...result.armorNames]
+        result._originalIndex = results.length
         results.push(result)
       }
       return

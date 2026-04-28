@@ -277,9 +277,15 @@ export function getBestArmor(
     }
   }
 
-  // Build bareMinimum from firsts + skill potential entries
-  const bareMinimum: Record<string, Record<string, ArmorPiece>> = { ...firsts }
-  bareMinimum['talisman'] = {}
+  // Seed bareMinimum from firsts (best-slottage pieces per slot), then layer skill-potential winners on top
+  const bareMinimum: Record<string, Record<string, ArmorPiece>> = {
+    head: { ...firsts.head },
+    chest: { ...firsts.chest },
+    arms: { ...firsts.arms },
+    waist: { ...firsts.waist },
+    legs: { ...firsts.legs },
+    talisman: {},
+  }
 
   for (const [category, data] of Object.entries(maxPossibleSkillPotential)) {
     for (const [_skillName, statData] of Object.entries(data)) {
@@ -371,11 +377,12 @@ export function getBestArmor(
         }
       }
     }
-  } else {
-    // No regular skills — just copy all set/group pieces into bareMinimum
-    for (const [category, data] of Object.entries(bestSetGroupByType)) {
-      bareMinimum[category] = { ...(bareMinimum[category] ?? {}), ...data }
-    }
+  }
+
+  // Always include every piece that belongs to a required set/group skill, regardless of
+  // regular-skill potential — needed so the DFS can form the full set/group combination.
+  for (const [category, data] of Object.entries(bestSetGroupByType)) {
+    bareMinimum[category] = { ...(bareMinimum[category] ?? {}), ...data }
   }
 
   bareMinimum['decos'] = bestDecos as unknown as Record<string, ArmorPiece>

@@ -18,6 +18,7 @@ export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>;
 function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
   const setOptions = loadSetSkillOptions();
   const groupOptions = loadGroupSkillOptions();
+  const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill);
 
   return [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -48,7 +49,17 @@ function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
             : [{ label: "None available", value: "__none__" }],
         ),
     ),
-    cancelRow(),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("search-set:btn-cancel")
+        .setLabel("← Back")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("search-set:btn-clear-gogma")
+        .setLabel("Clear Weapon Skills")
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(!hasGogma),
+    ),
   ];
 }
 
@@ -82,6 +93,28 @@ function buildSetSkillComponents(state: SearchState): AnyRow[] {
           .setCustomId("search-set:group-pick")
           .setPlaceholder("Add a group skill…")
           .addOptions(groupOptions),
+      ),
+    );
+  }
+
+  if (state.setSkills.length > 0) {
+    rows.push(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("search-set:remove-set-pick")
+          .setPlaceholder("Remove a set bonus…")
+          .addOptions(state.setSkills.map((s) => ({ label: s, value: s }))),
+      ),
+    );
+  }
+
+  if (state.groupSkills.length > 0) {
+    rows.push(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("search-set:remove-group-pick")
+          .setPlaceholder("Remove a group skill…")
+          .addOptions(state.groupSkills.map((g) => ({ label: g, value: g }))),
       ),
     );
   }

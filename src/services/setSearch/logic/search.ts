@@ -52,6 +52,20 @@ export function search(input: SearchInput, index: SetSearchIndex): SearchResult[
     })
   }
 
+  // Inject gogma weapon contributions into set/group counts so they display correctly
+  const initSetCounts = input.initialSetCounts ?? {}
+  const initGroupCounts = input.initialGroupCounts ?? {}
+  if (Object.keys(initSetCounts).length > 0 || Object.keys(initGroupCounts).length > 0) {
+    for (const roll of rolls) {
+      for (const [sk, count] of Object.entries(initSetCounts)) {
+        roll.setSkills[sk] = (roll.setSkills[sk] ?? 0) + count
+      }
+      for (const [gk, count] of Object.entries(initGroupCounts)) {
+        roll.groupSkills[gk] = (roll.groupSkills[gk] ?? 0) + count
+      }
+    }
+  }
+
   const skillMaxMap: Record<string, number> = {}
   for (const [name, meta] of index.skills.entries()) {
     skillMaxMap[name] = meta.maxLevel
