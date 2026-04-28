@@ -14,7 +14,7 @@ import {
   paginateEmbedEntries,
   registerEmbedPaginationCollector,
 } from "../../utils/embed-pagination";
-import { buildSearchResultEmbed } from "../../utils/searchResultEmbed";
+import { buildSearchResultEmbed } from "../../utils/search-result-embed";
 import { buildComponents } from "./_components";
 import { buildLevelModal } from "./_modal";
 import { buildSearchInput } from "./_searchInput";
@@ -123,7 +123,7 @@ async function handleGogmaSetPick(
       ...state.gogmaSkills,
       setSkill: picked === "__none__" ? "" : picked,
     },
-    step: "main",
+    // step: "main",
   });
 }
 
@@ -191,6 +191,28 @@ async function handleRemovePick(
     ...state,
     skills: state.skills.filter((s) => s.name !== interaction.values[0]),
     step: "main",
+  });
+}
+
+async function handleRemoveSetPick(
+  state: SearchState,
+  interaction: MessageComponentInteraction,
+): Promise<void> {
+  if (!interaction.isStringSelectMenu()) return;
+  await updateSession(interaction, {
+    ...state,
+    setSkills: state.setSkills.filter((s) => s !== interaction.values[0]),
+  });
+}
+
+async function handleRemoveGroupPick(
+  state: SearchState,
+  interaction: MessageComponentInteraction,
+): Promise<void> {
+  if (!interaction.isStringSelectMenu()) return;
+  await updateSession(interaction, {
+    ...state,
+    groupSkills: state.groupSkills.filter((g) => g !== interaction.values[0]),
   });
 }
 
@@ -345,6 +367,13 @@ export async function handleComponent(
     });
     return;
   }
+  if (id === "search-set:btn-clear-gogma") {
+    await updateSession(interaction, {
+      ...state,
+      gogmaSkills: { setSkill: "", groupSkill: "" },
+    });
+    return;
+  }
 
   if (id === "search-set:set-pick") {
     await handleSetPick(state, interaction);
@@ -368,6 +397,14 @@ export async function handleComponent(
   }
   if (id === "search-set:remove-pick") {
     await handleRemovePick(state, interaction);
+    return;
+  }
+  if (id === "search-set:remove-set-pick") {
+    await handleRemoveSetPick(state, interaction);
+    return;
+  }
+  if (id === "search-set:remove-group-pick") {
+    await handleRemoveGroupPick(state, interaction);
     return;
   }
 

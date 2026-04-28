@@ -74,4 +74,5 @@ export interface SearchResult {
   freeSlots: number[];
   slots: number[];
   defense: number;
+  _originalIndex?: number;
 }
