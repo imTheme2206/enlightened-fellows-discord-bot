@@ -1,6 +1,6 @@
 import { Client } from "discord.js";
 import logger from "../../config/logger";
-import * as interactionCreate from "../events/interactionCreate";
+import * as interactionCreate from "../events/interaction-create";
 import * as ready from "../events/ready";
 
 interface EventModule {

@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
 // import { client } from "./bot/client";
-import { loadEvents } from "./bot/handlers/eventHandler";
+import { loadEvents } from "./bot/handlers/event-handler";
 import { config } from "./config";
 import logger from "./config/logger";
 

@@ -10,7 +10,7 @@ import type {
   ArmorType,
 } from './types'
 import type { CompactArmor, CompactTalisman, CompactDecoration, CompactSetSkill, CompactGroupSkill } from '../scraper/types'
-import { db } from '../dbService'
+import { db } from '../db-service'
 
 const SEED_DIR = path.join(__dirname, '..', '..', 'data', 'seed')
 

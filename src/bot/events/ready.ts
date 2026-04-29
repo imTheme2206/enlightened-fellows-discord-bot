@@ -1,8 +1,8 @@
 import { Client } from "discord.js";
 import logger from "../../config/logger";
-import { deployCommands, loadCommands } from "../handlers/commandHandler";
-import { startEventsJob } from "../jobs/eventsJob";
-import { startScraperJob } from "../jobs/scraperJob";
+import { deployCommands, loadCommands } from "../handlers/command-handler";
+import { startEventsJob } from "../jobs/events-job";
+import { startScraperJob } from "../jobs/scraper-job";
 import { commandRegistry } from "../registry";
 
 export const name = "ready";

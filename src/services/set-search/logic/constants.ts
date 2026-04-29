@@ -13,12 +13,9 @@ export const ARMOR_SLOT_TYPES = [
 ] as const;
 export type SlotType = (typeof ARMOR_SLOT_TYPES)[number];
 
-// ─── Internal types used inside the DFS ─────────────────────────────────────
-
 /** A piece entry as used inside the DFS: [name, ArmorPiece] */
 export type PieceEntry = [string, ArmorPiece];
 
-/** Gear pool: one record per slot type containing candidate pieces */
 export interface GearPool {
   head: Record<string, ArmorPiece>;
   chest: Record<string, ArmorPiece>;

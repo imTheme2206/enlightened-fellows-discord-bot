@@ -5,10 +5,10 @@ import type {
 import {
   getRecentSearchHistory,
   saveSearchHistory,
-} from "../../../services/dbService";
+} from "../../../services/db-service";
 import { searchSets } from "../../../services/set-search";
 import { buildComponents } from "../../../services/set-search/components/form";
-import { buildSearchInput } from "../../../services/set-search/components/searchInput";
+import { buildSearchInput } from "../../../services/set-search/components/search-input";
 import {
   buildEmbed,
   buildHistoryLabel,

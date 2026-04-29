@@ -1,4 +1,4 @@
-import { buildIndexFromDb } from './buildIndex'
+import { buildIndexFromDb } from './build-index'
 import { search } from './logic'
 import type { SetSearchIndex, SearchInput, SearchResult } from './types'
 import logger from '../../config/logger'

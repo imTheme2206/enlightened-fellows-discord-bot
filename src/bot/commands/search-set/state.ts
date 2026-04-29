@@ -1,8 +1,8 @@
-import type { SearchHistoryRow } from "../../../services/dbService";
+import type { SearchHistoryRow } from "../../../services/db-service";
 
 export const MAX_SKILLS = 10;
 export const SESSION_TTL_MS = 10 * 60 * 1000;
-export const RESULTS_PER_PAGE = 3;
+export const RESULTS_PER_PAGE = 5;
 
 export type Step =
   | "main"

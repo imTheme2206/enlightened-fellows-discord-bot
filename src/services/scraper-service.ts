@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import logger from "../config/logger";
-import { db, logJob } from "./dbService";
+import { db, logJob } from "./db-service";
 import { SeedDataSchema, transformSeedData } from "./scraper/transform";
 import type { SeedData } from "./scraper/types";
 

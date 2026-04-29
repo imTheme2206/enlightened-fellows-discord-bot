@@ -1,8 +1,8 @@
 import cron from "node-cron";
 import { config } from "../../config";
 import logger from "../../config/logger";
-import { isDbEmpty } from "../../services/dbService";
-import { runScraper } from "../../services/scraperService";
+import { isDbEmpty } from "../../services/db-service";
+import { runScraper } from "../../services/scraper-service";
 import { initSearchIndex } from "../../services/set-search";
 
 /**

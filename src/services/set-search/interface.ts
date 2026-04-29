@@ -1,4 +1,4 @@
-import { db } from "../dbService";
+import { db } from "../db-service";
 
 const EXCLUDE_SLOT_1_SKILLS = [
   "Survival Expert",
