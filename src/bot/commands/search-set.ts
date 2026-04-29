@@ -1,9 +1,9 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { buildComponents } from "../../services/set-search/components/form";
+import { buildEmbed } from "../../services/set-search/components/ui";
 import type { Command } from "./_types";
-import { buildComponents } from "./search-set/_components";
-import { handleComponent, handleModal } from "./search-set/_handlers";
-import { getSession, saveSession } from "./search-set/_state";
-import { buildEmbed } from "./search-set/_ui";
+import { handleComponent, handleModal } from "./search-set/handlers";
+import { getSession, saveSession } from "./search-set/state";
 
 export const data = new SlashCommandBuilder()
   .setName("search-set")

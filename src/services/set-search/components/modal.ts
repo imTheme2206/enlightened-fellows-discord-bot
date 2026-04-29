@@ -4,8 +4,8 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { getSkillMaxLevels } from "../../services/search-set";
-import type { PendingSkill } from "./_state";
+import type { PendingSkill } from "../../../bot/commands/search-set/state";
+import { getSkillMaxLevels } from "../interface";
 
 export function buildLevelModal(
   pending: PendingSkill[],

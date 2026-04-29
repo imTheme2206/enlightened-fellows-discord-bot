@@ -1,9 +1,9 @@
-import cron from 'node-cron'
-import { config } from '../../config'
-import logger from '../../config/logger'
-import { isDbEmpty } from '../../services/dbService'
-import { runScraper } from '../../services/scraperService'
-import { initSearchIndex } from '../../services/setSearch'
+import cron from "node-cron";
+import { config } from "../../config";
+import logger from "../../config/logger";
+import { isDbEmpty } from "../../services/dbService";
+import { runScraper } from "../../services/scraperService";
+import { initSearchIndex } from "../../services/set-search";
 
 /**
  * Starts the cron job that periodically re-seeds armor/skill data.
@@ -11,30 +11,32 @@ import { initSearchIndex } from '../../services/setSearch'
  * Schedule is controlled by the SCRAPER_CRON env var (default: every 6 hours).
  */
 export function startScraperJob(): void {
-  const schedule = config.SCRAPER_CRON
+  const schedule = config.SCRAPER_CRON;
 
-  logger.info(`[scraperJob] Scheduling scraper with cron: ${schedule}`)
+  logger.info(`[scraperJob] Scheduling scraper with cron: ${schedule}`);
 
   if (isDbEmpty()) {
-    logger.info('[scraperJob] Database is empty — seeding on boot...')
-    runScraper({ source: 'boot' }).catch((err) => {
-      logger.error('[scraperJob] Boot seed failed:', { err })
-    })
+    logger.info("[scraperJob] Database is empty — seeding on boot...");
+    runScraper({ source: "boot" }).catch((err) => {
+      logger.error("[scraperJob] Boot seed failed:", { err });
+    });
   } else {
     initSearchIndex().catch((err) => {
-      logger.error('[scraperJob] Failed to initialize search index on boot:', { err })
-    })
+      logger.error("[scraperJob] Failed to initialize search index on boot:", {
+        err,
+      });
+    });
   }
 
   cron.schedule(schedule, async () => {
-    logger.info('[scraperJob] Running scheduled scrape...')
+    logger.info("[scraperJob] Running scheduled scrape...");
     try {
-      const result = await runScraper({ source: 'cron' })
+      const result = await runScraper({ source: "cron" });
       logger.info(
-        `[scraperJob] Done: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`
-      )
+        `[scraperJob] Done: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`,
+      );
     } catch (err) {
-      logger.error('[scraperJob] Scheduled scrape failed:', { err })
+      logger.error("[scraperJob] Scheduled scrape failed:", { err });
     }
-  })
+  });
 }

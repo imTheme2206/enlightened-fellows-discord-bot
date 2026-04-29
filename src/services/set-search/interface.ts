@@ -1,4 +1,4 @@
-import { db } from "../../services/dbService";
+import { db } from "../dbService";
 
 const EXCLUDE_SLOT_1_SKILLS = [
   "Survival Expert",
@@ -100,9 +100,7 @@ export function getSkillMaxLevels(names: string[]): Map<string, number> {
   if (names.length === 0) return new Map();
   const placeholders = names.map(() => "?").join(", ");
   const rows = db
-    .prepare(
-      `SELECT name, maxLevel FROM Skill WHERE name IN (${placeholders})`,
-    )
+    .prepare(`SELECT name, maxLevel FROM Skill WHERE name IN (${placeholders})`)
     .all(...names) as { name: string; maxLevel: number }[];
   return new Map(rows.map((r) => [r.name, r.maxLevel]));
 }

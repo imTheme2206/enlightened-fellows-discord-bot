@@ -1,5 +1,5 @@
-import type { SearchInput } from "../../../services/setSearch/types";
-import type { SearchState } from "./_state";
+import type { SearchState } from "../../../bot/commands/search-set/state";
+import type { SearchInput } from "../types";
 
 /**
  * Builds the SearchInput from the current session state.

@@ -4,21 +4,23 @@ import {
   ButtonStyle,
   StringSelectMenuBuilder,
 } from "discord.js";
+import type { SearchState } from "../../../bot/commands/search-set/state";
+import { MAX_SKILLS } from "../../../bot/commands/search-set/state";
 import {
   loadArmorSkills,
   loadGroupSkillOptions,
   loadSetSkillOptions,
-} from "../../services/search-set";
-import type { SearchState } from "./_state";
-import { MAX_SKILLS } from "./_state";
-import { cancelRow } from "./_ui";
+} from "../interface";
+import { cancelRow } from "./ui";
 
 export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>;
 
 function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
   const setOptions = loadSetSkillOptions();
   const groupOptions = loadGroupSkillOptions();
-  const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill);
+  const hasGogma = !!(
+    state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill
+  );
 
   return [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(

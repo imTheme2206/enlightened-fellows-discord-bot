@@ -4,8 +4,8 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from "discord.js";
-import { buildPaginationComponents } from "../../utils/embed-pagination";
-import type { SearchState, Step } from "./_state";
+import type { SearchState, Step } from "../../../bot/commands/search-set/state";
+import { buildPaginationComponents } from "../../../bot/utils/embed-pagination";
 
 export function buildHistoryLabel(state: SearchState): string {
   const parts = [

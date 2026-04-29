@@ -6,8 +6,27 @@ import {
   getRecentSearchHistory,
   saveSearchHistory,
 } from "../../../services/dbService";
-import { searchSets } from "../../../services/setSearch";
-import { getSkillMaxLevels } from "../../services/search-set";
+import { searchSets } from "../../../services/set-search";
+import { buildComponents } from "../../../services/set-search/components/form";
+import { buildSearchInput } from "../../../services/set-search/components/searchInput";
+import {
+  buildEmbed,
+  buildHistoryLabel,
+  buildResultRows,
+} from "../../../services/set-search/components/ui";
+import {
+  handleGogmaGroupPick,
+  handleGogmaSetPick,
+  handleGroupPick,
+  handleHistoryPick,
+  handleRemoveGroupPick,
+  handleRemovePick,
+  handleRemoveSetPick,
+  handleSetPick,
+  handleSlotPick,
+  updateSession,
+} from "../../../services/set-search/handler/form-handler";
+import { getSkillMaxLevels } from "../../../services/set-search/interface";
 import type { EmbedPaginationEntry } from "../../utils/embed-pagination";
 import {
   DEFAULT_PAGINATION_TIMEOUT_MS,
@@ -15,208 +34,8 @@ import {
   registerEmbedPaginationCollector,
 } from "../../utils/embed-pagination";
 import { buildSearchResultEmbed } from "../../utils/search-result-embed";
-import { buildComponents } from "./_components";
-import { buildLevelModal } from "./_modal";
-import { buildSearchInput } from "./_searchInput";
-import type { PendingSkill, SavedSearch, SearchState } from "./_state";
-import {
-  MAX_SKILLS,
-  RESULTS_PER_PAGE,
-  getSession,
-  saveSession,
-} from "./_state";
-import { buildEmbed, buildHistoryLabel, buildResultRows } from "./_ui";
-
-// ─── Shared update helper ─────────────────────────────────────────────────────
-
-async function updateSession(
-  interaction: MessageComponentInteraction,
-  next: SearchState,
-): Promise<void> {
-  saveSession(interaction.user.id, next);
-  await interaction.update({
-    embeds: [buildEmbed(next)],
-    components: buildComponents(next),
-  });
-}
-
-// ─── Slot pick ────────────────────────────────────────────────────────────────
-
-async function handleSlotPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  const id = interaction.customId;
-  const slotSize = parseInt(id.split("-")[2], 10) as 1 | 2 | 3;
-  const values = interaction.values;
-
-  if (values.length === 1 && values[0] === "__prev__") {
-    await updateSession(interaction, {
-      ...state,
-      slotPages: {
-        ...state.slotPages,
-        [slotSize]: Math.max(0, (state.slotPages[slotSize] ?? 0) - 1),
-      },
-    });
-    return;
-  }
-  if (values.length === 1 && values[0] === "__next__") {
-    await updateSession(interaction, {
-      ...state,
-      slotPages: {
-        ...state.slotPages,
-        [slotSize]: (state.slotPages[slotSize] ?? 0) + 1,
-      },
-    });
-    return;
-  }
-
-  if (values.length === 0) {
-    await interaction.deferUpdate();
-    return;
-  }
-
-  const remaining = MAX_SKILLS - state.skills.length;
-  const pending: PendingSkill[] = values
-    .slice(0, remaining)
-    .map((name) => ({ name, slotSize }));
-
-  saveSession(interaction.user.id, { ...state, pendingSkills: pending });
-  const maxLevels = getSkillMaxLevels(pending.map((p) => p.name));
-  await interaction.showModal(buildLevelModal(pending, maxLevels));
-}
-
-// ─── Selection handlers ───────────────────────────────────────────────────────
-
-async function handleSetPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  await updateSession(interaction, {
-    ...state,
-    setSkills: [...state.setSkills, interaction.values[0]],
-  });
-}
-
-async function handleGroupPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  await updateSession(interaction, {
-    ...state,
-    groupSkills: [...state.groupSkills, interaction.values[0]],
-  });
-}
-
-async function handleGogmaSetPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  const picked = interaction.values[0];
-  await updateSession(interaction, {
-    ...state,
-    gogmaSkills: {
-      ...state.gogmaSkills,
-      setSkill: picked === "__none__" ? "" : picked,
-    },
-    // step: "main",
-  });
-}
-
-async function handleGogmaGroupPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  const picked = interaction.values[0];
-  await updateSession(interaction, {
-    ...state,
-    gogmaSkills: {
-      ...state.gogmaSkills,
-      groupSkill: picked === "__none__" ? "" : picked,
-    },
-    step: "main",
-  });
-}
-
-async function handleHistoryPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  const picked = interaction.values[0];
-  if (picked === "__none__") {
-    await updateSession(interaction, {
-      ...state,
-      step: "main",
-      historyEntries: undefined,
-    });
-    return;
-  }
-  const entry = state.historyEntries?.find((e) => e.id === picked);
-  if (!entry) {
-    await updateSession(interaction, {
-      ...state,
-      step: "main",
-      historyEntries: undefined,
-    });
-    return;
-  }
-  const saved = JSON.parse(entry.data) as SavedSearch;
-  await updateSession(interaction, {
-    ...state,
-    skills: saved.skills,
-    setSkills: saved.setSkills,
-    groupSkills: saved.groupSkills,
-    gogmaSkills: {
-      setSkill: saved.gogmaSetSkill,
-      groupSkill: saved.gogmaGroupSkill,
-    },
-    rank: saved.rank,
-    step: "main",
-    historyEntries: undefined,
-  });
-}
-
-async function handleRemovePick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  await updateSession(interaction, {
-    ...state,
-    skills: state.skills.filter((s) => s.name !== interaction.values[0]),
-    step: "main",
-  });
-}
-
-async function handleRemoveSetPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  await updateSession(interaction, {
-    ...state,
-    setSkills: state.setSkills.filter((s) => s !== interaction.values[0]),
-  });
-}
-
-async function handleRemoveGroupPick(
-  state: SearchState,
-  interaction: MessageComponentInteraction,
-): Promise<void> {
-  if (!interaction.isStringSelectMenu()) return;
-  await updateSession(interaction, {
-    ...state,
-    groupSkills: state.groupSkills.filter((g) => g !== interaction.values[0]),
-  });
-}
-
-// ─── Search execution ─────────────────────────────────────────────────────────
+import type { SavedSearch, SearchState } from "./state";
+import { RESULTS_PER_PAGE, getSession, saveSession } from "./state";
 
 async function runSearch(
   interaction: MessageComponentInteraction,
@@ -295,8 +114,6 @@ async function runSearch(
     buildComponents: (page, total, ids) => buildResultRows(page, total, ids),
   });
 }
-
-// ─── Exported handlers ────────────────────────────────────────────────────────
 
 export async function handleComponent(
   interaction: MessageComponentInteraction,
