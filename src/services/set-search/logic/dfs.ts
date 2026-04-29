@@ -11,6 +11,7 @@ export function rollCombosDfs(
   groupSkills: Record<string, number>,
   initialSetCounts: Record<string, number> = {},
   initialGroupCounts: Record<string, number> = {},
+  maxPotential: Record<string, Record<string, number>> = {},
 ): SearchResult[] {
   const results: SearchResult[] = []
   let visited = 0
@@ -88,16 +89,9 @@ export function rollCombosDfs(
 
       // Prune by skill feasibility
       if (shouldContinue) {
+        const decos = gear.decos as unknown as Record<string, DecorationItem>
         for (const [skillName, level] of Object.entries(desiredSkills)) {
-          if (
-            !canArmorFulfillSkill(
-              currentArmor,
-              gear,
-              gear.decos as unknown as Record<string, DecorationItem>,
-              skillName,
-              level,
-            )
-          ) {
+          if (!canArmorFulfillSkill(currentArmor, decos, skillName, level, maxPotential)) {
             shouldContinue = false
             break
           }

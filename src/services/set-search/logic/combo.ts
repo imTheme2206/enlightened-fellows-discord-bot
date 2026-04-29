@@ -1,6 +1,6 @@
 import type { ArmorPiece, DecorationItem } from '../types'
 import type { SearchResult } from '../types'
-import type { ArmorComboResult, DecoResult, GearPool, PieceEntry } from './constants'
+import type { ArmorComboResult, DecoResult, PieceEntry } from './constants'
 import { ARMOR_SLOT_TYPES } from './constants'
 import { mergeSumMaps } from './poolHelpers'
 
@@ -168,37 +168,22 @@ export function testCombo(
  */
 export function canArmorFulfillSkill(
   currentArmor: Record<string, PieceEntry>,
-  armorPool: GearPool,
   decos: Record<string, DecorationItem>,
   skillName: string,
   skillLevel: number,
+  maxPotential: Record<string, Record<string, number>>,
 ): boolean {
   const poolTypeList = ARMOR_SLOT_TYPES.filter((t) => !currentArmor[t])
 
   let totalPoints = 0
 
-  // Best possible from remaining (unassigned) slots
+  // Precomputed max per remaining slot — O(1) per slot instead of O(pool × decos)
   for (const tipo of poolTypeList) {
-    let bestPointsOfType = 0
-    const pool = armorPool[tipo] as Record<string, ArmorPiece>
-    for (const piece of Object.values(pool)) {
-      let points = piece.skills[skillName] ?? 0
-      if (tipo !== 'talisman') {
-        for (const deco of Object.values(decos)) {
-          const decoSkillLevel = deco.skills[skillName]
-          if (decoSkillLevel) {
-            points += decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length
-            break
-          }
-        }
-      }
-      bestPointsOfType = Math.max(points, bestPointsOfType)
-    }
-    totalPoints += bestPointsOfType
+    totalPoints += maxPotential[tipo]?.[skillName] ?? 0
     if (totalPoints >= skillLevel) return true
   }
 
-  // Points from already assigned slots
+  // Points from already-assigned slots (at most 6 pieces, cost is negligible)
   for (const [armorType, pieceEntry] of Object.entries(currentArmor)) {
     const piece = pieceEntry[1]
     totalPoints += piece.skills[skillName] ?? 0

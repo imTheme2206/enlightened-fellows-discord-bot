@@ -1,6 +1,44 @@
 import type { ArmorPiece, DecorationItem } from '../types'
 import type { GearPool, SkillPotentialAlias } from './constants'
 import { ARMOR_SLOT_TYPES } from './constants'
+
+/**
+ * Precomputes the maximum skill points any piece in each slot can contribute
+ * (armor skill + best deco fit). Called once per search query so DFS pruning
+ * can do a single map lookup instead of re-scanning the pool on every node.
+ */
+export function computeMaxPotential(
+  gear: GearPool,
+  skillNames: string[],
+): Record<string, Record<string, number>> {
+  const decos = gear.decos as unknown as Record<string, DecorationItem>
+  const result: Record<string, Record<string, number>> = {}
+
+  for (const slotType of ARMOR_SLOT_TYPES) {
+    result[slotType] = {}
+    const pool = gear[slotType] as Record<string, ArmorPiece>
+
+    for (const skillName of skillNames) {
+      let maxPoints = 0
+      for (const piece of Object.values(pool)) {
+        let points = piece.skills[skillName] ?? 0
+        if (slotType !== 'talisman') {
+          for (const deco of Object.values(decos)) {
+            const decoSkillLevel = deco.skills[skillName]
+            if (decoSkillLevel) {
+              points += decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length
+              break
+            }
+          }
+        }
+        maxPoints = Math.max(points, maxPoints)
+      }
+      result[slotType][skillName] = maxPoints
+    }
+  }
+
+  return result
+}
 import {
   slottageSizeCompare,
   slottageLengthCompare,

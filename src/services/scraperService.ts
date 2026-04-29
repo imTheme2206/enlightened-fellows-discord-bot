@@ -200,7 +200,7 @@ export async function runScraper(
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const setSearchModule = require("./setSearch") as {
+      const setSearchModule = require("./set-search") as {
         rebuildSearchIndex: () => Promise<void>;
       };
       await setSearchModule.rebuildSearchIndex();

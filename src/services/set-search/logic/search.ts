@@ -1,6 +1,6 @@
 import type { SearchInput, SearchResult, SetSearchIndex } from '../types'
 import { MAX_RESULTS } from './constants'
-import { getBestArmor } from './candidatePool'
+import { getBestArmor, computeMaxPotential } from './candidatePool'
 import { rollCombosDfs } from './dfs'
 import { reorder } from './reorder'
 
@@ -34,7 +34,8 @@ export function search(input: SearchInput, index: SetSearchIndex): SearchResult[
     rank,
   )
 
-  let rolls = rollCombosDfs(gear, skills, setSkills, groupSkills, input.initialSetCounts ?? {}, input.initialGroupCounts ?? {})
+  const maxPotential = computeMaxPotential(gear, Object.keys(skills))
+  let rolls = rollCombosDfs(gear, skills, setSkills, groupSkills, input.initialSetCounts ?? {}, input.initialGroupCounts ?? {}, maxPotential)
 
   // Apply slot filters post-search
   if (Object.keys(slotFilters).length > 0) {
