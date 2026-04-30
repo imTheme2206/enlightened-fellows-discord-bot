@@ -149,7 +149,7 @@ function buildHistoryComponents(state: SearchState): AnyRow[] {
 
 function buildRemoveSkillComponents(state: SearchState): AnyRow[] {
   const options = state.skills.map((s) => ({
-    label: `[Slot ${s.slotSize}] ${s.name} Lv ${s.level}`,
+    label: ` ${s.name} Lv ${s.level}`,
     value: s.name,
   }));
 
@@ -171,26 +171,44 @@ function buildMainComponents(state: SearchState): AnyRow[] {
   const atMax = skillCount >= MAX_SKILLS;
   const addedSkills = new Set(state.skills.map((s) => s.name));
 
-  for (const slot of [1, 2, 3] as const) {
-    const allOptions = loadArmorSkills(slot).filter(
-      (s) => !addedSkills.has(s.value),
-    );
-    const displayOptions = allOptions.length
-      ? allOptions
-      : [{ label: `All slot ${slot} skills added`, value: "__none__" }];
+  const slotOneOptions = loadArmorSkills(1).filter(
+    (s) => !addedSkills.has(s.value),
+  );
+  const displaySlotOneOptions = slotOneOptions.length
+    ? slotOneOptions
+    : [{ label: `All slot ${1} skills added`, value: "__none__" }];
 
-    rows.push(
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId(`search-set:slot-${slot}-pick`)
-          .setPlaceholder(`Add Slot ${slot} skill…`)
-          .setDisabled(atMax)
-          .setMinValues(1)
-          .setMaxValues(Math.min(5, displayOptions.length))
-          .addOptions(displayOptions),
-      ),
-    );
-  }
+  rows.push(
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`search-set:slot-${1}-pick`)
+        .setPlaceholder(`Add Slot ${1} skill…`)
+        .setDisabled(atMax)
+        .setMinValues(1)
+        .setMaxValues(Math.min(5, displaySlotOneOptions.length))
+        .addOptions(displaySlotOneOptions),
+    ),
+  );
+
+  const SlotTwoThreeOptions = [
+    ...loadArmorSkills(2),
+    ...loadArmorSkills(3),
+  ].filter((s) => !addedSkills.has(s.value));
+  const displaySlotTwoThreeOptions = SlotTwoThreeOptions.length
+    ? SlotTwoThreeOptions
+    : [{ label: `All slot ${1} skills added`, value: "__none__" }];
+
+  rows.push(
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`search-set:slot-${2}-pick`)
+        .setPlaceholder(`Add Slot 2 or 3 skill…`)
+        .setDisabled(atMax)
+        .setMinValues(1)
+        .setMaxValues(Math.min(5, displaySlotTwoThreeOptions.length))
+        .addOptions(displaySlotTwoThreeOptions),
+    ),
+  );
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(

@@ -20,9 +20,7 @@ export function buildHistoryLabel(state: SearchState): string {
 
 export function buildEmbed(state: SearchState): EmbedBuilder {
   const skillLines = state.skills.length
-    ? state.skills
-        .map((s) => `• [Slot ${s.slotSize}] ${s.name} Lv ${s.level}`)
-        .join("\n")
+    ? state.skills.map((s) => `•  ${s.name} Lv ${s.level}`).join("\n")
     : "_None_";
 
   const setLines = state.setSkills.length
