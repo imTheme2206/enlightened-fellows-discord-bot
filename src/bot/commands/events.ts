@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import {
   AttachmentBuilder,
   ChatInputCommandInteraction,
@@ -5,194 +6,201 @@ import {
   InteractionReplyOptions,
   Message,
   SlashCommandBuilder,
-} from 'discord.js'
+} from "discord.js";
+import fs from "fs";
 import {
   EventQuestItem,
   MHWIldsEventResponse,
   parseMHWildsEvents,
-} from 'mh-wilds-event-scraper'
-import { craftEventEmbed } from '../utils/wilds-event-embed'
+} from "mh-wilds-event-scraper";
+import path from "path";
+import logger from "../../config/logger";
 import {
-  EmbedPaginationEntry,
+  AttachmentRef,
   DEFAULT_PAGINATION_TIMEOUT_MS,
+  EmbedPaginationEntry,
   buildPaginationComponents,
   paginateEmbedEntries,
   registerEmbedPaginationCollector,
-  AttachmentRef,
-} from '../utils/embed-pagination'
-import fs from 'fs'
-import path from 'path'
-import dayjs from 'dayjs'
-import logger from '../../config/logger'
-import { Command } from './_types'
+} from "../utils/embed-pagination";
+import { craftEventEmbed } from "../utils/wilds-event-embed";
+import { Command } from "./_types";
 
 // Explicit icon reference type to ensure consistent typing across maps and arrays
-type IconRef = AttachmentRef
-type EventType = 'permanent' | 'limited' | 'all'
-const monsterIcons: Record<string, IconRef> = {}
-const questTypeIcons: Record<string, IconRef> = {}
-const PAGE_SIZE = 5
+type IconRef = AttachmentRef;
+type EventType = "permanent" | "limited" | "all";
+const monsterIcons: Record<string, IconRef> = {};
+const questTypeIcons: Record<string, IconRef> = {};
+const PAGE_SIZE = 5;
 const EVENTS_PAGINATION_BUTTON_IDS = {
-  prev: 'events_prev',
-  next: 'events_next',
-} as const
+  prev: "events_prev",
+  next: "events_next",
+} as const;
 
 const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>
   events.map((event) => {
     const monsterFileName =
-      event.targetMonster !== 'Unknown'
-        ? event.targetMonster.split(' ').join('_') + '_Icon.png'
-        : 'Unknown_Icon.png'
-    const questTypeFileName = `${event.questType}.png`
+      event.targetMonster !== "Unknown"
+        ? event.targetMonster.split(" ").join("_") + "_Icon.png"
+        : "Unknown_Icon.png";
+    const questTypeFileName = `${event.questType}.png`;
 
-    const attachments: IconRef[] = []
-    const monsterIcon = monsterIcons[monsterFileName]
-    const questIcon = questTypeIcons[questTypeFileName]
+    const attachments: IconRef[] = [];
+    const monsterIcon = monsterIcons[monsterFileName];
+    const questIcon = questTypeIcons[questTypeFileName];
 
     if (monsterIcon) {
-      attachments.push(monsterIcon)
+      attachments.push(monsterIcon);
     }
 
     if (questIcon) {
-      attachments.push(questIcon)
+      attachments.push(questIcon);
     }
 
-    const { embed } = craftEventEmbed(event)
+    const { embed } = craftEventEmbed(event);
 
     return {
       embed: embed[0],
       attachments,
-    }
-  })
+    };
+  });
 
 const preloadIcons = () => {
-  logger.info('Preloading icons...')
-  const monsterDir = 'assets/icons/large'
+  logger.info("Preloading icons...");
+  const monsterDir = "assets/icons/large";
   fs.readdirSync(monsterDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(monsterDir, filename))
-    monsterIcons[filename] = { file, key: `attachment://${filename}` }
-  })
+    const file = new AttachmentBuilder(path.join(monsterDir, filename));
+    monsterIcons[filename] = { file, key: `attachment://${filename}` };
+  });
 
-  const questDir = 'assets/icons/quest'
+  const questDir = "assets/icons/quest";
   fs.readdirSync(questDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(questDir, filename))
-    questTypeIcons[filename] = { file, key: `attachment://${filename}` }
-  })
-}
+    const file = new AttachmentBuilder(path.join(questDir, filename));
+    questTypeIcons[filename] = { file, key: `attachment://${filename}` };
+  });
+};
 
-preloadIcons()
+preloadIcons();
 
 export const data = new SlashCommandBuilder()
-  .setName('events')
-  .setDescription('Return a list of event scheduled')
+  .setName("events")
+  .setDescription("Return a list of event scheduled")
   .addStringOption((option) =>
     option
-      .setName('type')
-      .setDescription('Select mode')
+      .setName("type")
+      .setDescription("Select mode")
       .addChoices(
-        { name: 'Permanent', value: 'permanent' },
-        { name: 'Limited', value: 'limited' }
+        { name: "Permanent", value: "permanent" },
+        { name: "Limited", value: "limited" },
       )
-      .setRequired(true)
-  )
+      .setRequired(true),
+  );
 
-export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+export async function execute(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
   const eventType: EventType =
-    (interaction.options.getString('type', true) as EventType) || 'all'
+    (interaction.options.getString("type", true) as EventType) || "all";
 
-  let hasDeferred = false
-  let hasSentInitialResponse = false
-  const canDefer = typeof interaction.deferReply === 'function'
+  let hasDeferred = false;
+  let hasSentInitialResponse = false;
+  const canDefer = typeof interaction.deferReply === "function";
 
   const respond = async (payload: string | InteractionReplyOptions) => {
     const shouldEdit =
       hasDeferred ||
       hasSentInitialResponse ||
-      (typeof interaction.deferred === 'boolean' && interaction.deferred) ||
-      (typeof interaction.replied === 'boolean' && interaction.replied)
+      (typeof interaction.deferred === "boolean" && interaction.deferred) ||
+      (typeof interaction.replied === "boolean" && interaction.replied);
 
-    if (shouldEdit && typeof interaction.editReply === 'function') {
-      hasSentInitialResponse = true
-      return interaction.editReply(payload as InteractionEditReplyOptions | string)
+    if (shouldEdit && typeof interaction.editReply === "function") {
+      hasSentInitialResponse = true;
+      return interaction.editReply(
+        payload as InteractionEditReplyOptions | string,
+      );
     }
 
-    if (typeof interaction.reply === 'function') {
-      hasSentInitialResponse = true
-      return interaction.reply(payload as InteractionReplyOptions | string)
+    if (typeof interaction.reply === "function") {
+      hasSentInitialResponse = true;
+      return interaction.reply(payload as InteractionReplyOptions | string);
     }
 
-    if (typeof interaction.editReply === 'function') {
-      hasSentInitialResponse = true
-      return interaction.editReply(payload as InteractionEditReplyOptions | string)
+    if (typeof interaction.editReply === "function") {
+      hasSentInitialResponse = true;
+      return interaction.editReply(
+        payload as InteractionEditReplyOptions | string,
+      );
     }
 
-    throw new Error('Interaction does not support reply or editReply')
-  }
+    throw new Error("Interaction does not support reply or editReply");
+  };
 
   try {
     if (
       canDefer &&
-      typeof interaction.deferReply === 'function' &&
+      typeof interaction.deferReply === "function" &&
       !(interaction.deferred || interaction.replied)
     ) {
-      await interaction.deferReply()
-      hasDeferred = true
+      await interaction.deferReply();
+      hasDeferred = true;
     }
 
     const MHWildsEvents: MHWIldsEventResponse = await parseMHWildsEvents(
-      'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
-    )
+      "https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7",
+    );
 
     if (MHWildsEvents.eventQuests.length === 0) {
-      await respond('No events found.')
-      return
+      await respond("No events found.");
+      return;
     }
 
-    const selectedEvents = filterEvent(MHWildsEvents.eventQuests, eventType)
-    const eventEntries = buildEventEntries(selectedEvents)
-    const paginatedEvents = paginateEmbedEntries(eventEntries, PAGE_SIZE)
+    const selectedEvents = filterEvent(MHWildsEvents.eventQuests, eventType);
+    const eventEntries = buildEventEntries(selectedEvents);
+    const paginatedEvents = paginateEmbedEntries(eventEntries, PAGE_SIZE);
 
     if (paginatedEvents.pages.length === 0) {
-      await respond('No events found for the selected type.')
-      return
+      await respond("No events found for the selected type.");
+      return;
     }
 
-    const totalPages = paginatedEvents.pages.length
-    let currentPage = 0
+    const totalPages = paginatedEvents.pages.length;
+    let currentPage = 0;
 
-    const initialFiles = paginatedEvents.attachmentsByPage[currentPage]
+    const initialFiles = paginatedEvents.attachmentsByPage[currentPage];
 
     const replyPayload: InteractionReplyOptions = {
       content:
-        eventType === 'permanent' ? 'Permanent Events' : `Here are the ongoing events`,
+        eventType === "permanent"
+          ? "Permanent Events"
+          : `Here are the ongoing events`,
       embeds: paginatedEvents.pages[currentPage].map((entry) => entry.embed),
       files: initialFiles,
       components: buildPaginationComponents(
         currentPage,
         totalPages,
-        EVENTS_PAGINATION_BUTTON_IDS
+        EVENTS_PAGINATION_BUTTON_IDS,
       ),
-    }
+    };
 
-    await respond(replyPayload)
+    await respond(replyPayload);
 
-    const commandUserId = interaction.user?.id ?? null
-    let message: Message | null = null
+    const commandUserId = interaction.user?.id ?? null;
+    let message: Message | null = null;
 
     try {
-      if (typeof interaction.fetchReply === 'function') {
-        message = (await interaction.fetchReply()) as Message
+      if (typeof interaction.fetchReply === "function") {
+        message = (await interaction.fetchReply()) as Message;
       }
     } catch (err) {
-      logger.error('Failed to fetch reply for pagination:', { err })
+      logger.error("Failed to fetch reply for pagination:", { err });
     }
 
     if (
       totalPages <= 1 ||
       !message ||
-      typeof message.createMessageComponentCollector !== 'function'
+      typeof message.createMessageComponentCollector !== "function"
     ) {
-      return
+      return;
     }
 
     registerEmbedPaginationCollector(message, paginatedEvents, {
@@ -200,32 +208,43 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       timeoutMs: DEFAULT_PAGINATION_TIMEOUT_MS,
       buttonIds: EVENTS_PAGINATION_BUTTON_IDS,
       initialPage: currentPage,
-    })
+    });
   } catch (error) {
-    logger.error('Failed to fetch events:', { error })
+    logger.error("Failed to fetch events:", { error });
     try {
-      await respond('Failed to fetch events.')
+      await respond("Failed to fetch events.");
     } catch (replyError) {
-      logger.error('Failed to send error message:', { replyError })
+      logger.error("Failed to send error message:", { replyError });
     }
   }
 }
 
 const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
-  if (eventType === 'all') {
-    return events
+  if (eventType === "all") {
+    return events;
   }
-  const filterIsPermanent = eventType === 'permanent'
+  const filterIsPermanent = eventType === "permanent";
   if (filterIsPermanent) {
-    return events.filter((event) => event.isPermanent === filterIsPermanent)
+    return events.filter((event) => event.isPermanent === filterIsPermanent);
   }
 
-  const currentDate = dayjs()
-  return events.filter(
+  const currentDate = dayjs();
+
+  const uniqueEvents = new Map<string, EventQuestItem>();
+
+  events.forEach((event) => {
+    if (!uniqueEvents.has(event.questName)) {
+      uniqueEvents.set(event.questName, event);
+    }
+  });
+
+  const uniqueEventsArray = Array.from(uniqueEvents.values());
+
+  return uniqueEventsArray.filter(
     (event) =>
       dayjs(event.startAt).isBefore(currentDate) &&
-      dayjs(event.endAt).isAfter(currentDate)
-  )
-}
+      dayjs(event.endAt).isAfter(currentDate),
+  );
+};
 
-export default { data, execute } satisfies Command
+export default { data, execute } satisfies Command;
