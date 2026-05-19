@@ -1,6 +1,6 @@
 import type { ArmorPiece, DecorationItem } from "../types";
 
-export const LIMIT = 500_000;
+export const LIMIT = 300_000;
 export const MAX_RESULTS = 200;
 export const SLOT_COUNT = 3;
 export const ARMOR_SLOT_TYPES = [

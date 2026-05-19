@@ -201,9 +201,9 @@ export async function runScraper(
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const setSearchModule = require("./set-search") as {
-        rebuildSearchIndex: () => Promise<void>;
+        initSearchIndex: () => Promise<void>;
       };
-      await setSearchModule.rebuildSearchIndex();
+      await setSearchModule.initSearchIndex();
       logger.info("[scraperService] Search index rebuilt successfully");
     } catch (indexErr) {
       logger.warn(
