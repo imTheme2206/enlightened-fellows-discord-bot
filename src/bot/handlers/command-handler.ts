@@ -1,9 +1,10 @@
-import { REST, Routes } from "discord.js";
+import { Client, REST, Routes } from "discord.js";
 import { config } from "../../config";
 import logger from "../../config/logger";
 import { Command } from "../commands/_types";
 import * as events from "../commands/events";
 import * as genshinCmds from "../commands/genshin";
+import * as registerGenshinChannel from "../commands/genshin/register-channel";
 import * as hzv from "../commands/hzv";
 import * as metaGuide from "../commands/meta-guide";
 import * as ping from "../commands/ping";
@@ -19,6 +20,7 @@ export async function loadCommands(): Promise<Map<string, Command>> {
     ping,
     searchSet,
     genshinCmds,
+    registerGenshinChannel,
   ];
 
   for (const mod of modules) {
@@ -42,10 +44,11 @@ export async function loadCommands(): Promise<Map<string, Command>> {
  */
 export async function deployCommands(
   commands: Map<string, Command>,
+  client: Client,
 ): Promise<void> {
   const commandsData = Array.from(commands.values()).map((cmd) => cmd.data);
   const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-  const guildIds = config.guildIds;
+  const guildIds = [...client.guilds.cache.keys()];
 
   try {
     await Promise.all(

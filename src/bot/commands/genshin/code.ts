@@ -2,8 +2,13 @@ import {
   ChatInputCommandInteraction,
   MessageFlags,
   SlashCommandBuilder,
+  TextChannel,
 } from 'discord.js'
 import logger from '../../../config/logger'
+import {
+  getGenshinCodeChannels,
+  saveGenshinCode,
+} from '../../../services/db-service'
 import { Command } from '../_types'
 
 const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
@@ -36,31 +41,34 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   logger.debug('parsing code', { code1, code2, code3 })
 
-  if (!code1) {
-    await interaction.editReply('No code provided.')
-    return
-  }
+  const codes = [code1, code2, code3].filter((c): c is string => !!c)
+  const messages = codes.map((c) => `${redeemUrl}${c}`)
+  const content = messages.join('\n')
 
-  const messages: string[] = []
-
-  if (code1) {
-    messages.push(`${redeemUrl}${code1}`)
-  }
-
-  if (code2) {
-    messages.push(`${redeemUrl}${code2}`)
-  }
-
-  if (code3) {
-    messages.push(`${redeemUrl}${code3}`)
+  for (const code of codes) {
+    saveGenshinCode(code, true)
   }
 
   logger.debug('returning message', { messages })
 
   await interaction.reply({
-    content: messages.join('\n'),
+    content,
     flags: MessageFlags.SuppressEmbeds,
   })
+
+  const channels = getGenshinCodeChannels()
+  for (const { channelId } of channels) {
+    try {
+      const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
+      if (!channel) {
+        logger.warn(`gi-code: channel not found in cache: ${channelId}`)
+        continue
+      }
+      await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
+    } catch (err) {
+      logger.error(`gi-code: failed to send to channel ${channelId}`, { err })
+    }
+  }
 }
 
 export default { data, execute } satisfies Command

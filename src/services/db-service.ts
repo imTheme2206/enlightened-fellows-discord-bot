@@ -30,6 +30,14 @@ if (decoColumns.length > 0 && !decoColumns.includes("skillId")) {
   `);
 }
 
+const genshinCodeColumns = (
+  db.prepare("PRAGMA table_info(GenshinCode)").all() as { name: string }[]
+).map((c) => c.name);
+
+if (genshinCodeColumns.length > 0 && !genshinCodeColumns.includes("rewards")) {
+  db.exec("ALTER TABLE GenshinCode ADD COLUMN rewards TEXT");
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS Skill (
     id TEXT PRIMARY KEY,
@@ -108,6 +116,20 @@ db.exec(`
     data TEXT NOT NULL,
     searchedAt TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS GenshinCode (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    rewards TEXT,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    isExpired INTEGER NOT NULL DEFAULT 0,
+    isAlerted INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS GenshinCodeChannel (
+    channelId TEXT PRIMARY KEY,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 export function logJob(
@@ -173,4 +195,68 @@ export function getRecentSearchHistory(
       "SELECT * FROM SearchHistory WHERE userId = ? ORDER BY searchedAt DESC LIMIT ?",
     )
     .all(userId, limit) as SearchHistoryRow[];
+}
+
+export interface GenshinCodeRow {
+  id: string;
+  code: string;
+  rewards: string | null;
+  createdAt: string;
+  isExpired: number;
+  isAlerted: number;
+}
+
+export function saveGenshinCode(
+  code: string,
+  isAlerted = false,
+  isExpired = false,
+  rewards?: string,
+): void {
+  db.prepare(
+    "INSERT OR IGNORE INTO GenshinCode (id, code, rewards, isAlerted, isExpired) VALUES (?, ?, ?, ?, ?)",
+  ).run(randomUUID(), code, rewards ?? null, isAlerted ? 1 : 0, isExpired ? 1 : 0);
+}
+
+export function getUnalertedGenshinCodes(): GenshinCodeRow[] {
+  return db
+    .prepare(
+      "SELECT * FROM GenshinCode WHERE isAlerted = 0 AND isExpired = 0 ORDER BY createdAt ASC",
+    )
+    .all() as GenshinCodeRow[];
+}
+
+export function markGenshinCodesAlerted(ids: string[]): void {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => "?").join(", ");
+  db.prepare(
+    `UPDATE GenshinCode SET isAlerted = 1 WHERE id IN (${placeholders})`,
+  ).run(...ids);
+}
+
+export function saveGenshinCodeChannel(channelId: string): void {
+  db.prepare(
+    "INSERT OR IGNORE INTO GenshinCodeChannel (channelId) VALUES (?)",
+  ).run(channelId);
+}
+
+export function removeGenshinCodeChannel(channelId: string): void {
+  db.prepare("DELETE FROM GenshinCodeChannel WHERE channelId = ?").run(
+    channelId,
+  );
+}
+
+export function getGenshinCodeChannels(): { channelId: string }[] {
+  return db
+    .prepare("SELECT channelId FROM GenshinCodeChannel")
+    .all() as { channelId: string }[];
+}
+
+export function getGenshinCodeChannel(
+  channelId: string,
+): { channelId: string } | null {
+  return (
+    (db
+      .prepare("SELECT channelId FROM GenshinCodeChannel WHERE channelId = ?")
+      .get(channelId) as { channelId: string } | undefined) ?? null
+  );
 }
