@@ -2,7 +2,7 @@ import { Client } from "discord.js";
 import logger from "../../config/logger";
 import { deployCommands, loadCommands } from "../handlers/command-handler";
 import { startEventsJob } from "../jobs/events-job";
-import { startScraperJob } from "../jobs/scraper-job";
+import { seedOnBoot } from "../jobs/db-init";
 import { commandRegistry } from "../registry";
 
 export const name = "ready";
@@ -24,5 +24,7 @@ export async function execute(client: Client): Promise<void> {
 
   await deployCommands(commands);
   startEventsJob(client);
-  startScraperJob();
+  seedOnBoot().catch((err) => {
+    logger.error("[dbInit] Boot seed failed:", { err });
+  });
 }

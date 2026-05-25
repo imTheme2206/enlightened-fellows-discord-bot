@@ -1,3 +1,3 @@
-onlyBuiltDependencies:
-  - better-sqlite3
-  - mh-wilds-event-scraper
+allowBuilds:
+  better-sqlite3: true
+  mh-wilds-event-scraper: true

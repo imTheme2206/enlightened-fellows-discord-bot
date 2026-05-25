@@ -13,8 +13,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   WEB_PORT: z.coerce.number().default(3000),
   WEB_ADMIN_TOKEN: z.string().optional(),
-  SCRAPER_CRON: z.string().optional().default("0 */6 * * *"),
-  DISCORD_OWNER_ID: z.string().optional(),
+DISCORD_OWNER_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
