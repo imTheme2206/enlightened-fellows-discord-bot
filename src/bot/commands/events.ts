@@ -242,6 +242,7 @@ const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
 
   return uniqueEventsArray.filter(
     (event) =>
+      !event.isPermanent &&
       dayjs(event.startAt).isBefore(currentDate) &&
       dayjs(event.endAt).isAfter(currentDate),
   );
