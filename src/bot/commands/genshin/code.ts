@@ -59,9 +59,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const channels = getGenshinCodeChannels()
   for (const { channelId } of channels) {
     try {
-      const channel = (await interaction.client.channels.fetch(channelId)) as TextChannel
+      const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
       if (!channel) {
-        logger.warn(`gi-code: channel not found: ${channelId}`)
+        logger.warn(`gi-code: channel not found in cache: ${channelId}`)
         continue
       }
       await channel.send({ content, flags: MessageFlags.SuppressEmbeds })

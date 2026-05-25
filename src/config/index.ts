@@ -6,7 +6,6 @@ dotenv.config();
 const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_CLIENT_ID: z.string().min(1),
-  DISCORD_GUILD_ID: z.string().min(1),
   EVENTS_CHANNEL_ID: z.string().min(1),
   DATABASE_PATH: z.string().optional(),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
@@ -29,5 +28,4 @@ if (!parsed.success) {
 /** Validated environment configuration */
 export const config = {
   ...parsed.data,
-  guildIds: parsed.data.DISCORD_GUILD_ID.split(",").map((id) => id.trim()),
 };

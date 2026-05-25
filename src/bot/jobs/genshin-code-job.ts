@@ -2,6 +2,7 @@ import { Client, MessageFlags, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import logger from '../../config/logger'
 import {
+  GenshinCodeRow,
   getGenshinCodeChannels,
   getUnalertedGenshinCodes,
   markGenshinCodesAlerted,
@@ -9,6 +10,34 @@ import {
 
 const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
 const cronSchedule = '0 * * * *' // every hour
+
+export async function sendCodesToChannel(
+  channel: TextChannel,
+  codes: GenshinCodeRow[],
+): Promise<void> {
+  const content = codes.map((c) => `${redeemUrl}${c.code}`).join('\n')
+  await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
+  logger.info(`Genshin code job: alerted ${codes.length} code(s) to ${channel.id}`)
+}
+
+export async function alertCodesToChannel(
+  client: Client,
+  channelId: string,
+): Promise<void> {
+  const codes = getUnalertedGenshinCodes()
+  if (codes.length === 0) return
+
+  const channel = client.guilds.cache
+    .map((g) => g.channels.cache.get(channelId))
+    .find((c) => c != null) as TextChannel | undefined
+
+  if (!channel) {
+    logger.warn(`Genshin code job: channel not found in cache: ${channelId}`)
+    return
+  }
+
+  await sendCodesToChannel(channel, codes)
+}
 
 export function startGenshinCodeJob(client: Client): void {
   logger.info(`Setting up Genshin code alert job with schedule: ${cronSchedule}`)
@@ -29,17 +58,9 @@ export function startGenshinCodeJob(client: Client): void {
         return
       }
 
-      const content = codes.map((c) => `${redeemUrl}${c.code}`).join('\n')
-
       for (const { channelId } of channels) {
         try {
-          const channel = (await client.channels.fetch(channelId)) as TextChannel
-          if (!channel) {
-            logger.warn(`Genshin code job: channel not found: ${channelId}`)
-            continue
-          }
-          await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
-          logger.info(`Genshin code job: alerted ${codes.length} code(s) to ${channelId}`)
+          await alertCodesToChannel(client, channelId)
         } catch (err) {
           logger.error(`Genshin code job: failed to send to channel ${channelId}`, { err })
         }

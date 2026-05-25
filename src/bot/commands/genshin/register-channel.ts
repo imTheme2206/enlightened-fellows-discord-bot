@@ -1,7 +1,10 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
+import { ChatInputCommandInteraction, SlashCommandBuilder, TextChannel } from 'discord.js'
 import logger from '../../../config/logger'
+import { sendCodesToChannel } from '../../jobs/genshin-code-job'
 import {
-  getGenshinCodeChannels,
+  getGenshinCodeChannel,
+  getUnalertedGenshinCodes,
+  markGenshinCodesAlerted,
   removeGenshinCodeChannel,
   saveGenshinCodeChannel,
 } from '../../../services/db-service'
@@ -26,25 +29,56 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const action = interaction.options.getString('action', true)
   const channelId = interaction.channelId
+  const existing = getGenshinCodeChannel(channelId)
 
   if (action === 'register') {
+    if (existing) {
+      await interaction.reply({
+        content: 'This channel is already registered for Genshin Impact code alerts.',
+        ephemeral: true,
+      })
+      return
+    }
+
     saveGenshinCodeChannel(channelId)
     logger.info(`Registered Genshin code channel: ${channelId}`)
+
     await interaction.reply({
       content: 'This channel will now receive Genshin Impact code alerts.',
       ephemeral: true,
     })
+
+    const codes = getUnalertedGenshinCodes()
+    if (codes.length > 0) {
+      const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
+      if (channel) {
+        try {
+          await sendCodesToChannel(channel, codes)
+          markGenshinCodesAlerted(codes.map((c) => c.id))
+        } catch (err) {
+          logger.error(`register-genshin-code-channel: immediate alert failed for ${channelId}`, { err })
+        }
+      } else {
+        logger.warn(`register-genshin-code-channel: channel not found in cache: ${channelId}`)
+      }
+    }
   } else {
+    if (!existing) {
+      await interaction.reply({
+        content: 'This channel is not registered for Genshin Impact code alerts.',
+        ephemeral: true,
+      })
+      return
+    }
+
     removeGenshinCodeChannel(channelId)
     logger.info(`Unregistered Genshin code channel: ${channelId}`)
+
     await interaction.reply({
       content: 'This channel will no longer receive Genshin Impact code alerts.',
       ephemeral: true,
     })
   }
-
-  const remaining = getGenshinCodeChannels()
-  logger.debug(`Genshin code channels after update: ${remaining.length}`)
 }
 
 export default { data, execute } satisfies Command

@@ -30,6 +30,14 @@ if (decoColumns.length > 0 && !decoColumns.includes("skillId")) {
   `);
 }
 
+const genshinCodeColumns = (
+  db.prepare("PRAGMA table_info(GenshinCode)").all() as { name: string }[]
+).map((c) => c.name);
+
+if (genshinCodeColumns.length > 0 && !genshinCodeColumns.includes("rewards")) {
+  db.exec("ALTER TABLE GenshinCode ADD COLUMN rewards TEXT");
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS Skill (
     id TEXT PRIMARY KEY,
@@ -112,6 +120,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS GenshinCode (
     id TEXT PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
+    rewards TEXT,
     createdAt TEXT NOT NULL DEFAULT (datetime('now')),
     isExpired INTEGER NOT NULL DEFAULT 0,
     isAlerted INTEGER NOT NULL DEFAULT 0
@@ -191,15 +200,21 @@ export function getRecentSearchHistory(
 export interface GenshinCodeRow {
   id: string;
   code: string;
+  rewards: string | null;
   createdAt: string;
   isExpired: number;
   isAlerted: number;
 }
 
-export function saveGenshinCode(code: string, isAlerted = false): void {
+export function saveGenshinCode(
+  code: string,
+  isAlerted = false,
+  isExpired = false,
+  rewards?: string,
+): void {
   db.prepare(
-    "INSERT OR IGNORE INTO GenshinCode (id, code, isAlerted) VALUES (?, ?, ?)",
-  ).run(randomUUID(), code, isAlerted ? 1 : 0);
+    "INSERT OR IGNORE INTO GenshinCode (id, code, rewards, isAlerted, isExpired) VALUES (?, ?, ?, ?, ?)",
+  ).run(randomUUID(), code, rewards ?? null, isAlerted ? 1 : 0, isExpired ? 1 : 0);
 }
 
 export function getUnalertedGenshinCodes(): GenshinCodeRow[] {
@@ -234,4 +249,14 @@ export function getGenshinCodeChannels(): { channelId: string }[] {
   return db
     .prepare("SELECT channelId FROM GenshinCodeChannel")
     .all() as { channelId: string }[];
+}
+
+export function getGenshinCodeChannel(
+  channelId: string,
+): { channelId: string } | null {
+  return (
+    (db
+      .prepare("SELECT channelId FROM GenshinCodeChannel WHERE channelId = ?")
+      .get(channelId) as { channelId: string } | undefined) ?? null
+  );
 }
