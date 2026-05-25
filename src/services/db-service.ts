@@ -108,6 +108,19 @@ db.exec(`
     data TEXT NOT NULL,
     searchedAt TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS GenshinCode (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    isExpired INTEGER NOT NULL DEFAULT 0,
+    isAlerted INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS GenshinCodeChannel (
+    channelId TEXT PRIMARY KEY,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 export function logJob(
@@ -173,4 +186,52 @@ export function getRecentSearchHistory(
       "SELECT * FROM SearchHistory WHERE userId = ? ORDER BY searchedAt DESC LIMIT ?",
     )
     .all(userId, limit) as SearchHistoryRow[];
+}
+
+export interface GenshinCodeRow {
+  id: string;
+  code: string;
+  createdAt: string;
+  isExpired: number;
+  isAlerted: number;
+}
+
+export function saveGenshinCode(code: string, isAlerted = false): void {
+  db.prepare(
+    "INSERT OR IGNORE INTO GenshinCode (id, code, isAlerted) VALUES (?, ?, ?)",
+  ).run(randomUUID(), code, isAlerted ? 1 : 0);
+}
+
+export function getUnalertedGenshinCodes(): GenshinCodeRow[] {
+  return db
+    .prepare(
+      "SELECT * FROM GenshinCode WHERE isAlerted = 0 AND isExpired = 0 ORDER BY createdAt ASC",
+    )
+    .all() as GenshinCodeRow[];
+}
+
+export function markGenshinCodesAlerted(ids: string[]): void {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => "?").join(", ");
+  db.prepare(
+    `UPDATE GenshinCode SET isAlerted = 1 WHERE id IN (${placeholders})`,
+  ).run(...ids);
+}
+
+export function saveGenshinCodeChannel(channelId: string): void {
+  db.prepare(
+    "INSERT OR IGNORE INTO GenshinCodeChannel (channelId) VALUES (?)",
+  ).run(channelId);
+}
+
+export function removeGenshinCodeChannel(channelId: string): void {
+  db.prepare("DELETE FROM GenshinCodeChannel WHERE channelId = ?").run(
+    channelId,
+  );
+}
+
+export function getGenshinCodeChannels(): { channelId: string }[] {
+  return db
+    .prepare("SELECT channelId FROM GenshinCodeChannel")
+    .all() as { channelId: string }[];
 }

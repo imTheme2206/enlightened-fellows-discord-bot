@@ -4,6 +4,7 @@ import logger from "../../config/logger";
 import { Command } from "../commands/_types";
 import * as events from "../commands/events";
 import * as genshinCmds from "../commands/genshin";
+import * as registerGenshinChannel from "../commands/genshin/register-channel";
 import * as hzv from "../commands/hzv";
 import * as metaGuide from "../commands/meta-guide";
 import * as ping from "../commands/ping";
@@ -19,6 +20,7 @@ export async function loadCommands(): Promise<Map<string, Command>> {
     ping,
     searchSet,
     genshinCmds,
+    registerGenshinChannel,
   ];
 
   for (const mod of modules) {
