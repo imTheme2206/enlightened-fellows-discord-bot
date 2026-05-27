@@ -9,13 +9,13 @@ const cronSchedule = '0 10 * * 3' // every Wednesday at 10:00 SGT
 export function startEventsJob(client: Client): void {
   try {
     logger.info(`Setting up cron job with schedule: ${cronSchedule}`)
-    logger.info('Using timezone: Asia/Singapore (matching Fly.io region)')
+    logger.info('Using timezone: Asia/Bangkok')
 
     const task = cron.schedule(
       cronSchedule,
       async () => {
         const now = new Date().toLocaleString('en-US', {
-          timeZone: 'Asia/Singapore',
+          timeZone: 'Asia/Bangkok',
           weekday: 'long',
           year: 'numeric',
           month: 'long',
@@ -85,14 +85,14 @@ export function startEventsJob(client: Client): void {
         }
       },
       {
-        timezone: 'Asia/Singapore',
+        timezone: 'Asia/Bangkok',
       }
     )
 
     if (task) {
       logger.info('Cron job scheduled successfully')
       logger.info(`Schedule: ${cronSchedule} (Asia/Singapore timezone)`)
-      logger.info('Next execution: Every Wednesday at 10:00 AM Singapore time')
+      logger.info('Next execution: Every Wednesday at 10:00 AM Thailand time')
     } else {
       logger.error('Failed to schedule cron job')
     }
