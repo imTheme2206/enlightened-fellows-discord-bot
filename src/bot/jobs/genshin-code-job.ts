@@ -1,9 +1,9 @@
 import { Client, MessageFlags, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import logger from '../../config/logger'
+import { genshinCodeChannels } from '../../services/channel-registry'
 import {
   GenshinCodeRow,
-  getGenshinCodeChannels,
   getUnalertedGenshinCodes,
   markGenshinCodesAlerted,
 } from '../../services/db-service'
@@ -52,7 +52,7 @@ export function startGenshinCodeJob(client: Client): void {
         return
       }
 
-      const channels = getGenshinCodeChannels()
+      const channels = genshinCodeChannels.getAll()
       if (channels.length === 0) {
         logger.debug('No registered Genshin code channels — skipping alert')
         return

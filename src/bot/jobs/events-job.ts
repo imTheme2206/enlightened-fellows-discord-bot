@@ -1,16 +1,11 @@
 import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
-import { config } from '../../config'
 import logger from '../../config/logger'
+import { mhEventsChannels } from '../../services/channel-registry'
 import { commandRegistry } from '../registry'
 
 const cronSchedule = '0 10 * * 3' // every Wednesday at 10:00 SGT
 
-/**
- * Starts the weekly cron job that auto-posts limited MH Wilds events
- * to all channels listed in EVENTS_CHANNEL_ID.
- * @param client - The Discord client used to fetch channels
- */
 export function startEventsJob(client: Client): void {
   try {
     logger.info(`Setting up cron job with schedule: ${cronSchedule}`)
@@ -32,47 +27,56 @@ export function startEventsJob(client: Client): void {
         logger.info(`[${now}] Running scheduled /events limited job...`)
 
         try {
-          const channelIds = config.EVENTS_CHANNEL_ID.split(',')
-          logger.info(
-            `Sending to ${channelIds.length} channel(s): ${channelIds.join(', ')}`
-          )
+          const channelIds = mhEventsChannels.getAll().map((c) => c.channelId)
+
+          if (channelIds.length === 0) {
+            logger.warn('No registered MH events channels — skipping job')
+            return
+          }
+
+          logger.info(`Sending to ${channelIds.length} channel(s): ${channelIds.join(', ')}`)
 
           for (const channelId of channelIds) {
-            logger.info(`Fetching channel: ${channelId}`)
-            const channel = (await client.channels.fetch(channelId)) as TextChannel
+            try {
+              const channel = client.guilds.cache
+                .map((g) => g.channels.cache.get(channelId))
+                .find((c) => c != null) as TextChannel | undefined
 
-            if (!channel) {
-              logger.error(`Channel not found: ${channelId}`)
-              continue
-            }
+              if (!channel) {
+                logger.error(`Channel not found in cache: ${channelId}`)
+                continue
+              }
 
-            logger.info(`Channel found: ${channel.name} (${channel.id})`)
+              logger.info(`Channel found: ${channel.name} (${channel.id})`)
 
-            const fakeInteraction = {
-              options: {
-                getString: (name: string) => {
-                  if (name === 'type') return 'limited'
-                  return null
+              const fakeInteraction = {
+                options: {
+                  getString: (name: string) => {
+                    if (name === 'type') return 'limited'
+                    return null
+                  },
                 },
-              },
-              reply: (opts: unknown) => {
-                logger.info(`Sending message to ${channel.name}`)
-                return channel.send(opts as Parameters<typeof channel.send>[0])
-              },
-              editReply: (opts: unknown) => {
-                logger.info(`Editing message in ${channel.name}`)
-                return channel.send(opts as Parameters<typeof channel.send>[0])
-              },
-            } as Parameters<NonNullable<ReturnType<typeof commandRegistry.get>>['execute']>[0]
+                reply: (opts: unknown) => {
+                  logger.info(`Sending message to ${channel.name}`)
+                  return channel.send(opts as Parameters<typeof channel.send>[0])
+                },
+                editReply: (opts: unknown) => {
+                  logger.info(`Editing message in ${channel.name}`)
+                  return channel.send(opts as Parameters<typeof channel.send>[0])
+                },
+              } as Parameters<NonNullable<ReturnType<typeof commandRegistry.get>>['execute']>[0]
 
-            const eventsCommand = commandRegistry.get('events')
-            if (!eventsCommand) {
-              logger.error('events command not found in registry')
-              continue
+              const eventsCommand = commandRegistry.get('events')
+              if (!eventsCommand) {
+                logger.error('events command not found in registry')
+                continue
+              }
+
+              await eventsCommand.execute(fakeInteraction)
+              logger.info(`Successfully executed events command in ${channel.name}`)
+            } catch (err) {
+              logger.error(`Failed to send events to channel ${channelId}:`, { err })
             }
-
-            await eventsCommand.execute(fakeInteraction)
-            logger.info(`Successfully executed events command in ${channel.name}`)
           }
 
           logger.info(`Scheduled job completed successfully at ${now}`)

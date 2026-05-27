@@ -126,11 +126,28 @@ db.exec(`
     isAlerted INTEGER NOT NULL DEFAULT 0
   );
 
-  CREATE TABLE IF NOT EXISTS GenshinCodeChannel (
-    channelId TEXT PRIMARY KEY,
-    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
+  CREATE TABLE IF NOT EXISTS RegisteredChannel (
+    channelId TEXT NOT NULL,
+    type TEXT NOT NULL,
+    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (channelId, type)
   );
 `);
+
+// Migrate legacy GenshinCodeChannel rows into RegisteredChannel
+const legacyGenshinChannelTable = db
+  .prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='GenshinCodeChannel'",
+  )
+  .get();
+
+if (legacyGenshinChannelTable) {
+  db.exec(`
+    INSERT OR IGNORE INTO RegisteredChannel (channelId, type, createdAt)
+      SELECT channelId, 'genshin_code', createdAt FROM GenshinCodeChannel;
+    DROP TABLE GenshinCodeChannel;
+  `);
+}
 
 export function logJob(
   jobName: string,
@@ -233,30 +250,3 @@ export function markGenshinCodesAlerted(ids: string[]): void {
   ).run(...ids);
 }
 
-export function saveGenshinCodeChannel(channelId: string): void {
-  db.prepare(
-    "INSERT OR IGNORE INTO GenshinCodeChannel (channelId) VALUES (?)",
-  ).run(channelId);
-}
-
-export function removeGenshinCodeChannel(channelId: string): void {
-  db.prepare("DELETE FROM GenshinCodeChannel WHERE channelId = ?").run(
-    channelId,
-  );
-}
-
-export function getGenshinCodeChannels(): { channelId: string }[] {
-  return db
-    .prepare("SELECT channelId FROM GenshinCodeChannel")
-    .all() as { channelId: string }[];
-}
-
-export function getGenshinCodeChannel(
-  channelId: string,
-): { channelId: string } | null {
-  return (
-    (db
-      .prepare("SELECT channelId FROM GenshinCodeChannel WHERE channelId = ?")
-      .get(channelId) as { channelId: string } | undefined) ?? null
-  );
-}

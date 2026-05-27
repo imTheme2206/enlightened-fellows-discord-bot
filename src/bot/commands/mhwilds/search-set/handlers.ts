@@ -5,15 +5,15 @@ import type {
 import {
   getRecentSearchHistory,
   saveSearchHistory,
-} from "../../../services/db-service";
-import { searchSets } from "../../../services/set-search";
-import { buildComponents } from "../../../services/set-search/components/form";
-import { buildSearchInput } from "../../../services/set-search/components/search-input";
+} from "../../../../services/db-service";
+import { searchSets } from "../../../../services/set-search";
+import { buildComponents } from "../../../../services/set-search/components/form";
+import { buildSearchInput } from "../../../../services/set-search/components/search-input";
 import {
   buildEmbed,
   buildHistoryLabel,
   buildResultRows,
-} from "../../../services/set-search/components/ui";
+} from "../../../../services/set-search/components/ui";
 import {
   handleGogmaGroupPick,
   handleGogmaSetPick,
@@ -25,15 +25,15 @@ import {
   handleSetPick,
   handleSlotPick,
   updateSession,
-} from "../../../services/set-search/handler/form-handler";
-import { getSkillMaxLevels } from "../../../services/set-search/interface";
-import type { EmbedPaginationEntry } from "../../utils/embed-pagination";
+} from "../../../../services/set-search/handler/form-handler";
+import { getSkillMaxLevels } from "../../../../services/set-search/interface";
+import type { EmbedPaginationEntry } from "../../../utils/embed-pagination";
 import {
   DEFAULT_PAGINATION_TIMEOUT_MS,
   paginateEmbedEntries,
   registerEmbedPaginationCollector,
-} from "../../utils/embed-pagination";
-import { buildSearchResultEmbed } from "../../utils/search-result-embed";
+} from "../../../utils/embed-pagination";
+import { buildSearchResultEmbed } from "../../../utils/search-result-embed";
 import type { SavedSearch, SearchState } from "./state";
 import { RESULTS_PER_PAGE, getSession, saveSession } from "./state";
 

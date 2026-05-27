@@ -2,13 +2,14 @@ import { Client, REST, Routes } from "discord.js";
 import { config } from "../../config";
 import logger from "../../config/logger";
 import { Command } from "../commands/_types";
-import * as events from "../commands/events";
 import * as genshinCmds from "../commands/genshin";
 import * as registerGenshinChannel from "../commands/genshin/register-channel";
-import * as hzv from "../commands/hzv";
-import * as metaGuide from "../commands/meta-guide";
+import * as events from "../commands/mhwilds/events";
+import * as registerMhEventsChannel from "../commands/mhwilds/register-channel";
+import * as hzv from "../commands/mhwilds/hzv";
+import * as metaGuide from "../commands/mhwilds/meta-guide";
+import * as searchSet from "../commands/mhwilds/search-set";
 import * as ping from "../commands/ping";
-import * as searchSet from "../commands/search-set";
 
 export async function loadCommands(): Promise<Map<string, Command>> {
   const registry = new Map<string, Command>();
@@ -21,6 +22,7 @@ export async function loadCommands(): Promise<Map<string, Command>> {
     searchSet,
     genshinCmds,
     registerGenshinChannel,
+    registerMhEventsChannel,
   ];
 
   for (const mod of modules) {

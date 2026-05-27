@@ -4,7 +4,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { MONSTER_LIST } from "mh-wilds-event-scraper";
-import { Command } from "./_types";
+import { Command } from "../_types";
 
 const apexMonsters = [
   "Arkveld",

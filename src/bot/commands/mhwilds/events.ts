@@ -14,7 +14,7 @@ import {
   parseMHWildsEvents,
 } from "mh-wilds-event-scraper";
 import path from "path";
-import logger from "../../config/logger";
+import logger from "../../../config/logger";
 import {
   AttachmentRef,
   DEFAULT_PAGINATION_TIMEOUT_MS,
@@ -22,9 +22,9 @@ import {
   buildPaginationComponents,
   paginateEmbedEntries,
   registerEmbedPaginationCollector,
-} from "../utils/embed-pagination";
-import { craftEventEmbed } from "../utils/wilds-event-embed";
-import { Command } from "./_types";
+} from "../../utils/embed-pagination";
+import { craftEventEmbed } from "../../utils/wilds-event-embed";
+import { Command } from "../_types";
 
 // Explicit icon reference type to ensure consistent typing across maps and arrays
 type IconRef = AttachmentRef;

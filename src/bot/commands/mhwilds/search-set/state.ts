@@ -1,4 +1,4 @@
-import type { SearchHistoryRow } from "../../../services/db-service";
+import type { SearchHistoryRow } from "../../../../services/db-service";
 
 export const MAX_SKILLS = 10;
 export const SESSION_TTL_MS = 10 * 60 * 1000;
