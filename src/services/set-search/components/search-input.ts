@@ -1,4 +1,4 @@
-import type { SearchState } from "../../../bot/commands/search-set/state";
+import type { SearchState } from "../../../bot/commands/mhwilds/search-set/state";
 import type { SearchInput } from "../types";
 
 /**

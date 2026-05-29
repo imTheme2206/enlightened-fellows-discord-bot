@@ -4,7 +4,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import type { PendingSkill } from "../../../bot/commands/search-set/state";
+import type { PendingSkill } from "../../../bot/commands/mhwilds/search-set/state";
 import { getSkillMaxLevels } from "../interface";
 
 export function buildLevelModal(

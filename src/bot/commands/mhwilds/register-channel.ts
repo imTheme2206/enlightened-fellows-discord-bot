@@ -1,0 +1,61 @@
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
+import logger from '../../../config/logger'
+import { mhEventsChannels } from '../../../services/channel-registry'
+import { Command } from '../_types'
+
+export const data = new SlashCommandBuilder()
+  .setName('register-mh-events-channel')
+  .setDescription('Register or unregister this channel for Monster Hunter Wilds event alerts')
+  .addStringOption((option) =>
+    option
+      .setName('action')
+      .setDescription('Register or unregister this channel')
+      .setRequired(true)
+      .addChoices(
+        { name: 'register', value: 'register' },
+        { name: 'unregister', value: 'unregister' }
+      )
+  )
+
+export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  logger.debug('register-mh-events-channel invoked')
+
+  const action = interaction.options.getString('action', true)
+  const channelId = interaction.channelId
+
+  if (action === 'register') {
+    if (mhEventsChannels.get(channelId)) {
+      await interaction.reply({
+        content: 'This channel is already registered for Monster Hunter Wilds event alerts.',
+        ephemeral: true,
+      })
+      return
+    }
+
+    mhEventsChannels.register(channelId)
+    logger.info(`Registered MH events channel: ${channelId}`)
+
+    await interaction.reply({
+      content: 'This channel will now receive Monster Hunter Wilds event alerts.',
+      ephemeral: true,
+    })
+  } else {
+    if (!mhEventsChannels.get(channelId)) {
+      await interaction.reply({
+        content: 'This channel is not registered for Monster Hunter Wilds event alerts.',
+        ephemeral: true,
+      })
+      return
+    }
+
+    mhEventsChannels.unregister(channelId)
+    logger.info(`Unregistered MH events channel: ${channelId}`)
+
+    await interaction.reply({
+      content: 'This channel will no longer receive Monster Hunter Wilds event alerts.',
+      ephemeral: true,
+    })
+  }
+}
+
+export default { data, execute } satisfies Command

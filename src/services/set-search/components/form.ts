@@ -4,8 +4,8 @@ import {
   ButtonStyle,
   StringSelectMenuBuilder,
 } from "discord.js";
-import type { SearchState } from "../../../bot/commands/search-set/state";
-import { MAX_SKILLS } from "../../../bot/commands/search-set/state";
+import type { SearchState } from "../../../bot/commands/mhwilds/search-set/state";
+import { MAX_SKILLS } from "../../../bot/commands/mhwilds/search-set/state";
 import {
   loadArmorSkills,
   loadGroupSkillOptions,

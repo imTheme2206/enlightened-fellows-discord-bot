@@ -1,13 +1,8 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder, TextChannel } from 'discord.js'
 import logger from '../../../config/logger'
+import { genshinCodeChannels } from '../../../services/channel-registry'
+import { getUnalertedGenshinCodes, markGenshinCodesAlerted } from '../../../services/db-service'
 import { sendCodesToChannel } from '../../jobs/genshin-code-job'
-import {
-  getGenshinCodeChannel,
-  getUnalertedGenshinCodes,
-  markGenshinCodesAlerted,
-  removeGenshinCodeChannel,
-  saveGenshinCodeChannel,
-} from '../../../services/db-service'
 import { Command } from '../_types'
 
 export const data = new SlashCommandBuilder()
@@ -29,10 +24,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   const action = interaction.options.getString('action', true)
   const channelId = interaction.channelId
-  const existing = getGenshinCodeChannel(channelId)
 
   if (action === 'register') {
-    if (existing) {
+    if (genshinCodeChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is already registered for Genshin Impact code alerts.',
         ephemeral: true,
@@ -40,7 +34,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    saveGenshinCodeChannel(channelId)
+    genshinCodeChannels.register(channelId)
     logger.info(`Registered Genshin code channel: ${channelId}`)
 
     await interaction.reply({
@@ -63,7 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
     }
   } else {
-    if (!existing) {
+    if (!genshinCodeChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is not registered for Genshin Impact code alerts.',
         ephemeral: true,
@@ -71,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    removeGenshinCodeChannel(channelId)
+    genshinCodeChannels.unregister(channelId)
     logger.info(`Unregistered Genshin code channel: ${channelId}`)
 
     await interaction.reply({

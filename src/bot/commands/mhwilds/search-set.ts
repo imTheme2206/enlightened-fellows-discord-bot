@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
-import { buildComponents } from "../../services/set-search/components/form";
-import { buildEmbed } from "../../services/set-search/components/ui";
-import type { Command } from "./_types";
+import { buildComponents } from "../../../services/set-search/components/form";
+import { buildEmbed } from "../../../services/set-search/components/ui";
+import type { Command } from "../_types";
 import { handleComponent, handleModal } from "./search-set/handlers";
 import { getSession, saveSession } from "./search-set/state";
 

@@ -4,7 +4,10 @@ import {
   ButtonStyle,
   EmbedBuilder,
 } from "discord.js";
-import type { SearchState, Step } from "../../../bot/commands/search-set/state";
+import type {
+  SearchState,
+  Step,
+} from "../../../bot/commands/mhwilds/search-set/state";
 import { buildPaginationComponents } from "../../../bot/utils/embed-pagination";
 
 export function buildHistoryLabel(state: SearchState): string {
