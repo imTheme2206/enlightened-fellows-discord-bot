@@ -2,7 +2,7 @@ import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import logger from '../../config/logger'
 import { mhEventsChannels } from '../../services/channel-registry'
-import { commandRegistry } from '../registry'
+import { execute as eventsExecute } from '../commands/mhwilds/events'
 
 const cronSchedule = '0 10 * * 3' // every Wednesday at 10:00 SGT
 
@@ -64,15 +64,9 @@ export function startEventsJob(client: Client): void {
                   logger.info(`Editing message in ${channel.name}`)
                   return channel.send(opts as Parameters<typeof channel.send>[0])
                 },
-              } as Parameters<NonNullable<ReturnType<typeof commandRegistry.get>>['execute']>[0]
+              } as Parameters<typeof eventsExecute>[0]
 
-              const eventsCommand = commandRegistry.get('events')
-              if (!eventsCommand) {
-                logger.error('events command not found in registry')
-                continue
-              }
-
-              await eventsCommand.execute(fakeInteraction)
+              await eventsExecute(fakeInteraction)
               logger.info(`Successfully executed events command in ${channel.name}`)
             } catch (err) {
               logger.error(`Failed to send events to channel ${channelId}:`, { err })

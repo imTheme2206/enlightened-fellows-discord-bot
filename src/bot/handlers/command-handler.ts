@@ -3,27 +3,12 @@ import { config } from "../../config";
 import logger from "../../config/logger";
 import { Command } from "../commands/_types";
 import * as genshinCmds from "../commands/genshin";
-import * as registerGenshinChannel from "../commands/genshin/register-channel";
-import * as events from "../commands/mhwilds/events";
-import * as registerMhEventsChannel from "../commands/mhwilds/register-channel";
-import * as hzv from "../commands/mhwilds/hzv";
-import * as metaGuide from "../commands/mhwilds/meta-guide";
-import * as searchSet from "../commands/mhwilds/search-set";
-import * as ping from "../commands/ping";
+import * as mhwildsCmds from "../commands/mhwilds";
 
 export async function loadCommands(): Promise<Map<string, Command>> {
   const registry = new Map<string, Command>();
 
-  const modules: Partial<Command>[] = [
-    events,
-    hzv,
-    metaGuide,
-    ping,
-    searchSet,
-    genshinCmds,
-    registerGenshinChannel,
-    registerMhEventsChannel,
-  ];
+  const modules: Partial<Command>[] = [mhwildsCmds, genshinCmds];
 
   for (const mod of modules) {
     if (!mod.data || typeof mod.execute !== "function") {

@@ -6,17 +6,6 @@ import {
 import { MONSTER_LIST } from "mh-wilds-event-scraper";
 import { Command } from "../_types";
 
-const apexMonsters = [
-  "Arkveld",
-  "Rey Dau",
-  "Nu Udra",
-  "Uth Duna",
-  "Jin Dahaad",
-  "Gore Magala",
-  "Mizutsune",
-  "Zho Shia",
-];
-
 export const data = new SlashCommandBuilder()
   .setName("hzv")
   .setDescription("Return Meta Build Guide Reddit Link")
