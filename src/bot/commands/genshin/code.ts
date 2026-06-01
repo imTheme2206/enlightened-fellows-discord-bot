@@ -5,8 +5,8 @@ import {
   TextChannel,
 } from 'discord.js'
 import logger from '../../../config/logger'
-import { genshinCodeChannels } from '../../../services/channel-registry'
-import { saveGenshinCode } from '../../../services/db-service'
+import { genshinCodeChannels } from '../../../modules/channels/service'
+import { GenshinCodeService } from '../../../modules/genshin-codes/service'
 import { Command } from '../_types'
 
 const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
@@ -44,7 +44,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const content = messages.join('\n')
 
   for (const code of codes) {
-    saveGenshinCode(code, true)
+    GenshinCodeService.save(code, true)
   }
 
   logger.debug('returning message', { messages })

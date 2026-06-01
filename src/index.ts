@@ -1,8 +1,10 @@
+import "./db/schema";
 import { Client, GatewayIntentBits } from "discord.js";
 // import { client } from "./bot/client";
 import { loadEvents } from "./bot/handlers/event-handler";
 import { config } from "./config";
 import logger from "./config/logger";
+import { startServer } from "./server";
 
 const client = new Client({
   intents: [
@@ -26,7 +28,8 @@ process.on("SIGINT", () => handleShutdown("SIGINT"));
 async function main(): Promise<void> {
   // config is validated on import; fatal exit if env vars missing
   logger.info("Starting bot...");
-  logger.info(`Web server stub on port ${config.WEB_PORT}`);
+
+  await startServer();
 
   // await initSearchIndex()
   await loadEvents(client);

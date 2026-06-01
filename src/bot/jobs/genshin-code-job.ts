@@ -1,12 +1,11 @@
 import { Client, MessageFlags, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import logger from '../../config/logger'
-import { genshinCodeChannels } from '../../services/channel-registry'
+import { genshinCodeChannels } from '../../modules/channels/service'
 import {
-  GenshinCodeRow,
-  getUnalertedGenshinCodes,
-  markGenshinCodesAlerted,
-} from '../../services/db-service'
+  type GenshinCodeRow,
+  GenshinCodeService,
+} from '../../modules/genshin-codes/service'
 
 const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
 const cronSchedule = '0 * * * *' // every hour
@@ -24,7 +23,7 @@ export async function alertCodesToChannel(
   client: Client,
   channelId: string,
 ): Promise<void> {
-  const codes = getUnalertedGenshinCodes()
+  const codes = GenshinCodeService.getUnalerted()
   if (codes.length === 0) return
 
   const channel = client.guilds.cache
@@ -46,7 +45,7 @@ export function startGenshinCodeJob(client: Client): void {
     logger.info('Running Genshin code alert job...')
 
     try {
-      const codes = getUnalertedGenshinCodes()
+      const codes = GenshinCodeService.getUnalerted()
       if (codes.length === 0) {
         logger.debug('No unalerted Genshin codes found')
         return
@@ -66,7 +65,7 @@ export function startGenshinCodeJob(client: Client): void {
         }
       }
 
-      markGenshinCodesAlerted(codes.map((c) => c.id))
+      GenshinCodeService.markAlerted(codes.map((c) => c.id))
       logger.info(`Genshin code job: marked ${codes.length} code(s) as alerted`)
     } catch (err) {
       logger.error('Genshin code job: unexpected error', { err })

@@ -2,10 +2,7 @@ import type {
   MessageComponentInteraction,
   ModalSubmitInteraction,
 } from "discord.js";
-import {
-  getRecentSearchHistory,
-  saveSearchHistory,
-} from "../../../../services/db-service";
+import { SearchHistoryService } from "../../../../modules/search-history/service";
 import { searchSets } from "../../../../services/set-search";
 import { buildComponents } from "../../../../services/set-search/components/form";
 import { buildSearchInput } from "../../../../services/set-search/components/search-input";
@@ -62,7 +59,7 @@ async function runSearch(
     return;
   }
 
-  saveSearchHistory(
+  SearchHistoryService.save(
     interaction.user.id,
     buildHistoryLabel(state),
     JSON.stringify({
@@ -168,7 +165,7 @@ export async function handleComponent(
     return;
   }
   if (id === "search-set:btn-history") {
-    const entries = getRecentSearchHistory(interaction.user.id);
+    const entries = SearchHistoryService.getRecent(interaction.user.id);
     await updateSession(interaction, {
       ...state,
       step: "history",

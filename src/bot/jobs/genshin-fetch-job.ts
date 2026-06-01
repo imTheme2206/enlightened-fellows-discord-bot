@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import logger from "../../config/logger";
-import { saveGenshinCode } from "../../services/db-service";
+import { GenshinCodeService } from "../../modules/genshin-codes/service";
 
 const CODES_API = "https://hoyo-codes.seria.moe/codes?game=genshin";
 const cronSchedule = "0 * * * *"; // every hour
@@ -34,7 +34,7 @@ export async function fetchAndSaveGenshinCodes(): Promise<void> {
 
   for (const entry of codes) {
     const isExpired = entry.status !== "OK";
-    saveGenshinCode(entry.code, false, isExpired, entry.rewards);
+    GenshinCodeService.save(entry.code, false, isExpired, entry.rewards);
   }
 
   logger.info("Genshin codes saved to DB");

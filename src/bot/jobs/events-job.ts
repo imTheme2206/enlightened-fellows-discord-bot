@@ -1,7 +1,7 @@
 import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import logger from '../../config/logger'
-import { mhEventsChannels } from '../../services/channel-registry'
+import { mhEventsChannels } from '../../modules/channels/service'
 import { execute as eventsExecute } from '../commands/mhwilds/events'
 
 const cronSchedule = '0 10 * * 3' // every Wednesday at 10:00 SGT

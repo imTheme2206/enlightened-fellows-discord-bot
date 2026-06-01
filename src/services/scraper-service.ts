@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import logger from "../config/logger";
-import { db, logJob } from "./db-service";
+import { db } from "../db/client";
+import { JobLogService } from "../modules/job-logs/service";
 import { SeedDataSchema, transformSeedData } from "./scraper/transform";
 import type { SeedData } from "./scraper/types";
 
@@ -196,7 +197,7 @@ export async function runScraper(
       `[scraperService] Success: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`,
     );
 
-    logJob(jobName, "SUCCESS", JSON.stringify(result));
+    JobLogService.log(jobName, "SUCCESS", JSON.stringify(result));
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -217,7 +218,7 @@ export async function runScraper(
     const message = err instanceof Error ? err.message : String(err);
     logger.error(`[scraperService] Failed: ${message}`, { err });
     try {
-      logJob(jobName, "FAILED", message);
+      JobLogService.log(jobName, "FAILED", message);
     } catch {
       // ignore logging failure
     }

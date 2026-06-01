@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder, TextChannel } from 'discord.js'
 import logger from '../../../config/logger'
-import { genshinCodeChannels } from '../../../services/channel-registry'
-import { getUnalertedGenshinCodes, markGenshinCodesAlerted } from '../../../services/db-service'
+import { genshinCodeChannels } from '../../../modules/channels/service'
+import { GenshinCodeService } from '../../../modules/genshin-codes/service'
 import { sendCodesToChannel } from '../../jobs/genshin-code-job'
 import { Command } from '../_types'
 
@@ -42,13 +42,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       ephemeral: true,
     })
 
-    const codes = getUnalertedGenshinCodes()
+    const codes = GenshinCodeService.getUnalerted()
     if (codes.length > 0) {
       const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
       if (channel) {
         try {
           await sendCodesToChannel(channel, codes)
-          markGenshinCodesAlerted(codes.map((c) => c.id))
+          GenshinCodeService.markAlerted(codes.map((c) => c.id))
         } catch (err) {
           logger.error(`register-genshin-code-channel: immediate alert failed for ${channelId}`, { err })
         }
