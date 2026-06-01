@@ -38,6 +38,7 @@ function buildTestIndex(): SetSearchIndex {
     setSkills: d[7] as string[],
   })
 
+  // d[0] is the compact type tag "talisman" — type is hardcoded below
   const mapTalisman = (name: string, d: unknown[]): ArmorPiece => ({
     name,
     type: 'talisman',
@@ -139,7 +140,7 @@ describe('set-search', () => {
 
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 
-  describe('gore magala + lord\'s soul weapon build', () => {
+  describe("Gore Magala's Tyranny + Lord's Soul weapon build", () => {
     /**
      * The weapon equips Gore Magala's Tyranny (set skill, 2-piece activation)
      * and Lord's Soul (group skill, 3-piece activation).
@@ -185,66 +186,77 @@ describe('set-search', () => {
     })
 
     it('every result has 6 armor pieces', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.armorNames).toHaveLength(6)
       }
     })
 
     it('every result satisfies Antivirus 3', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Antivirus'] ?? 0).toBeGreaterThanOrEqual(3)
       }
     })
 
     it('every result satisfies Free Meal 2', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Free Meal'] ?? 0).toBeGreaterThanOrEqual(2)
       }
     })
 
     it('every result satisfies Maximum Might 3', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Maximum Might'] ?? 0).toBeGreaterThanOrEqual(3)
       }
     })
 
     it('every result satisfies Earplugs 1', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Earplugs'] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 
     it('every result satisfies Agitator 4', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Agitator'] ?? 0).toBeGreaterThanOrEqual(4)
       }
     })
 
     it('every result satisfies Weakness Exploit 5', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Weakness Exploit'] ?? 0).toBeGreaterThanOrEqual(5)
       }
     })
 
     it('every result satisfies Burst 1', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.skills['Burst'] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 
     it("every result activates Gore Magala's Tyranny (2-piece set skill with weapon)", () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.setSkills["Gore Magala's Tyranny"] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 
     it("every result activates Lord's Soul (3-piece group skill with weapon)", () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         expect(result.groupSkills["Lord's Soul"] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 
     it('innate-skill-first: no skill in any result exceeds its maximum level', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         for (const [sk, lv] of Object.entries(result.skills)) {
           const max = index.skills.get(sk)?.maxLevel
@@ -256,12 +268,14 @@ describe('set-search', () => {
     })
 
     it('innate-skill-first: top result has the most or equal size-3 free slots among all results', () => {
+      expect(results.length).toBeGreaterThan(0)
       const maxThrees = Math.max(...results.map((r) => r.freeSlots.filter((s) => s === 3).length))
       const topThrees = results[0].freeSlots.filter((s) => s === 3).length
       expect(topThrees).toBe(maxThrees)
     })
 
     it('decorations used only cover the skill gap left by innate armor skills', () => {
+      expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         // Build a deco-skills map for this result
         const decoSkills: Record<string, number> = {}
@@ -273,17 +287,12 @@ describe('set-search', () => {
           }
         }
 
-        // For each required skill, the deco contribution must not exceed the gap
+        // Decos should only fill the gap left by innate armor skills
         for (const [sk, needed] of Object.entries(input.skills)) {
-          // innate armor contribution = total skill - deco contribution
-          const totalSkillInResult = result.skills[sk] ?? 0
           const decoContrib = decoSkills[sk] ?? 0
-          const innateContrib = totalSkillInResult - decoContrib
-
-          // Decos should only fill what innate armor didn't already provide
-          // i.e., deco contribution <= max(0, needed - innate)
+          const innateContrib = (result.skills[sk] ?? 0) - decoContrib
           const gap = Math.max(0, needed - innateContrib)
-          expect(decoContrib).toBeLessThanOrEqual(gap + needed) // lenient: no more decos than the full requirement
+          expect(decoContrib).toBeLessThanOrEqual(gap)
         }
       }
     })

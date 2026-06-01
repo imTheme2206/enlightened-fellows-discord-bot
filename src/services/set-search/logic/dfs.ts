@@ -1,4 +1,4 @@
-import type { ArmorPiece, DecorationItem } from '../types'
+import type { ArmorPiece } from '../types'
 import type { SearchResult } from '../types'
 import type { GearPool, PieceEntry } from './constants'
 import { ARMOR_SLOT_TYPES, LIMIT } from './constants'
@@ -19,9 +19,9 @@ export function rollCombosDfs(
   // Pre-compute entry arrays once — avoids Object.entries() allocation on every DFS node
   const slotEntries: Record<string, [string, ArmorPiece][]> = {}
   for (const slot of ARMOR_SLOT_TYPES) {
-    slotEntries[slot] = Object.entries(gear[slot] as Record<string, ArmorPiece>)
+    slotEntries[slot] = Object.entries(gear[slot])
   }
-  const decos = gear.decos as unknown as Record<string, DecorationItem>
+  const decos = gear.decos
   const setSkillKeys = Object.keys(setSkills)
   const groupSkillKeys = Object.keys(groupSkills)
   const desiredSkillEntries = Object.entries(desiredSkills)
@@ -83,7 +83,6 @@ export function rollCombosDfs(
       const fullSet = armorCombo(pieces)
       const result = testCombo(fullSet, decos, desiredSkills)
       if (result) {
-        result.armorNames = [...result.armorNames]
         result._originalIndex = results.length
         results.push(result)
       }
@@ -93,16 +92,16 @@ export function rollCombosDfs(
     const slot = ARMOR_SLOT_TYPES[index]
     const pieces = slotEntries[slot]
     const nextIndex = index + 1
-    const remainingSlots = ARMOR_SLOT_TYPES.length - nextIndex
+
+    // Reused scratch objects cleared via delete during backtrack — avoids per-piece allocation
+    const addedSetCounts: Record<string, number> = {}
+    const addedGroupCounts: Record<string, number> = {}
 
     for (const [name, piece] of pieces) {
       if (usedNames.has(name) && name !== 'None') continue
 
       currentArmor[slot] = [name, piece]
       usedNames.add(name)
-
-      const addedSetCounts: Record<string, number> = {}
-      const addedGroupCounts: Record<string, number> = {}
 
       for (const sk of piece.setSkills) {
         if (sk && setSkills[sk]) {
@@ -179,7 +178,7 @@ export function rollCombosDfs(
         dfs(nextIndex, currentArmor, usedNames, setCounts, groupCounts)
       }
 
-      // Backtrack
+      // Backtrack — also clears addedSetCounts/addedGroupCounts for the next iteration
       if (contrib) {
         for (const [sk, pts] of Object.entries(contrib)) {
           assignedPoints[sk] = (assignedPoints[sk] ?? 0) - pts
@@ -187,8 +186,14 @@ export function rollCombosDfs(
       }
       usedNames.delete(name)
       delete currentArmor[slot]
-      for (const sk of Object.keys(addedSetCounts)) setCounts[sk] -= addedSetCounts[sk]
-      for (const gk of Object.keys(addedGroupCounts)) groupCounts[gk] -= addedGroupCounts[gk]
+      for (const sk of Object.keys(addedSetCounts)) {
+        setCounts[sk] -= addedSetCounts[sk]
+        delete addedSetCounts[sk]
+      }
+      for (const gk of Object.keys(addedGroupCounts)) {
+        groupCounts[gk] -= addedGroupCounts[gk]
+        delete addedGroupCounts[gk]
+      }
     }
   }
 
