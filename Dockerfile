@@ -2,7 +2,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache git python3 make g++
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN corepack enable && echo "minimum-release-age=0" >> .npmrc && pnpm install --frozen-lockfile
 
 FROM node:22-alpine AS builder
 WORKDIR /app
