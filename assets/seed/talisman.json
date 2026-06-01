@@ -59,6 +59,7 @@
 	"Evasion Charm IV":["talisman",{"Evade Window":4}],
 	"Exploiter Charm I":["talisman",{"Weakness Exploit":1}],
 	"Exploiter Charm II":["talisman",{"Weakness Exploit":2}],
+	"Exploiter Charm III":["talisman",{"Weakness Exploit":3}],
 	"Extension Charm I":["talisman",{"Item Prolonger":1}],
 	"Extension Charm II":["talisman",{"Item Prolonger":2}],
 	"Extension Charm III":["talisman",{"Item Prolonger":3}],

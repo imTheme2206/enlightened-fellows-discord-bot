@@ -31,12 +31,12 @@ export function computeMaxPotential(
   gear: GearPool,
   skillNames: string[],
 ): Record<string, Record<string, number>> {
-  const decos = gear.decos as unknown as Record<string, DecorationItem>;
+  const decos = gear.decos;
   const result: Record<string, Record<string, number>> = {};
 
   for (const slotType of ARMOR_SLOT_TYPES) {
     result[slotType] = {};
-    const pool = gear[slotType] as Record<string, ArmorPiece>;
+    const pool = gear[slotType];
 
     for (const skillName of skillNames) {
       let maxPoints = 0;
@@ -262,7 +262,7 @@ export function getBestArmor(
   setSkills: Record<string, number>,
   groupSkills: Record<string, number>,
   mandatoryPieceNames: (string | null | undefined)[],
-  blacklistedArmor: string[],
+  blacklistedArmor: readonly string[],
   allArmorByType: Record<string, ArmorPiece[]>,
   allDecos: DecorationItem[],
   rank: string,
@@ -288,12 +288,14 @@ export function getBestArmor(
     }
   }
 
+  const blacklistSet = new Set(blacklistedArmor);
+
   // Filter armor by rank and mandatory/blacklist constraints
   const filteredArmor: Record<string, ArmorPiece> = {};
   for (const [name, piece] of Object.entries(allArmorFlat)) {
     if (piece.rank !== rank) continue;
     if (mandatory[piece.type] && name !== mandatory[piece.type]) continue;
-    if (blacklistedArmor.includes(name)) continue;
+    if (blacklistSet.has(name)) continue;
     filteredArmor[name] = piece;
   }
 
@@ -302,7 +304,7 @@ export function getBestArmor(
   const candidateTalismans: Record<string, ArmorPiece> = {};
   if (!mandatory["talisman"]) {
     for (const piece of allTalismans) {
-      if (blacklistedArmor.includes(piece.name)) continue;
+      if (blacklistSet.has(piece.name)) continue;
       if (!hasNeededSkill(piece.skills, skills)) continue;
       candidateTalismans[piece.name] = piece;
     }
@@ -334,8 +336,9 @@ export function getBestArmor(
   const best: Record<string, Record<string, ArmorPiece>> = emptyGearSet();
 
   for (const sortType of ["length", "size"] as const) {
-    const checker: Record<string, { checked?: boolean }> =
-      emptyGearSet() as unknown as Record<string, { checked?: boolean }>;
+    const checker: Record<string, Record<string, boolean>> = {
+      head: {}, chest: {}, arms: {}, waist: {}, legs: {}, talisman: {},
+    };
 
     const allSort = Object.entries(filteredArmor).sort((a, b) => {
       if (sortType === "size") {
@@ -354,8 +357,8 @@ export function getBestArmor(
 
     for (const [armorName, piece] of allSort) {
       const category = piece.type;
-      const catChecker = checker[category] as Record<string, unknown>;
-      if (isEmpty(catChecker as Record<string, unknown>)) {
+      const catChecker = checker[category];
+      if (isEmpty(catChecker)) {
         const catFirsts = firsts[category];
         const qualifies =
           sortType === "size"
@@ -412,7 +415,7 @@ export function getBestArmor(
   };
 
   for (const [category, data] of Object.entries(maxPossibleSkillPotential)) {
-    for (const [_skillName, statData] of Object.entries(data)) {
+    for (const [, statData] of Object.entries(data)) {
       for (const key of ["best", "more"] as const) {
         const entry = statData[key];
         if (!entry) continue;
@@ -467,7 +470,7 @@ export function getBestArmor(
           groupiesGrouped,
         )) {
           for (const [armorName, piece] of Object.entries(groupArmors)) {
-            const potCat = maxPossibleSkillPotentialSet as unknown as Record<
+            const potCat = maxPossibleSkillPotentialSet as Record<
               string,
               Record<string, SkillPotentialAlias>
             >;
@@ -494,8 +497,8 @@ export function getBestArmor(
     for (const [category, groupData] of Object.entries(
       maxPossibleSkillPotentialSet,
     )) {
-      for (const [_groupName, skillMap] of Object.entries(groupData)) {
-        for (const [_skillName, statData] of Object.entries(skillMap)) {
+      for (const [, skillMap] of Object.entries(groupData)) {
+        for (const [, statData] of Object.entries(skillMap)) {
           for (const key of ["best", "more"] as const) {
             const entry = (statData as SkillPotentialAlias)[key];
             if (!entry) continue;
@@ -513,13 +516,25 @@ export function getBestArmor(
     }
   }
 
-  // Always include every piece that belongs to a required set/group skill, regardless of
-  // regular-skill potential — needed so the DFS can form the full set/group combination.
+  // Include pieces for required set/group skills, capped per slot by skill relevance.
+  // Keeping all N variants per slot causes the search space to balloon for group skills
+  // (which need 3 pieces). We keep the top (max_needed + 2) per slot so the DFS has
+  // enough diversity without exploring an exponential number of equivalent paths.
+  const maxSetNeed = Math.max(0, ...Object.values(setSkills).map((v) => v * 2));
+  const maxGroupNeed = Object.keys(groupSkills).length > 0 ? 3 : 0;
+  const setGroupCap = Math.max(maxSetNeed, maxGroupNeed) + 2;
+
   for (const [category, data] of Object.entries(bestSetGroupByType)) {
-    bareMinimum[category] = { ...(bareMinimum[category] ?? {}), ...data };
+    const sorted = Object.entries(data).sort(
+      (a, b) =>
+        skillRelevanceScore(b[1], skills, bestDecos) -
+        skillRelevanceScore(a[1], skills, bestDecos),
+    );
+    for (const [name, piece] of sorted.slice(0, setGroupCap)) {
+      bareMinimum[category][name] = piece;
+    }
   }
 
-  bareMinimum["decos"] = bestDecos as unknown as Record<string, ArmorPiece>;
   bareMinimum["talisman"] = topTalis;
 
   // Ensure every slot type has at least the "None" placeholder
@@ -530,8 +545,8 @@ export function getBestArmor(
   }
 
   // Sort final pool: most skill-relevant pieces first so DFS prunes earlier
-  for (const cat of Object.keys(bareMinimum)) {
-    if (cat === "decos" || cat === "talisman") continue;
+  const armorSlots = ARMOR_SLOT_TYPES.filter((s) => s !== "talisman");
+  for (const cat of armorSlots) {
     bareMinimum[cat] = Object.fromEntries(
       Object.entries(bareMinimum[cat]).sort((a, b) => {
         const scoreB = skillRelevanceScore(b[1], skills, bestDecos);
@@ -542,5 +557,5 @@ export function getBestArmor(
     );
   }
 
-  return bareMinimum as unknown as GearPool;
+  return { ...(bareMinimum as unknown as Omit<GearPool, "decos">), decos: bestDecos };
 }

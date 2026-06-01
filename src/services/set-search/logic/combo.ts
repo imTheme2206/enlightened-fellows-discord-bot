@@ -1,6 +1,5 @@
 import type { DecorationItem, SearchResult } from "../types";
 import type { ArmorComboResult, DecoResult, PieceEntry } from "./constants";
-import { ARMOR_SLOT_TYPES } from "./constants";
 import { mergeSumMaps } from "./pool-helpers";
 
 export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
@@ -163,41 +162,3 @@ export function testCombo(
   };
 }
 
-/**
- * DFS pruning check: can the current partial armor set + remaining pool
- * possibly reach the required skill level?
- */
-export function canArmorFulfillSkill(
-  currentArmor: Record<string, PieceEntry>,
-  decos: Record<string, DecorationItem>,
-  skillName: string,
-  skillLevel: number,
-  maxPotential: Record<string, Record<string, number>>,
-): boolean {
-  const poolTypeList = ARMOR_SLOT_TYPES.filter((t) => !currentArmor[t]);
-
-  let totalPoints = 0;
-
-  // Precomputed max per remaining slot — O(1) per slot instead of O(pool × decos)
-  for (const tipo of poolTypeList) {
-    totalPoints += maxPotential[tipo]?.[skillName] ?? 0;
-    if (totalPoints >= skillLevel) return true;
-  }
-
-  // Points from already-assigned slots (at most 6 pieces, cost is negligible)
-  for (const [armorType, pieceEntry] of Object.entries(currentArmor)) {
-    const piece = pieceEntry[1];
-    totalPoints += piece.skills[skillName] ?? 0;
-    if (armorType === "talisman") continue;
-    for (const deco of Object.values(decos)) {
-      const decoSkillLevel = deco.skills[skillName];
-      if (decoSkillLevel) {
-        totalPoints +=
-          decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length;
-        break;
-      }
-    }
-  }
-
-  return totalPoints >= skillLevel;
-}

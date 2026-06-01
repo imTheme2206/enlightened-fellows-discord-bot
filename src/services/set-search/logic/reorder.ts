@@ -39,8 +39,8 @@ export function reorder(
     const aTwos = a.freeSlots.filter((s) => s === 2).length;
     const bTwos = b.freeSlots.filter((s) => s === 2).length;
     return (
-      // bThrees - aThrees ||
-      // bTwos - aTwos ||
+      bThrees - aThrees ||
+      bTwos - aTwos ||
       b.freeSlots.length - a.freeSlots.length ||
       Object.keys(b.skills).length - Object.keys(a.skills).length ||
       b.defense - a.defense
