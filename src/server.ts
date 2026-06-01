@@ -41,10 +41,10 @@ export async function startServer(): Promise<void> {
         ? staticPlugin({ assets: dashboardDist, prefix: "/" })
         : new Elysia()
     )
+    .get("/api/health", () => ({ ok: true }))
     .group("/api", (app) =>
       app
         .onBeforeHandle(authGuard)
-        .get("/health", () => ({ ok: true }))
         .use(jobLogsRoutes)
         .use(genshinCodesRoutes)
         .use(channelsRoutes)
