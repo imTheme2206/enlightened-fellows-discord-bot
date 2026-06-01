@@ -137,13 +137,15 @@ describe('set-search', () => {
     index = buildTestIndex()
   })
 
-  // ── Gore Magala + Soul of the Dark Knight weapon ──────────────────────────
+  // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 
-  describe('gore magala + lord soul weapon build', () => {
+  describe('gore magala + lord\'s soul weapon build', () => {
     /**
-     * The weapon equips both Gore Magala and Lord Soul set skills, each
-     * counting as one armor piece toward their 2-piece activation.
-     * The armor set therefore needs one more piece of each set.
+     * The weapon equips Gore Magala's Tyranny (set skill, 2-piece activation)
+     * and Lord's Soul (group skill, 3-piece activation).
+     * Weapon counts as 1 piece toward each, so armor needs:
+     *   - 1 more Gore Magala piece (set skill)
+     *   - 2 more Lord's Soul pieces (group skill)
      */
     const input: SearchInput = {
       skills: {
@@ -157,20 +159,26 @@ describe('set-search', () => {
       },
       setSkills: {
         "Gore Magala's Tyranny": 1,
-        'Soul of the Dark Knight': 1,
+      },
+      groupSkills: {
+        "Lord's Soul": 1,
       },
       initialSetCounts: {
         "Gore Magala's Tyranny": 1,
-        'Soul of the Dark Knight': 1,
+      },
+      initialGroupCounts: {
+        "Lord's Soul": 1,
       },
       rank: 'high',
     }
 
     let results: SearchResult[]
 
+    // Lord's Soul is a 3-piece group skill; the DFS explores a larger combination space
+    // and may take up to ~10 seconds on a cold run.
     beforeAll(() => {
       results = search(input, index)
-    })
+    }, 20_000)
 
     it('finds at least one valid build', () => {
       expect(results.length).toBeGreaterThan(0)
@@ -224,15 +232,15 @@ describe('set-search', () => {
       }
     })
 
-    it("every result activates Gore Magala's Tyranny (2-piece with weapon)", () => {
+    it("every result activates Gore Magala's Tyranny (2-piece set skill with weapon)", () => {
       for (const result of results) {
         expect(result.setSkills["Gore Magala's Tyranny"] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 
-    it('every result activates Soul of the Dark Knight (2-piece with weapon)', () => {
+    it("every result activates Lord's Soul (3-piece group skill with weapon)", () => {
       for (const result of results) {
-        expect(result.setSkills['Soul of the Dark Knight'] ?? 0).toBeGreaterThanOrEqual(1)
+        expect(result.groupSkills["Lord's Soul"] ?? 0).toBeGreaterThanOrEqual(1)
       }
     })
 

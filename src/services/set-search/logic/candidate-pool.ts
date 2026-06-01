@@ -515,10 +515,23 @@ export function getBestArmor(
     }
   }
 
-  // Always include every piece that belongs to a required set/group skill, regardless of
-  // regular-skill potential — needed so the DFS can form the full set/group combination.
+  // Include pieces for required set/group skills, capped per slot by skill relevance.
+  // Keeping all N variants per slot causes the search space to balloon for group skills
+  // (which need 3 pieces). We keep the top (max_needed + 2) per slot so the DFS has
+  // enough diversity without exploring an exponential number of equivalent paths.
+  const maxSetNeed = Math.max(0, ...Object.values(setSkills).map((v) => v * 2));
+  const maxGroupNeed = Object.keys(groupSkills).length > 0 ? 3 : 0;
+  const setGroupCap = Math.max(maxSetNeed, maxGroupNeed) + 2;
+
   for (const [category, data] of Object.entries(bestSetGroupByType)) {
-    bareMinimum[category] = { ...(bareMinimum[category] ?? {}), ...data };
+    const sorted = Object.entries(data).sort(
+      (a, b) =>
+        skillRelevanceScore(b[1], skills, bestDecos) -
+        skillRelevanceScore(a[1], skills, bestDecos),
+    );
+    for (const [name, piece] of sorted.slice(0, setGroupCap)) {
+      bareMinimum[category][name] = piece;
+    }
   }
 
   bareMinimum["decos"] = bestDecos as unknown as Record<string, ArmorPiece>;
