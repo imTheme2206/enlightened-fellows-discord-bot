@@ -27,6 +27,6 @@ primary_region = 'sin'
   app = 'node dist/index.js'
 
 [[vm]]
-  memory = '512mb'
+  memory = '256mb'
   cpu_kind = 'shared'
-  cpus = 2
+  cpus = 1
