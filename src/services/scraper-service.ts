@@ -1,45 +1,172 @@
 import { randomUUID } from "crypto";
-import fs from "fs";
-import path from "path";
 import logger from "../config/logger";
 import { db } from "../db/client";
 import { JobLogService } from "../modules/job-logs/service";
 import { SeedDataSchema, transformSeedData } from "./scraper/transform";
-import type { SeedData } from "./scraper/types";
+import type {
+  MhdbArmorPiece,
+  MhdbArmorSet,
+  MhdbCharmGroup,
+  MhdbDecoration,
+  MhdbSkill,
+} from "./scraper/mhdb-types";
 
-const SEED_DIR = path.join(process.cwd(), "assets", "seed");
+const BASE_URL = "https://wilds.mhdb.io/en";
 
-function readSeedJson<T>(filename: string): T {
-  const filePath = path.join(SEED_DIR, filename);
-  return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
+function deKira(name: string): string {
+  return name
+    .replace(/α/g, "Alpha")
+    .replace(/β/g, "Beta")
+    .replace(/γ/g, "Gamma")
+    .replace(/"/g, "'")
+    .replace(/G\. /g, "G ");
 }
 
-function loadSeedData(): SeedData {
-  const raw = {
-    armor: {
-      head: readSeedJson("head.json"),
-      chest: readSeedJson("chest.json"),
-      arms: readSeedJson("arms.json"),
-      waist: readSeedJson("waist.json"),
-      legs: readSeedJson("legs.json"),
-    },
-    talisman: readSeedJson("talisman.json"),
-    decoration: readSeedJson("decoration.json"),
-    skills: readSeedJson("skills.json"),
-    setSkills: readSeedJson("set-skills.json"),
-    groupSkills: readSeedJson("group-skills.json"),
-    setMap: readSeedJson("set-map.json"),
-    armorSkills: readSeedJson("armor-skills.json"),
+function getBaseName(names: string[]): string {
+  const suffixRegex = /\s(I|II)\s*$/;
+  const stripped = names.map((n) => n.replace(suffixRegex, "").trim());
+  return new Set(stripped).size === 1 ? stripped[0] : names.join("/");
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  return res.json() as Promise<T>;
+}
+
+async function fetchSeedData() {
+  const [armorList, skillList, armorSetList, charmList, decorationList] =
+    await Promise.all([
+      fetchJson<MhdbArmorPiece[]>(`${BASE_URL}/armor`),
+      fetchJson<MhdbSkill[]>(`${BASE_URL}/skills`),
+      fetchJson<MhdbArmorSet[]>(`${BASE_URL}/armor/sets`),
+      fetchJson<MhdbCharmGroup[]>(`${BASE_URL}/charms`),
+      fetchJson<MhdbDecoration[]>(`${BASE_URL}/decorations`),
+    ]);
+
+  const pieceSetSkills = new Map<string, string[]>();
+  const pieceGroupSkills = new Map<string, string[]>();
+
+  for (const armorSet of armorSetList) {
+    const setBonusName = armorSet.bonus?.skill?.name;
+    const groupBonusName = armorSet.groupBonus?.skill?.name;
+
+    for (const piece of armorSet.pieces) {
+      if (setBonusName) {
+        const arr = pieceSetSkills.get(piece.name) ?? [];
+        if (!arr.includes(setBonusName)) arr.push(setBonusName);
+        pieceSetSkills.set(piece.name, arr);
+      }
+      if (groupBonusName) {
+        const arr = pieceGroupSkills.get(piece.name) ?? [];
+        if (!arr.includes(groupBonusName)) arr.push(groupBonusName);
+        pieceGroupSkills.set(piece.name, arr);
+      }
+    }
+  }
+
+  for (const piece of armorList) {
+    const directSetSkills = piece.skills
+      .filter((s) => s.skill.kind === "set")
+      .map((s) => s.skill.name);
+    if (directSetSkills.length > 0) {
+      const arr = pieceSetSkills.get(piece.name) ?? [];
+      for (const sk of directSetSkills) {
+        if (!arr.includes(sk)) arr.push(sk);
+      }
+      pieceSetSkills.set(piece.name, arr);
+    }
+  }
+
+  const armor: Record<string, Record<string, unknown[]>> = {
+    head: {},
+    chest: {},
+    arms: {},
+    waist: {},
+    legs: {},
   };
 
+  for (const piece of armorList) {
+    const cleanName = deKira(piece.name);
+    const skills: Record<string, number> = {};
+    for (const s of piece.skills) {
+      if (s.skill.kind === "armor") skills[s.skill.name] = s.level;
+    }
+    armor[piece.kind][cleanName] = [
+      piece.kind,
+      skills,
+      pieceGroupSkills.get(piece.name) ?? [],
+      piece.slots,
+      piece.defense.base,
+      [
+        piece.resistances.fire,
+        piece.resistances.water,
+        piece.resistances.thunder,
+        piece.resistances.ice,
+        piece.resistances.dragon,
+      ],
+      piece.rank,
+      pieceSetSkills.get(piece.name) ?? [],
+    ];
+  }
+
+  const talisman: Record<string, unknown[]> = {};
+  for (const group of charmList) {
+    for (const charm of group.ranks) {
+      const skills: Record<string, number> = {};
+      for (const s of charm.skills) skills[s.skill.name] = s.level;
+      talisman[deKira(charm.name)] = ["talisman", skills];
+    }
+  }
+
+  const decoration: Record<string, unknown[]> = {};
+  for (const deco of decorationList) {
+    const rawName = deco.name
+      .replace(/\[/g, "")
+      .replace(/\]/g, "")
+      .replace(/\//g, "-");
+    const skills: Record<string, number> = {};
+    for (const s of deco.skills) skills[s.skill.name] = s.level;
+    decoration[deKira(rawName)] = [deco.kind, skills, deco.slot];
+  }
+
+  const skills: Record<string, number> = {};
+  const setSkills: Record<string, unknown[]> = {};
+  const groupSkills: Record<string, unknown[]> = {};
+  const setMap: Record<string, string> = {};
+  const armorSkills: string[] = [];
+
+  for (const skill of skillList) {
+    const cleanName = deKira(skill.name);
+    switch (skill.kind) {
+      case "armor":
+      case "weapon":
+        skills[cleanName] = skill.ranks.length;
+        if (skill.kind === "armor") armorSkills.push(cleanName);
+        break;
+      case "set": {
+        const effectName = getBaseName(skill.ranks.map((r) => r.name));
+        setSkills[cleanName] = [effectName, 2, [2, 4]];
+        setMap[cleanName] = effectName;
+        break;
+      }
+      case "group": {
+        const effectName = getBaseName(skill.ranks.map((r) => r.name));
+        groupSkills[cleanName] = [effectName, 1, 3];
+        setMap[cleanName] = effectName;
+        break;
+      }
+    }
+  }
+
+  const raw = { armor, talisman, decoration, skills, setSkills, groupSkills, setMap, armorSkills };
   const parsed = SeedDataSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(
-      `Seed data validation failed: ${JSON.stringify(parsed.error.flatten())}`,
+      `Fetched data validation failed: ${JSON.stringify(parsed.error.flatten())}`,
     );
   }
-
-  return parsed.data as SeedData;
+  return parsed.data;
 }
 
 export interface ScraperResult {
@@ -59,7 +186,7 @@ export async function runScraper(
   let result: ScraperResult = { armorCount: 0, skillCount: 0, decoCount: 0 };
 
   try {
-    const seedData = loadSeedData();
+    const seedData = await fetchSeedData();
     const { skills, armor, armorRegularSkills, decorations } =
       transformSeedData(seedData);
 

@@ -8,6 +8,7 @@ import logger from "./config/logger";
 import { jobLogsRoutes } from "./modules/job-logs/routes";
 import { genshinCodesRoutes } from "./modules/genshin-codes/routes";
 import { channelsRoutes } from "./modules/channels/routes";
+import { fetchArmorsRoutes } from "./modules/fetch-armors/routes";
 
 function authGuard({
   request,
@@ -47,6 +48,7 @@ export async function startServer(): Promise<void> {
         .use(jobLogsRoutes)
         .use(genshinCodesRoutes)
         .use(channelsRoutes)
+        .use(fetchArmorsRoutes)
     )
     .get("/*", ({ set }) => {
       if (fs.existsSync(indexPath)) {
