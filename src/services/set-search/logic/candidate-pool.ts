@@ -288,12 +288,14 @@ export function getBestArmor(
     }
   }
 
+  const blacklistSet = new Set(blacklistedArmor);
+
   // Filter armor by rank and mandatory/blacklist constraints
   const filteredArmor: Record<string, ArmorPiece> = {};
   for (const [name, piece] of Object.entries(allArmorFlat)) {
     if (piece.rank !== rank) continue;
     if (mandatory[piece.type] && name !== mandatory[piece.type]) continue;
-    if (blacklistedArmor.includes(name)) continue;
+    if (blacklistSet.has(name)) continue;
     filteredArmor[name] = piece;
   }
 
@@ -302,7 +304,7 @@ export function getBestArmor(
   const candidateTalismans: Record<string, ArmorPiece> = {};
   if (!mandatory["talisman"]) {
     for (const piece of allTalismans) {
-      if (blacklistedArmor.includes(piece.name)) continue;
+      if (blacklistSet.has(piece.name)) continue;
       if (!hasNeededSkill(piece.skills, skills)) continue;
       candidateTalismans[piece.name] = piece;
     }

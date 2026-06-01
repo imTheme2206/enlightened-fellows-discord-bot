@@ -16,6 +16,16 @@ export function rollCombosDfs(
   const results: SearchResult[] = []
   let visited = 0
 
+  // Pre-compute entry arrays once — avoids Object.entries() allocation on every DFS node
+  const slotEntries: Record<string, [string, ArmorPiece][]> = {}
+  for (const slot of ARMOR_SLOT_TYPES) {
+    slotEntries[slot] = Object.entries(gear[slot] as Record<string, ArmorPiece>)
+  }
+  const decos = gear.decos as unknown as Record<string, DecorationItem>
+  const setSkillKeys = Object.keys(setSkills)
+  const groupSkillKeys = Object.keys(groupSkills)
+  const desiredSkillEntries = Object.entries(desiredSkills)
+
   function dfs(
     index: number,
     currentArmor: Record<string, PieceEntry>,
@@ -28,11 +38,7 @@ export function rollCombosDfs(
     if (index === ARMOR_SLOT_TYPES.length) {
       const pieces = ARMOR_SLOT_TYPES.map((t) => currentArmor[t] as PieceEntry)
       const fullSet = armorCombo(pieces)
-      const result = testCombo(
-        fullSet,
-        gear.decos as unknown as Record<string, DecorationItem>,
-        desiredSkills,
-      )
+      const result = testCombo(fullSet, decos, desiredSkills)
       if (result) {
         result.armorNames = [...result.armorNames]
         result._originalIndex = results.length
@@ -42,9 +48,11 @@ export function rollCombosDfs(
     }
 
     const slot = ARMOR_SLOT_TYPES[index]
-    const pieces = gear[slot] as Record<string, ArmorPiece>
+    const pieces = slotEntries[slot]
+    const nextIndex = index + 1
+    const remainingSlots = ARMOR_SLOT_TYPES.length - nextIndex
 
-    for (const [name, piece] of Object.entries(pieces)) {
+    for (const [name, piece] of pieces) {
       if (usedNames.has(name) && name !== 'None') continue
 
       currentArmor[slot] = [name, piece]
@@ -69,29 +77,25 @@ export function rollCombosDfs(
       let shouldContinue = true
 
       // Prune by set/group skill feasibility
-      const remainingSlots = ARMOR_SLOT_TYPES.length - (index + 1)
-      for (const sk of Object.keys(setSkills)) {
-        const needed = setSkills[sk] * 2 - (setCounts[sk] ?? 0)
-        if (needed > remainingSlots) {
+      for (const sk of setSkillKeys) {
+        if (setSkills[sk] * 2 - (setCounts[sk] ?? 0) > remainingSlots) {
           shouldContinue = false
           break
         }
       }
       if (shouldContinue) {
-        for (const gk of Object.keys(groupSkills)) {
-          const needed = 3 - (groupCounts[gk] ?? 0)
-          if (needed > remainingSlots) {
+        for (const gk of groupSkillKeys) {
+          if (3 - (groupCounts[gk] ?? 0) > remainingSlots) {
             shouldContinue = false
             break
           }
         }
       }
 
-      // Prune by skill feasibility
+      // Prune by skill feasibility — pass nextIndex to avoid filter() inside
       if (shouldContinue) {
-        const decos = gear.decos as unknown as Record<string, DecorationItem>
-        for (const [skillName, level] of Object.entries(desiredSkills)) {
-          if (!canArmorFulfillSkill(currentArmor, decos, skillName, level, maxPotential)) {
+        for (const [skillName, level] of desiredSkillEntries) {
+          if (!canArmorFulfillSkill(currentArmor, decos, skillName, level, maxPotential, nextIndex)) {
             shouldContinue = false
             break
           }
@@ -99,7 +103,7 @@ export function rollCombosDfs(
       }
 
       if (shouldContinue) {
-        dfs(index + 1, currentArmor, usedNames, setCounts, groupCounts)
+        dfs(nextIndex, currentArmor, usedNames, setCounts, groupCounts)
       }
 
       // Backtrack

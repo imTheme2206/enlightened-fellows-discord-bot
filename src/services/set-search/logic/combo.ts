@@ -166,6 +166,9 @@ export function testCombo(
 /**
  * DFS pruning check: can the current partial armor set + remaining pool
  * possibly reach the required skill level?
+ *
+ * @param nextSlotIndex - index of the first unfilled slot in ARMOR_SLOT_TYPES.
+ *   Passed from the DFS caller to avoid re-computing a filter() on every invocation.
  */
 export function canArmorFulfillSkill(
   currentArmor: Record<string, PieceEntry>,
@@ -173,14 +176,13 @@ export function canArmorFulfillSkill(
   skillName: string,
   skillLevel: number,
   maxPotential: Record<string, Record<string, number>>,
+  nextSlotIndex = 0,
 ): boolean {
-  const poolTypeList = ARMOR_SLOT_TYPES.filter((t) => !currentArmor[t]);
-
   let totalPoints = 0;
 
   // Precomputed max per remaining slot — O(1) per slot instead of O(pool × decos)
-  for (const tipo of poolTypeList) {
-    totalPoints += maxPotential[tipo]?.[skillName] ?? 0;
+  for (let i = nextSlotIndex; i < ARMOR_SLOT_TYPES.length; i++) {
+    totalPoints += maxPotential[ARMOR_SLOT_TYPES[i]]?.[skillName] ?? 0;
     if (totalPoints >= skillLevel) return true;
   }
 
