@@ -255,9 +255,10 @@ describe('set-search', () => {
       }
     })
 
-    it('innate-skill-first: top result has the most or equal free slots among all results', () => {
-      const maxFree = Math.max(...results.map((r) => r.freeSlots.length))
-      expect(results[0].freeSlots.length).toBe(maxFree)
+    it('innate-skill-first: top result has the most or equal size-3 free slots among all results', () => {
+      const maxThrees = Math.max(...results.map((r) => r.freeSlots.filter((s) => s === 3).length))
+      const topThrees = results[0].freeSlots.filter((s) => s === 3).length
+      expect(topThrees).toBe(maxThrees)
     })
 
     it('decorations used only cover the skill gap left by innate armor skills', () => {
