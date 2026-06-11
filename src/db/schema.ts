@@ -1,12 +1,10 @@
-import { db } from "./client";
+import { db } from './client'
 
 // Detect stale schema by checking for a column that only exists in the new schema.
 // If missing, drop all tables so CREATE TABLE IF NOT EXISTS rebuilds them correctly.
-const decoColumns = (
-  db.prepare("PRAGMA table_info(Decoration)").all() as { name: string }[]
-).map((c) => c.name);
+const decoColumns = (db.prepare('PRAGMA table_info(Decoration)').all() as { name: string }[]).map((c) => c.name)
 
-if (decoColumns.length > 0 && !decoColumns.includes("skillId")) {
+if (decoColumns.length > 0 && !decoColumns.includes('skillId')) {
   db.exec(`
     DROP TABLE IF EXISTS ArmorGroupSkill;
     DROP TABLE IF EXISTS ArmorSetSkill;
@@ -16,15 +14,13 @@ if (decoColumns.length > 0 && !decoColumns.includes("skillId")) {
     DROP TABLE IF EXISTS SkillRank;
     DROP TABLE IF EXISTS Skill;
     DROP TABLE IF EXISTS JobLog;
-  `);
+  `)
 }
 
-const genshinCodeColumns = (
-  db.prepare("PRAGMA table_info(GenshinCode)").all() as { name: string }[]
-).map((c) => c.name);
+const genshinCodeColumns = (db.prepare('PRAGMA table_info(GenshinCode)').all() as { name: string }[]).map((c) => c.name)
 
-if (genshinCodeColumns.length > 0 && !genshinCodeColumns.includes("rewards")) {
-  db.exec("ALTER TABLE GenshinCode ADD COLUMN rewards TEXT");
+if (genshinCodeColumns.length > 0 && !genshinCodeColumns.includes('rewards')) {
+  db.exec('ALTER TABLE GenshinCode ADD COLUMN rewards TEXT')
 }
 
 db.exec(`
@@ -121,19 +117,15 @@ db.exec(`
     createdAt TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (channelId, type)
   );
-`);
+`)
 
 // Migrate legacy GenshinCodeChannel rows into RegisteredChannel
-const legacyGenshinChannelTable = db
-  .prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='GenshinCodeChannel'",
-  )
-  .get();
+const legacyGenshinChannelTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='GenshinCodeChannel'").get()
 
 if (legacyGenshinChannelTable) {
   db.exec(`
     INSERT OR IGNORE INTO RegisteredChannel (channelId, type, createdAt)
       SELECT channelId, 'genshin_code', createdAt FROM GenshinCodeChannel;
     DROP TABLE GenshinCodeChannel;
-  `);
+  `)
 }

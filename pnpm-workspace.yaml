@@ -1,13 +1,14 @@
 packages:
-  - "."
-  - "dashboard"
+  - '.'
+  - 'dashboard'
 
 overrides:
   type-fest: 5.6.0
-  "@vitest/pretty-format": 3.2.4
+  '@vitest/pretty-format': 3.2.4
 
 allowBuilds:
   better-sqlite3: true
   esbuild: true
   mh-wilds-event-scraper: true
   msw: true
+  unrs-resolver: false

@@ -3,12 +3,21 @@ import DailyRotateFile from 'winston-daily-rotate-file'
 
 const { combine, timestamp, colorize, simple, json, errors } = winston.format
 
+const serializeErrors = winston.format((info) => {
+  for (const [key, val] of Object.entries(info)) {
+    if (val instanceof Error) {
+      ;(info as Record<string, unknown>)[key] = { ...val }
+    }
+  }
+  return info
+})()
+
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const logLevel = process.env.LOG_LEVEL ?? 'info'
 
-const devFormat = combine(errors({ stack: true }), timestamp(), colorize(), simple())
+const devFormat = combine(errors({ stack: true }), serializeErrors, timestamp(), colorize(), simple())
 
-const prodFormat = combine(errors({ stack: true }), timestamp(), json())
+const prodFormat = combine(errors({ stack: true }), serializeErrors, timestamp(), json())
 
 const transports: winston.transport[] = []
 

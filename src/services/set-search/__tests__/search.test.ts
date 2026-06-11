@@ -112,14 +112,7 @@ function buildTestIndex(): SetSearchIndex {
   return {
     version: '1.0.0',
     byType,
-    allArmor: [
-      ...byType.head,
-      ...byType.chest,
-      ...byType.arms,
-      ...byType.waist,
-      ...byType.legs,
-      ...byType.talisman,
-    ],
+    allArmor: [...byType.head, ...byType.chest, ...byType.arms, ...byType.waist, ...byType.legs, ...byType.talisman],
     decorations,
     setSkills,
     groupSkills,

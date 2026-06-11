@@ -1,18 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import type {
-  SetSearchIndex,
-  ArmorPiece,
-  DecorationItem,
-  SetSkillMeta,
-  GroupSkillMeta,
-  SkillMeta,
-  ArmorType,
-} from './types'
-import type { CompactArmor, CompactTalisman, CompactDecoration, CompactSetSkill, CompactGroupSkill } from '../scraper/types'
 import { db } from '../../db/client'
+import type { CompactArmor, CompactDecoration, CompactGroupSkill, CompactSetSkill, CompactTalisman } from '../scraper/types'
+import type { ArmorPiece, ArmorType, DecorationItem, GroupSkillMeta, SetSearchIndex, SetSkillMeta, SkillMeta } from './types'
 
-const SEED_DIR = path.join(__dirname, '..', '..', 'data', 'seed')
+// const SEED_DIR = path.join(__dirname, '..', '..', 'data', 'seed')
+const SEED_DIR = path.resolve('..', '..', 'data', 'seed')
 
 function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(path.join(SEED_DIR, file), 'utf-8')) as T
@@ -20,7 +13,7 @@ function readJson<T>(file: string): T {
 
 function buildMetaMap<TRaw extends unknown[], TMeta>(
   raw: Record<string, TRaw>,
-  factory: (name: string, data: TRaw) => TMeta,
+  factory: (name: string, data: TRaw) => TMeta
 ): Map<string, TMeta> {
   const map = new Map<string, TMeta>()
   for (const [name, data] of Object.entries(raw)) {
@@ -93,35 +86,30 @@ export function buildSearchIndex(): SetSearchIndex {
     byType[type as ArmorType] = Object.entries(raw).map(([n, d]) => mapArmor(n, d))
   }
 
-  const allArmor: ArmorPiece[] = [
-    ...byType.head,
-    ...byType.chest,
-    ...byType.arms,
-    ...byType.waist,
-    ...byType.legs,
-    ...byType.talisman,
-  ]
+  const allArmor: ArmorPiece[] = [...byType.head, ...byType.chest, ...byType.arms, ...byType.waist, ...byType.legs, ...byType.talisman]
 
   // Compact decoration format: [_, skills, slotSize]
-  const decorations: DecorationItem[] = Object.entries(decorationRaw).map(
-    ([name, data]) => ({
-      name,
-      skills: data[1],
-      slotSize: data[2],
-    }),
-  )
+  const decorations: DecorationItem[] = Object.entries(decorationRaw).map(([name, data]) => ({
+    name,
+    skills: data[1],
+    slotSize: data[2],
+  }))
 
   // Compact set-skill format: [skillName, piecesRequired, bonusLevels]
-  const setSkills = buildMetaMap<CompactSetSkill, SetSkillMeta>(
-    setSkillsRaw,
-    (name, data) => ({ name, skillName: data[0], piecesRequired: data[1], bonusLevels: data[2] }),
-  )
+  const setSkills = buildMetaMap<CompactSetSkill, SetSkillMeta>(setSkillsRaw, (name, data) => ({
+    name,
+    skillName: data[0],
+    piecesRequired: data[1],
+    bonusLevels: data[2],
+  }))
 
   // Compact group-skill format: [skillName, levelGranted, piecesRequired]
-  const groupSkills = buildMetaMap<CompactGroupSkill, GroupSkillMeta>(
-    groupSkillsRaw,
-    (name, data) => ({ name, skillName: data[0], levelGranted: data[1], piecesRequired: data[2] }),
-  )
+  const groupSkills = buildMetaMap<CompactGroupSkill, GroupSkillMeta>(groupSkillsRaw, (name, data) => ({
+    name,
+    skillName: data[0],
+    levelGranted: data[1],
+    piecesRequired: data[2],
+  }))
 
   // Skills seed is a plain name → maxLevel map
   const skills = new Map<string, SkillMeta>()
@@ -141,8 +129,26 @@ export function buildSearchIndex(): SetSearchIndex {
 }
 
 export function buildIndexFromDb(): SetSearchIndex {
-  type SkillRow = { name: string; maxLevel: number; isSetSkill: number; isGroupSkill: number; requiredPieces: number | null; effectName: string | null }
-  type ArmorRow = { name: string; type: string; rank: string; defense: number; slots: string; fireRes: number; waterRes: number; thunderRes: number; iceRes: number; dragonRes: number }
+  type SkillRow = {
+    name: string
+    maxLevel: number
+    isSetSkill: number
+    isGroupSkill: number
+    requiredPieces: number | null
+    effectName: string | null
+  }
+  type ArmorRow = {
+    name: string
+    type: string
+    rank: string
+    defense: number
+    slots: string
+    fireRes: number
+    waterRes: number
+    thunderRes: number
+    iceRes: number
+    dragonRes: number
+  }
   type ArmorSkillRow = { armorName: string; skillName: string; level: number }
   type ArmorSetSkillRow = { armorName: string; skillName: string }
   type DecoRow = { name: string; slotSize: number; skillName: string; skillLevel: number }
@@ -158,28 +164,56 @@ export function buildIndexFromDb(): SetSearchIndex {
       skills.set(row.name, { name: row.name, maxLevel: row.maxLevel })
     }
     if (row.isSetSkill) {
-      setSkills.set(row.name, { name: row.name, skillName: row.effectName ?? row.name, piecesRequired: row.requiredPieces ?? 2, bonusLevels: [] })
+      setSkills.set(row.name, {
+        name: row.name,
+        skillName: row.effectName ?? row.name,
+        piecesRequired: row.requiredPieces ?? 2,
+        bonusLevels: [],
+      })
     }
     if (row.isGroupSkill) {
-      groupSkills.set(row.name, { name: row.name, skillName: row.effectName ?? row.name, levelGranted: 1, piecesRequired: row.requiredPieces ?? 2 })
+      groupSkills.set(row.name, {
+        name: row.name,
+        skillName: row.effectName ?? row.name,
+        levelGranted: 1,
+        piecesRequired: row.requiredPieces ?? 2,
+      })
     }
   }
 
-  const decoRows = db.prepare(`
+  const decoRows = db
+    .prepare(
+      `
     SELECT d.name, d.slotSize, s.name AS skillName, d.skillLevel
     FROM Decoration d JOIN Skill s ON d.skillId = s.id
-  `).all() as DecoRow[]
+  `
+    )
+    .all() as DecoRow[]
 
-  const decorations: DecorationItem[] = decoRows.map(row => ({
+  const decorations: DecorationItem[] = decoRows.map((row) => ({
     name: row.name,
     skills: { [row.skillName]: row.skillLevel },
     slotSize: row.slotSize,
   }))
 
-  const armorRows = db.prepare('SELECT name, type, rank, defense, slots, fireRes, waterRes, thunderRes, iceRes, dragonRes FROM Armor').all() as ArmorRow[]
-  const armorSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName, ak.level FROM ArmorSkill ak JOIN Armor a ON ak.armorId = a.id JOIN Skill s ON ak.skillId = s.id`).all() as ArmorSkillRow[]
-  const armorSetSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName FROM ArmorSetSkill ask JOIN Armor a ON ask.armorId = a.id JOIN Skill s ON ask.skillId = s.id`).all() as ArmorSetSkillRow[]
-  const armorGroupSkillRows = db.prepare(`SELECT a.name AS armorName, s.name AS skillName FROM ArmorGroupSkill agk JOIN Armor a ON agk.armorId = a.id JOIN Skill s ON agk.skillId = s.id`).all() as ArmorSetSkillRow[]
+  const armorRows = db
+    .prepare('SELECT name, type, rank, defense, slots, fireRes, waterRes, thunderRes, iceRes, dragonRes FROM Armor')
+    .all() as ArmorRow[]
+  const armorSkillRows = db
+    .prepare(
+      `SELECT a.name AS armorName, s.name AS skillName, ak.level FROM ArmorSkill ak JOIN Armor a ON ak.armorId = a.id JOIN Skill s ON ak.skillId = s.id`
+    )
+    .all() as ArmorSkillRow[]
+  const armorSetSkillRows = db
+    .prepare(
+      `SELECT a.name AS armorName, s.name AS skillName FROM ArmorSetSkill ask JOIN Armor a ON ask.armorId = a.id JOIN Skill s ON ask.skillId = s.id`
+    )
+    .all() as ArmorSetSkillRow[]
+  const armorGroupSkillRows = db
+    .prepare(
+      `SELECT a.name AS armorName, s.name AS skillName FROM ArmorGroupSkill agk JOIN Armor a ON agk.armorId = a.id JOIN Skill s ON agk.skillId = s.id`
+    )
+    .all() as ArmorSetSkillRow[]
 
   const armorMap = new Map<string, ArmorPiece>()
   for (const row of armorRows) {

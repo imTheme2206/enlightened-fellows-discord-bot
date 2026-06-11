@@ -1,132 +1,94 @@
-import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-} from "discord.js";
-import type { SearchState } from "../../../bot/commands/mhwilds/search-set/state";
-import { MAX_SKILLS } from "../../../bot/commands/mhwilds/search-set/state";
-import {
-  loadArmorSkills,
-  loadGroupSkillOptions,
-  loadSetSkillOptions,
-} from "../interface";
-import { cancelRow } from "./ui";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js'
+import type { SearchState } from '../../../bot/commands/mhwilds/search-set/state'
+import { MAX_SKILLS } from '../../../bot/commands/mhwilds/search-set/state'
+import { loadArmorSkills, loadGroupSkillOptions, loadSetSkillOptions } from '../interface'
+import { cancelRow } from './ui'
 
-export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>;
+export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>
 
 function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
-  const setOptions = loadSetSkillOptions();
-  const groupOptions = loadGroupSkillOptions();
-  const hasGogma = !!(
-    state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill
-  );
+  const setOptions = loadSetSkillOptions()
+  const groupOptions = loadGroupSkillOptions()
+  const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill)
 
   return [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId("search-set:gogma-set-pick")
-        .setPlaceholder(
-          state.gogmaSkills.setSkill
-            ? `Set skill: ${state.gogmaSkills.setSkill}`
-            : "Weapon's set skill contribution…",
-        )
-        .addOptions(
-          setOptions.length
-            ? setOptions
-            : [{ label: "None available", value: "__none__" }],
-        ),
+        .setCustomId('search-set:gogma-set-pick')
+        .setPlaceholder(state.gogmaSkills.setSkill ? `Set skill: ${state.gogmaSkills.setSkill}` : "Weapon's set skill contribution…")
+        .addOptions(setOptions.length ? setOptions : [{ label: 'None available', value: '__none__' }])
     ),
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId("search-set:gogma-group-pick")
+        .setCustomId('search-set:gogma-group-pick')
         .setPlaceholder(
-          state.gogmaSkills.groupSkill
-            ? `Group skill: ${state.gogmaSkills.groupSkill}`
-            : "Weapon's group skill contribution…",
+          state.gogmaSkills.groupSkill ? `Group skill: ${state.gogmaSkills.groupSkill}` : "Weapon's group skill contribution…"
         )
-        .addOptions(
-          groupOptions.length
-            ? groupOptions
-            : [{ label: "None available", value: "__none__" }],
-        ),
+        .addOptions(groupOptions.length ? groupOptions : [{ label: 'None available', value: '__none__' }])
     ),
     new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId('search-set:btn-cancel').setLabel('← Back').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId("search-set:btn-cancel")
-        .setLabel("← Back")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("search-set:btn-clear-gogma")
-        .setLabel("Clear Weapon Skills")
+        .setCustomId('search-set:btn-clear-gogma')
+        .setLabel('Clear Weapon Skills')
         .setStyle(ButtonStyle.Danger)
-        .setDisabled(!hasGogma),
+        .setDisabled(!hasGogma)
     ),
-  ];
+  ]
 }
 
 function buildSetSkillComponents(state: SearchState): AnyRow[] {
-  const rows: AnyRow[] = [];
-  const addedSetSkills = new Set(state.setSkills);
-  const addedGroupSkills = new Set(state.groupSkills);
+  const rows: AnyRow[] = []
+  const addedSetSkills = new Set(state.setSkills)
+  const addedGroupSkills = new Set(state.groupSkills)
 
-  const setOptions = loadSetSkillOptions().filter(
-    (o) => !addedSetSkills.has(o.value),
-  );
-  const groupOptions = loadGroupSkillOptions().filter(
-    (o) => !addedGroupSkills.has(o.value),
-  );
+  const setOptions = loadSetSkillOptions().filter((o) => !addedSetSkills.has(o.value))
+  const groupOptions = loadGroupSkillOptions().filter((o) => !addedGroupSkills.has(o.value))
 
   if (setOptions.length) {
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("search-set:set-pick")
-          .setPlaceholder("Add a set bonus…")
-          .addOptions(setOptions),
-      ),
-    );
+        new StringSelectMenuBuilder().setCustomId('search-set:set-pick').setPlaceholder('Add a set bonus…').addOptions(setOptions)
+      )
+    )
   }
 
   if (groupOptions.length) {
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("search-set:group-pick")
-          .setPlaceholder("Add a group skill…")
-          .addOptions(groupOptions),
-      ),
-    );
+        new StringSelectMenuBuilder().setCustomId('search-set:group-pick').setPlaceholder('Add a group skill…').addOptions(groupOptions)
+      )
+    )
   }
 
   if (state.setSkills.length > 0) {
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId("search-set:remove-set-pick")
-          .setPlaceholder("Remove a set bonus…")
-          .addOptions(state.setSkills.map((s) => ({ label: s, value: s }))),
-      ),
-    );
+          .setCustomId('search-set:remove-set-pick')
+          .setPlaceholder('Remove a set bonus…')
+          .addOptions(state.setSkills.map((s) => ({ label: s, value: s })))
+      )
+    )
   }
 
   if (state.groupSkills.length > 0) {
     rows.push(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId("search-set:remove-group-pick")
-          .setPlaceholder("Remove a group skill…")
-          .addOptions(state.groupSkills.map((g) => ({ label: g, value: g }))),
-      ),
-    );
+          .setCustomId('search-set:remove-group-pick')
+          .setPlaceholder('Remove a group skill…')
+          .addOptions(state.groupSkills.map((g) => ({ label: g, value: g })))
+      )
+    )
   }
 
-  rows.push(cancelRow());
-  return rows;
+  rows.push(cancelRow())
+  return rows
 }
 
 function buildHistoryComponents(state: SearchState): AnyRow[] {
-  const entries = state.historyEntries ?? [];
+  const entries = state.historyEntries ?? []
   const options =
     entries.length > 0
       ? entries.map((e) => ({
@@ -134,49 +96,39 @@ function buildHistoryComponents(state: SearchState): AnyRow[] {
           description: `Searched: ${e.searchedAt.slice(0, 16)}`,
           value: e.id,
         }))
-      : [{ label: "No search history found", value: "__none__" }];
+      : [{ label: 'No search history found', value: '__none__' }]
 
   return [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId("search-set:history-pick")
-        .setPlaceholder("Load a previous search…")
-        .addOptions(options),
+      new StringSelectMenuBuilder().setCustomId('search-set:history-pick').setPlaceholder('Load a previous search…').addOptions(options)
     ),
     cancelRow(),
-  ];
+  ]
 }
 
 function buildRemoveSkillComponents(state: SearchState): AnyRow[] {
   const options = state.skills.map((s) => ({
     label: ` ${s.name} Lv ${s.level}`,
     value: s.name,
-  }));
+  }))
 
   return [
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId("search-set:remove-pick")
-        .setPlaceholder("Choose a skill to remove…")
-        .addOptions(options),
+      new StringSelectMenuBuilder().setCustomId('search-set:remove-pick').setPlaceholder('Choose a skill to remove…').addOptions(options)
     ),
     cancelRow(),
-  ];
+  ]
 }
 
 function buildMainComponents(state: SearchState): AnyRow[] {
-  const rows: AnyRow[] = [];
-  const skillCount = state.skills.length;
-  const hasSkills = skillCount > 0;
-  const atMax = skillCount >= MAX_SKILLS;
-  const addedSkills = new Set(state.skills.map((s) => s.name));
+  const rows: AnyRow[] = []
+  const skillCount = state.skills.length
+  const hasSkills = skillCount > 0
+  const atMax = skillCount >= MAX_SKILLS
+  const addedSkills = new Set(state.skills.map((s) => s.name))
 
-  const slotOneOptions = loadArmorSkills(1).filter(
-    (s) => !addedSkills.has(s.value),
-  );
-  const displaySlotOneOptions = slotOneOptions.length
-    ? slotOneOptions
-    : [{ label: `All slot ${1} skills added`, value: "__none__" }];
+  const slotOneOptions = loadArmorSkills(1).filter((s) => !addedSkills.has(s.value))
+  const displaySlotOneOptions = slotOneOptions.length ? slotOneOptions : [{ label: `All slot ${1} skills added`, value: '__none__' }]
 
   rows.push(
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -186,17 +138,14 @@ function buildMainComponents(state: SearchState): AnyRow[] {
         .setDisabled(atMax)
         .setMinValues(1)
         .setMaxValues(Math.min(5, displaySlotOneOptions.length))
-        .addOptions(displaySlotOneOptions),
-    ),
-  );
+        .addOptions(displaySlotOneOptions)
+    )
+  )
 
-  const SlotTwoThreeOptions = [
-    ...loadArmorSkills(2),
-    ...loadArmorSkills(3),
-  ].filter((s) => !addedSkills.has(s.value));
+  const SlotTwoThreeOptions = [...loadArmorSkills(2), ...loadArmorSkills(3)].filter((s) => !addedSkills.has(s.value))
   const displaySlotTwoThreeOptions = SlotTwoThreeOptions.length
     ? SlotTwoThreeOptions
-    : [{ label: `All slot ${1} skills added`, value: "__none__" }];
+    : [{ label: `All slot ${1} skills added`, value: '__none__' }]
 
   rows.push(
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
@@ -206,51 +155,38 @@ function buildMainComponents(state: SearchState): AnyRow[] {
         .setDisabled(atMax)
         .setMinValues(1)
         .setMaxValues(Math.min(5, displaySlotTwoThreeOptions.length))
-        .addOptions(displaySlotTwoThreeOptions),
-    ),
-  );
+        .addOptions(displaySlotTwoThreeOptions)
+    )
+  )
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId("search-set:btn-remove")
-        .setLabel("Remove Skill")
+        .setCustomId('search-set:btn-remove')
+        .setLabel('Remove Skill')
         .setStyle(ButtonStyle.Danger)
         .setDisabled(!hasSkills),
-      new ButtonBuilder()
-        .setCustomId("search-set:btn-history")
-        .setLabel("History")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("search-set:btn-weapon")
-        .setLabel("Weapon Skills")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("search-set:btn-set-bonus")
-        .setLabel("Set/Group Bonus")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("search-set:btn-search")
-        .setLabel("Search")
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(!hasSkills),
-    ),
-  );
+      new ButtonBuilder().setCustomId('search-set:btn-history').setLabel('History').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('search-set:btn-weapon').setLabel('Weapon Skills').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('search-set:btn-set-bonus').setLabel('Set/Group Bonus').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('search-set:btn-search').setLabel('Search').setStyle(ButtonStyle.Success).setDisabled(!hasSkills)
+    )
+  )
 
-  return rows;
+  return rows
 }
 
 export function buildComponents(state: SearchState): AnyRow[] {
   switch (state.step) {
-    case "weapon-skill":
-      return buildWeaponSkillComponents(state);
-    case "set-skill":
-      return buildSetSkillComponents(state);
-    case "history":
-      return buildHistoryComponents(state);
-    case "remove-skill":
-      return buildRemoveSkillComponents(state);
+    case 'weapon-skill':
+      return buildWeaponSkillComponents(state)
+    case 'set-skill':
+      return buildSetSkillComponents(state)
+    case 'history':
+      return buildHistoryComponents(state)
+    case 'remove-skill':
+      return buildRemoveSkillComponents(state)
     default:
-      return buildMainComponents(state);
+      return buildMainComponents(state)
   }
 }

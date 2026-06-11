@@ -11,10 +11,7 @@ export const data = new SlashCommandBuilder()
       .setName('action')
       .setDescription('Register or unregister this channel')
       .setRequired(true)
-      .addChoices(
-        { name: 'register', value: 'register' },
-        { name: 'unregister', value: 'unregister' }
-      )
+      .addChoices({ name: 'register', value: 'register' }, { name: 'unregister', value: 'unregister' })
   )
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {

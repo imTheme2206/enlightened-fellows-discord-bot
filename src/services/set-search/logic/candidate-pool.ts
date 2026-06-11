@@ -1,6 +1,6 @@
-import type { ArmorPiece, DecorationItem } from "../types";
-import type { GearPool, SkillPotentialAlias } from "./constants";
-import { ARMOR_SLOT_TYPES } from "./constants";
+import type { ArmorPiece, DecorationItem } from '../types'
+import type { GearPool, SkillPotentialAlias } from './constants'
+import { ARMOR_SLOT_TYPES } from './constants'
 import {
   emptyGearPiece,
   emptyGearSet,
@@ -12,7 +12,7 @@ import {
   isInGroups,
   isInSets,
   skillRelevanceScore,
-} from "./pool-helpers";
+} from './pool-helpers'
 import {
   areLeftSlotsBigger,
   hasBiggerSlottage,
@@ -20,65 +20,52 @@ import {
   slotCompare,
   slottageLengthCompare,
   slottageSizeCompare,
-} from "./slot-math";
+} from './slot-math'
 
 /**
  * Precomputes the maximum skill points any piece in each slot can contribute
  * (armor skill + best deco fit). Called once per search query so DFS pruning
  * can do a single map lookup instead of re-scanning the pool on every node.
  */
-export function computeMaxPotential(
-  gear: GearPool,
-  skillNames: string[],
-): Record<string, Record<string, number>> {
-  const decos = gear.decos;
-  const result: Record<string, Record<string, number>> = {};
+export function computeMaxPotential(gear: GearPool, skillNames: string[]): Record<string, Record<string, number>> {
+  const decos = gear.decos
+  const result: Record<string, Record<string, number>> = {}
 
   for (const slotType of ARMOR_SLOT_TYPES) {
-    result[slotType] = {};
-    const pool = gear[slotType];
+    result[slotType] = {}
+    const pool = gear[slotType]
 
     for (const skillName of skillNames) {
-      let maxPoints = 0;
+      let maxPoints = 0
       for (const piece of Object.values(pool)) {
-        let points = piece.skills[skillName] ?? 0;
-        if (slotType !== "talisman") {
+        let points = piece.skills[skillName] ?? 0
+        if (slotType !== 'talisman') {
           for (const deco of Object.values(decos)) {
-            const decoSkillLevel = deco.skills[skillName];
+            const decoSkillLevel = deco.skills[skillName]
             if (decoSkillLevel) {
-              points +=
-                decoSkillLevel *
-                piece.slots.filter((s) => s >= deco.slotSize).length;
-              break;
+              points += decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length
+              break
             }
           }
         }
-        maxPoints = Math.max(points, maxPoints);
+        maxPoints = Math.max(points, maxPoints)
       }
-      result[slotType][skillName] = maxPoints;
+      result[slotType][skillName] = maxPoints
     }
   }
 
-  return result;
+  return result
 }
 
 // ─── updateSkillPotential helpers (extracted from closures) ──────────────────
 
 /** Adds `newApplicant` to alias.more if it has at least as many mod-points as
  *  every existing entry — prevents the "more" pool from growing unchecked. */
-function addToMorePool(
-  alias: SkillPotentialAlias,
-  modPointMap: Record<string, number>,
-  newApplicant: string,
-): void {
-  const morePool = alias.more ?? [];
-  if (
-    morePool.every(
-      (p) => (modPointMap[newApplicant] ?? 0) >= (modPointMap[p] ?? 0),
-    )
-  ) {
-    morePool.push(newApplicant);
-    alias.more = morePool;
+function addToMorePool(alias: SkillPotentialAlias, modPointMap: Record<string, number>, newApplicant: string): void {
+  const morePool = alias.more ?? []
+  if (morePool.every((p) => (modPointMap[newApplicant] ?? 0) >= (modPointMap[p] ?? 0))) {
+    morePool.push(newApplicant)
+    alias.more = morePool
   }
 }
 
@@ -96,24 +83,21 @@ function promoteAlias(
   totalSkillPotential: Record<string, number>,
   skillName: string,
   includeExtra = false,
-  includeLeftover = false,
+  includeLeftover = false
 ): void {
-  const oldBest = alias.best;
-  alias.best = armorName;
-  alias.points = points;
-  alias.slots = piece.slots;
-  alias.extraPoints = includeExtra ? extraPoints : (alias.extraPoints ?? 0);
-  alias.leftoverSlots = includeLeftover
-    ? leftoverSlots
-    : (alias.leftoverSlots ?? []);
-  alias.defense = piece.defense;
+  const oldBest = alias.best
+  alias.best = armorName
+  alias.points = points
+  alias.slots = piece.slots
+  alias.extraPoints = includeExtra ? extraPoints : (alias.extraPoints ?? 0)
+  alias.leftoverSlots = includeLeftover ? leftoverSlots : (alias.leftoverSlots ?? [])
+  alias.defense = piece.defense
 
   if (oldBest && (modPointMap[oldBest] ?? 0) >= modPoints) {
-    addToMorePool(alias, modPointMap, oldBest);
+    addToMorePool(alias, modPointMap, oldBest)
   }
 
-  totalSkillPotential[skillName] =
-    (totalSkillPotential[skillName] ?? 0) + points;
+  totalSkillPotential[skillName] = (totalSkillPotential[skillName] ?? 0) + points
 }
 
 /** Updates the skill potential tracking structures for one piece/skill combination. */
@@ -127,38 +111,30 @@ export function updateSkillPotential(
   piece: ArmorPiece,
   decos: Record<string, DecorationItem>,
   allSkills: Record<string, number>,
-  groupName: string | null = null,
+  groupName: string | null = null
 ): {
-  pot: Record<string, Record<string, SkillPotentialAlias>>;
-  totalPot: Record<string, number>;
-  modMap: Record<string, number>;
+  pot: Record<string, Record<string, SkillPotentialAlias>>
+  totalPot: Record<string, number>
+  modMap: Record<string, number>
 } {
-  const { points, leftoverSlots, extraPoints, modPoints } = getSkillPotential(
-    piece,
-    skillName,
-    decos,
-    allSkills,
-  );
-  modPointMap[armorName] = modPoints;
+  const { points, leftoverSlots, extraPoints, modPoints } = getSkillPotential(piece, skillName, decos, allSkills)
+  modPointMap[armorName] = modPoints
 
-  skillPotential[category] ??= {};
-  let alias: SkillPotentialAlias;
+  skillPotential[category] ??= {}
+  let alias: SkillPotentialAlias
 
   if (groupName) {
-    const categoryKey = skillPotential[category] as Record<
-      string,
-      Record<string, SkillPotentialAlias>
-    >;
-    categoryKey[groupName] ??= {};
-    categoryKey[groupName][skillName] ??= {};
-    alias = categoryKey[groupName][skillName];
+    const categoryKey = skillPotential[category] as Record<string, Record<string, SkillPotentialAlias>>
+    categoryKey[groupName] ??= {}
+    categoryKey[groupName][skillName] ??= {}
+    alias = categoryKey[groupName][skillName]
   } else {
-    skillPotential[category][skillName] ??= {};
-    alias = skillPotential[category][skillName];
+    skillPotential[category][skillName] ??= {}
+    alias = skillPotential[category][skillName]
   }
 
-  const currentPoints = alias.points ?? 0;
-  const compare = slotCompare(alias.leftoverSlots ?? [], leftoverSlots);
+  const currentPoints = alias.points ?? 0
+  const compare = slotCompare(alias.leftoverSlots ?? [], leftoverSlots)
 
   if (points > currentPoints) {
     promoteAlias(
@@ -173,24 +149,13 @@ export function updateSkillPotential(
       totalSkillPotential,
       skillName,
       true,
-      true,
-    );
+      true
+    )
   } else if (points === currentPoints && compare) {
-    if (compare === "equal") {
-      const bestExtraPoints = alias.extraPoints ?? 0;
+    if (compare === 'equal') {
+      const bestExtraPoints = alias.extraPoints ?? 0
       if (areLeftSlotsBigger(piece.slots, alias.slots ?? [])) {
-        promoteAlias(
-          alias,
-          armorName,
-          piece,
-          points,
-          extraPoints,
-          leftoverSlots,
-          modPoints,
-          modPointMap,
-          totalSkillPotential,
-          skillName,
-        );
+        promoteAlias(alias, armorName, piece, points, extraPoints, leftoverSlots, modPoints, modPointMap, totalSkillPotential, skillName)
       } else if (extraPoints > bestExtraPoints) {
         promoteAlias(
           alias,
@@ -203,22 +168,11 @@ export function updateSkillPotential(
           modPointMap,
           totalSkillPotential,
           skillName,
-          true,
-        );
+          true
+        )
       } else if (extraPoints === bestExtraPoints) {
         if (piece.defense > (alias.defense ?? 0)) {
-          promoteAlias(
-            alias,
-            armorName,
-            piece,
-            points,
-            extraPoints,
-            leftoverSlots,
-            modPoints,
-            modPointMap,
-            totalSkillPotential,
-            skillName,
-          );
+          promoteAlias(alias, armorName, piece, points, extraPoints, leftoverSlots, modPoints, modPointMap, totalSkillPotential, skillName)
         }
       }
     } else {
@@ -234,21 +188,18 @@ export function updateSkillPotential(
         totalSkillPotential,
         skillName,
         false,
-        true,
-      );
+        true
+      )
     }
-  } else if (
-    points < currentPoints &&
-    modPoints > (modPointMap[armorName] ?? 0)
-  ) {
-    addToMorePool(alias, modPointMap, armorName);
+  } else if (points < currentPoints && modPoints > (modPointMap[armorName] ?? 0)) {
+    addToMorePool(alias, modPointMap, armorName)
   }
 
   return {
     pot: skillPotential,
     totalPot: totalSkillPotential,
     modMap: modPointMap,
-  };
+  }
 }
 
 // ─── getBestArmor ─────────────────────────────────────────────────────────────
@@ -265,123 +216,110 @@ export function getBestArmor(
   blacklistedArmor: readonly string[],
   allArmorByType: Record<string, ArmorPiece[]>,
   allDecos: DecorationItem[],
-  rank: string,
+  rank: string
 ): GearPool {
   // Build a flat armor map from the typed pool (excluding talismans)
-  const armorTypes = ["head", "chest", "arms", "waist", "legs"] as const;
-  const allArmorFlat: Record<string, ArmorPiece> = {};
+  const armorTypes = ['head', 'chest', 'arms', 'waist', 'legs'] as const
+  const allArmorFlat: Record<string, ArmorPiece> = {}
   for (const t of armorTypes) {
     for (const piece of allArmorByType[t] ?? []) {
-      allArmorFlat[piece.name] = piece;
+      allArmorFlat[piece.name] = piece
     }
   }
 
   // Build mandatory map: type → name
-  const mandatory: Record<string, string> = {};
+  const mandatory: Record<string, string> = {}
   for (const name of mandatoryPieceNames) {
-    if (!name) continue;
-    const found =
-      allArmorFlat[name] ??
-      allArmorByType["talisman"]?.find((p) => p.name === name);
+    if (!name) continue
+    const found = allArmorFlat[name] ?? allArmorByType['talisman']?.find((p) => p.name === name)
     if (found) {
-      mandatory[found.type] = name;
+      mandatory[found.type] = name
     }
   }
 
-  const blacklistSet = new Set(blacklistedArmor);
+  const blacklistSet = new Set(blacklistedArmor)
 
   // Filter armor by rank and mandatory/blacklist constraints
-  const filteredArmor: Record<string, ArmorPiece> = {};
+  const filteredArmor: Record<string, ArmorPiece> = {}
   for (const [name, piece] of Object.entries(allArmorFlat)) {
-    if (piece.rank !== rank) continue;
-    if (mandatory[piece.type] && name !== mandatory[piece.type]) continue;
-    if (blacklistSet.has(name)) continue;
-    filteredArmor[name] = piece;
+    if (piece.rank !== rank) continue
+    if (mandatory[piece.type] && name !== mandatory[piece.type]) continue
+    if (blacklistSet.has(name)) continue
+    filteredArmor[name] = piece
   }
 
   // Filter and score talismans
-  const allTalismans = allArmorByType["talisman"] ?? [];
-  const candidateTalismans: Record<string, ArmorPiece> = {};
-  if (!mandatory["talisman"]) {
+  const allTalismans = allArmorByType['talisman'] ?? []
+  const candidateTalismans: Record<string, ArmorPiece> = {}
+  if (!mandatory['talisman']) {
     for (const piece of allTalismans) {
-      if (blacklistSet.has(piece.name)) continue;
-      if (!hasNeededSkill(piece.skills, skills)) continue;
-      candidateTalismans[piece.name] = piece;
+      if (blacklistSet.has(piece.name)) continue
+      if (!hasNeededSkill(piece.skills, skills)) continue
+      candidateTalismans[piece.name] = piece
     }
   } else {
-    const mandatoryTalisman = allTalismans.find(
-      (p) => p.name === mandatory["talisman"],
-    );
+    const mandatoryTalisman = allTalismans.find((p) => p.name === mandatory['talisman'])
     if (mandatoryTalisman) {
-      candidateTalismans[mandatoryTalisman.name] = mandatoryTalisman;
+      candidateTalismans[mandatoryTalisman.name] = mandatoryTalisman
     }
   }
 
   // Keep top talismans by highest skill value per skill
-  const topTalis: Record<string, ArmorPiece> = {};
-  const topTalisLevels: Record<string, number> = {};
+  const topTalis: Record<string, ArmorPiece> = {}
+  const topTalisLevels: Record<string, number> = {}
   for (const [talisName, piece] of Object.entries(candidateTalismans)) {
     for (const [skName, skLevel] of Object.entries(piece.skills)) {
       if (skLevel > (topTalisLevels[skName] ?? 0)) {
-        topTalis[talisName] = piece;
-        topTalisLevels[skName] = skLevel;
+        topTalis[talisName] = piece
+        topTalisLevels[skName] = skLevel
       }
     }
   }
 
-  const bestDecos = getBestDecos(skills, allDecos);
+  const bestDecos = getBestDecos(skills, allDecos)
 
   // Group firsts (best slottage representatives) and best (has needed skill)
-  const firsts: Record<string, Record<string, ArmorPiece>> = emptyGearSet();
-  const best: Record<string, Record<string, ArmorPiece>> = emptyGearSet();
+  const firsts: Record<string, Record<string, ArmorPiece>> = emptyGearSet()
+  const best: Record<string, Record<string, ArmorPiece>> = emptyGearSet()
 
-  for (const sortType of ["length", "size"] as const) {
+  for (const sortType of ['length', 'size'] as const) {
     const checker: Record<string, Record<string, boolean>> = {
-      head: {}, chest: {}, arms: {}, waist: {}, legs: {}, talisman: {},
-    };
+      head: {},
+      chest: {},
+      arms: {},
+      waist: {},
+      legs: {},
+      talisman: {},
+    }
 
     const allSort = Object.entries(filteredArmor).sort((a, b) => {
-      if (sortType === "size") {
-        return slottageSizeCompare(
-          a[1].slots,
-          b[1].slots,
-          b[1].defense - a[1].defense,
-        );
+      if (sortType === 'size') {
+        return slottageSizeCompare(a[1].slots, b[1].slots, b[1].defense - a[1].defense)
       }
-      return slottageLengthCompare(
-        a[1].slots,
-        b[1].slots,
-        b[1].defense - a[1].defense,
-      );
-    });
+      return slottageLengthCompare(a[1].slots, b[1].slots, b[1].defense - a[1].defense)
+    })
 
     for (const [armorName, piece] of allSort) {
-      const category = piece.type;
-      const catChecker = checker[category];
+      const category = piece.type
+      const catChecker = checker[category]
       if (isEmpty(catChecker)) {
-        const catFirsts = firsts[category];
-        const qualifies =
-          sortType === "size"
-            ? hasBiggerSlottage(catFirsts, piece.slots)
-            : hasLongerSlottage(catFirsts, piece.slots);
+        const catFirsts = firsts[category]
+        const qualifies = sortType === 'size' ? hasBiggerSlottage(catFirsts, piece.slots) : hasLongerSlottage(catFirsts, piece.slots)
         if (qualifies) {
-          catChecker["checked"] = true;
-          firsts[category][armorName] = piece;
+          catChecker['checked'] = true
+          firsts[category][armorName] = piece
         }
       }
       if (hasNeededSkill(piece.skills, skills)) {
-        best[category][armorName] = piece;
+        best[category][armorName] = piece
       }
     }
   }
 
   // Compute skill potential for each type/skill/armor combination
-  let totalMaxSkillPotential: Record<string, number> = {};
-  let maxPossibleSkillPotential: Record<
-    string,
-    Record<string, SkillPotentialAlias>
-  > = {};
-  let modPointMap: Record<string, number> = {};
+  let totalMaxSkillPotential: Record<string, number> = {}
+  let maxPossibleSkillPotential: Record<string, Record<string, SkillPotentialAlias>> = {}
+  let modPointMap: Record<string, number> = {}
 
   for (const skillName of Object.keys(skills)) {
     for (const [category, data] of Object.entries(best)) {
@@ -395,11 +333,11 @@ export function getBestArmor(
           armorName,
           piece,
           bestDecos,
-          skills,
-        );
-        maxPossibleSkillPotential = pot;
-        totalMaxSkillPotential = totalPot;
-        modPointMap = modMap;
+          skills
+        )
+        maxPossibleSkillPotential = pot
+        totalMaxSkillPotential = totalPot
+        modPointMap = modMap
       }
     }
   }
@@ -412,68 +350,53 @@ export function getBestArmor(
     waist: { ...firsts.waist },
     legs: { ...firsts.legs },
     talisman: {},
-  };
+  }
 
   for (const [category, data] of Object.entries(maxPossibleSkillPotential)) {
     for (const [, statData] of Object.entries(data)) {
-      for (const key of ["best", "more"] as const) {
-        const entry = statData[key];
-        if (!entry) continue;
-        if (key === "more" && Array.isArray(entry) && entry.length) {
+      for (const key of ['best', 'more'] as const) {
+        const entry = statData[key]
+        if (!entry) continue
+        if (key === 'more' && Array.isArray(entry) && entry.length) {
           for (const ex of entry) {
-            if (filteredArmor[ex])
-              bareMinimum[category][ex] = filteredArmor[ex];
+            if (filteredArmor[ex]) bareMinimum[category][ex] = filteredArmor[ex]
           }
-        } else if (typeof entry === "string" && filteredArmor[entry]) {
-          bareMinimum[category][entry] = filteredArmor[entry];
+        } else if (typeof entry === 'string' && filteredArmor[entry]) {
+          bareMinimum[category][entry] = filteredArmor[entry]
         }
       }
     }
   }
 
   // Handle set/group skills
-  const setGroupArmor: Record<string, ArmorPiece> = {};
+  const setGroupArmor: Record<string, ArmorPiece> = {}
   for (const [name, piece] of Object.entries(filteredArmor)) {
     if (isInSets(piece, setSkills) || isInGroups(piece, groupSkills)) {
-      setGroupArmor[name] = piece;
+      setGroupArmor[name] = piece
     }
   }
   const sortedSetGroupArmor = Object.fromEntries(
-    Object.entries(setGroupArmor).sort((a, b) =>
-      slottageSizeCompare(a[1].slots, b[1].slots, b[1].defense - a[1].defense),
-    ),
-  );
+    Object.entries(setGroupArmor).sort((a, b) => slottageSizeCompare(a[1].slots, b[1].slots, b[1].defense - a[1].defense))
+  )
 
-  totalMaxSkillPotential = {};
-  const maxPossibleSkillPotentialSet: Record<
-    string,
-    Record<string, Record<string, SkillPotentialAlias>>
-  > = {};
+  totalMaxSkillPotential = {}
+  const maxPossibleSkillPotentialSet: Record<string, Record<string, Record<string, SkillPotentialAlias>>> = {}
 
-  const bestSetGroupByType: Record<string, Record<string, ArmorPiece>> = {};
+  const bestSetGroupByType: Record<string, Record<string, ArmorPiece>> = {}
   for (const [name, piece] of Object.entries(sortedSetGroupArmor)) {
-    bestSetGroupByType[piece.type] ??= {};
-    bestSetGroupByType[piece.type][name] = piece;
+    bestSetGroupByType[piece.type] ??= {}
+    bestSetGroupByType[piece.type][name] = piece
   }
 
   if (!isEmpty(skills)) {
-    modPointMap = {};
+    modPointMap = {}
     for (const skillName of Object.keys(skills)) {
       for (const [category, data] of Object.entries(bestSetGroupByType)) {
-        const [groupiesGrouped] = groupArmorIntoSets(
-          data,
-          setSkills,
-          groupSkills,
-        );
+        const [groupiesGrouped] = groupArmorIntoSets(data, setSkills, groupSkills)
 
-        for (const [groupName, groupArmors] of Object.entries(
-          groupiesGrouped,
-        )) {
+        for (const [groupName, groupArmors] of Object.entries(groupiesGrouped)) {
           for (const [armorName, piece] of Object.entries(groupArmors)) {
-            const potCat = maxPossibleSkillPotentialSet as Record<
-              string,
-              Record<string, SkillPotentialAlias>
-            >;
+            const potCat = maxPossibleSkillPotentialSet as Record<string, Record<string, SkillPotentialAlias>>
             const { pot, totalPot, modMap } = updateSkillPotential(
               potCat,
               totalMaxSkillPotential,
@@ -484,31 +407,28 @@ export function getBestArmor(
               piece,
               bestDecos,
               skills,
-              groupName,
-            );
-            maxPossibleSkillPotential = pot;
-            totalMaxSkillPotential = totalPot;
-            modPointMap = modMap;
+              groupName
+            )
+            maxPossibleSkillPotential = pot
+            totalMaxSkillPotential = totalPot
+            modPointMap = modMap
           }
         }
       }
     }
 
-    for (const [category, groupData] of Object.entries(
-      maxPossibleSkillPotentialSet,
-    )) {
+    for (const [category, groupData] of Object.entries(maxPossibleSkillPotentialSet)) {
       for (const [, skillMap] of Object.entries(groupData)) {
         for (const [, statData] of Object.entries(skillMap)) {
-          for (const key of ["best", "more"] as const) {
-            const entry = (statData as SkillPotentialAlias)[key];
-            if (!entry) continue;
-            if (key === "more" && Array.isArray(entry) && entry.length) {
+          for (const key of ['best', 'more'] as const) {
+            const entry = (statData as SkillPotentialAlias)[key]
+            if (!entry) continue
+            if (key === 'more' && Array.isArray(entry) && entry.length) {
               for (const ex of entry) {
-                if (filteredArmor[ex])
-                  bareMinimum[category][ex] = filteredArmor[ex];
+                if (filteredArmor[ex]) bareMinimum[category][ex] = filteredArmor[ex]
               }
-            } else if (typeof entry === "string" && filteredArmor[entry]) {
-              bareMinimum[category][entry] = filteredArmor[entry];
+            } else if (typeof entry === 'string' && filteredArmor[entry]) {
+              bareMinimum[category][entry] = filteredArmor[entry]
             }
           }
         }
@@ -520,42 +440,40 @@ export function getBestArmor(
   // Keeping all N variants per slot causes the search space to balloon for group skills
   // (which need 3 pieces). We keep the top (max_needed + 2) per slot so the DFS has
   // enough diversity without exploring an exponential number of equivalent paths.
-  const maxSetNeed = Math.max(0, ...Object.values(setSkills).map((v) => v * 2));
-  const maxGroupNeed = Object.keys(groupSkills).length > 0 ? 3 : 0;
-  const setGroupCap = Math.max(maxSetNeed, maxGroupNeed) + 2;
+  const maxSetNeed = Math.max(0, ...Object.values(setSkills).map((v) => v * 2))
+  const maxGroupNeed = Object.keys(groupSkills).length > 0 ? 3 : 0
+  const setGroupCap = Math.max(maxSetNeed, maxGroupNeed) + 2
 
   for (const [category, data] of Object.entries(bestSetGroupByType)) {
     const sorted = Object.entries(data).sort(
-      (a, b) =>
-        skillRelevanceScore(b[1], skills, bestDecos) -
-        skillRelevanceScore(a[1], skills, bestDecos),
-    );
+      (a, b) => skillRelevanceScore(b[1], skills, bestDecos) - skillRelevanceScore(a[1], skills, bestDecos)
+    )
     for (const [name, piece] of sorted.slice(0, setGroupCap)) {
-      bareMinimum[category][name] = piece;
+      bareMinimum[category][name] = piece
     }
   }
 
-  bareMinimum["talisman"] = topTalis;
+  bareMinimum['talisman'] = topTalis
 
   // Ensure every slot type has at least the "None" placeholder
   for (const tipo of ARMOR_SLOT_TYPES) {
     if (!bareMinimum[tipo] || isEmpty(bareMinimum[tipo])) {
-      bareMinimum[tipo] = emptyGearPiece(tipo, rank);
+      bareMinimum[tipo] = emptyGearPiece(tipo, rank)
     }
   }
 
   // Sort final pool: most skill-relevant pieces first so DFS prunes earlier
-  const armorSlots = ARMOR_SLOT_TYPES.filter((s) => s !== "talisman");
+  const armorSlots = ARMOR_SLOT_TYPES.filter((s) => s !== 'talisman')
   for (const cat of armorSlots) {
     bareMinimum[cat] = Object.fromEntries(
       Object.entries(bareMinimum[cat]).sort((a, b) => {
-        const scoreB = skillRelevanceScore(b[1], skills, bestDecos);
-        const scoreA = skillRelevanceScore(a[1], skills, bestDecos);
-        if (scoreB !== scoreA) return scoreB - scoreA;
-        return slottageLengthCompare(a[1].slots, b[1].slots);
-      }),
-    );
+        const scoreB = skillRelevanceScore(b[1], skills, bestDecos)
+        const scoreA = skillRelevanceScore(a[1], skills, bestDecos)
+        if (scoreB !== scoreA) return scoreB - scoreA
+        return slottageLengthCompare(a[1].slots, b[1].slots)
+      })
+    )
   }
 
-  return { ...(bareMinimum as unknown as Omit<GearPool, "decos">), decos: bestDecos };
+  return { ...(bareMinimum as unknown as Omit<GearPool, 'decos'>), decos: bestDecos }
 }

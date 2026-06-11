@@ -1,11 +1,4 @@
-import {
-  ChatInputCommandInteraction,
-  MessageFlags,
-  SlashCommandBuilder,
-  TextChannel,
-} from 'discord.js'
-import logger from '../../../config/logger'
-import { genshinCodeChannels } from '../../../modules/channels/service'
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
 import { GenshinCodeService } from '../../../modules/genshin-codes/service'
 import { Command } from '../_types'
 
@@ -20,53 +13,22 @@ enum CodeFields {
 export const data = new SlashCommandBuilder()
   .setName('gi-code')
   .setDescription('Return a redeem link for Genshin Impact, up to 3 codes')
-  .addStringOption((option) =>
-    option.setName(CodeFields.CODE1).setDescription('Enter the code').setRequired(true)
-  )
-  .addStringOption((option) =>
-    option.setName(CodeFields.CODE2).setDescription('Enter the code').setRequired(false)
-  )
-  .addStringOption((option) =>
-    option.setName(CodeFields.CODE3).setDescription('Enter the code').setRequired(false)
-  )
+  .addStringOption((option) => option.setName(CodeFields.CODE1).setDescription('Enter the code').setRequired(true))
+  .addStringOption((option) => option.setName(CodeFields.CODE2).setDescription('Enter the code').setRequired(false))
+  .addStringOption((option) => option.setName(CodeFields.CODE3).setDescription('Enter the code').setRequired(false))
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  logger.debug('gi-code invoked')
-
   const code1 = interaction.options.getString(CodeFields.CODE1, true)
   const code2 = interaction.options.getString(CodeFields.CODE2, false)
   const code3 = interaction.options.getString(CodeFields.CODE3, false)
 
-  logger.debug('parsing code', { code1, code2, code3 })
-
   const codes = [code1, code2, code3].filter((c): c is string => !!c)
-  const messages = codes.map((c) => `${redeemUrl}${c}`)
-  const content = messages.join('\n')
 
-  for (const code of codes) {
-    GenshinCodeService.save(code, true)
-  }
+  // All business logic is in the service — command is just parse + respond
+  await GenshinCodeService.saveAndNotify(codes, interaction.client)
 
-  logger.debug('returning message', { messages })
-
-  await interaction.reply({
-    content,
-    flags: MessageFlags.SuppressEmbeds,
-  })
-
-  const channels = genshinCodeChannels.getAll()
-  for (const { channelId } of channels) {
-    try {
-      const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
-      if (!channel) {
-        logger.warn(`gi-code: channel not found in cache: ${channelId}`)
-        continue
-      }
-      await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
-    } catch (err) {
-      logger.error(`gi-code: failed to send to channel ${channelId}`, { err })
-    }
-  }
+  const content = codes.map((c) => `${redeemUrl}${c}`).join('\n')
+  await interaction.reply({ content })
 }
 
 export default { data, execute } satisfies Command

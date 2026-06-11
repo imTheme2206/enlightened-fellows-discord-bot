@@ -1,5 +1,5 @@
-import type { SearchState } from "../../../bot/commands/mhwilds/search-set/state";
-import type { SearchInput } from "../types";
+import type { SearchState } from '../../../bot/commands/mhwilds/search-set/state'
+import type { SearchInput } from '../types'
 
 /**
  * Builds the SearchInput from the current session state.
@@ -7,21 +7,21 @@ import type { SearchInput } from "../types";
  * so we subtract 1 from the remaining pieces required for each gogma-contributed bonus.
  */
 export function buildSearchInput(state: SearchState): SearchInput {
-  const skills: Record<string, number> = {};
-  for (const s of state.skills) skills[s.name] = s.level;
+  const skills: Record<string, number> = {}
+  for (const s of state.skills) skills[s.name] = s.level
 
-  const setSkills: Record<string, number> = {};
-  const initialSetCounts: Record<string, number> = {};
+  const setSkills: Record<string, number> = {}
+  const initialSetCounts: Record<string, number> = {}
   for (const s of state.setSkills) {
-    setSkills[s] = 1;
-    if (state.gogmaSkills.setSkill === s) initialSetCounts[s] = 1;
+    setSkills[s] = 1
+    if (state.gogmaSkills.setSkill === s) initialSetCounts[s] = 1
   }
 
-  const groupSkills: Record<string, number> = {};
-  const initialGroupCounts: Record<string, number> = {};
+  const groupSkills: Record<string, number> = {}
+  const initialGroupCounts: Record<string, number> = {}
   for (const g of state.groupSkills) {
-    groupSkills[g] = 1;
-    if (state.gogmaSkills.groupSkill === g) initialGroupCounts[g] = 1;
+    groupSkills[g] = 1
+    if (state.gogmaSkills.groupSkill === g) initialGroupCounts[g] = 1
   }
 
   return {
@@ -31,5 +31,5 @@ export function buildSearchInput(state: SearchState): SearchInput {
     ...(Object.keys(initialSetCounts).length > 0 && { initialSetCounts }),
     ...(Object.keys(initialGroupCounts).length > 0 && { initialGroupCounts }),
     rank: state.rank,
-  };
+  }
 }

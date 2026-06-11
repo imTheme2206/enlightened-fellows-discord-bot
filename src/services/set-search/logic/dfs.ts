@@ -11,7 +11,7 @@ export function rollCombosDfs(
   groupSkills: Record<string, number>,
   initialSetCounts: Record<string, number> = {},
   initialGroupCounts: Record<string, number> = {},
-  maxPotential: Record<string, Record<string, number>> = {},
+  maxPotential: Record<string, Record<string, number>> = {}
 ): SearchResult[] {
   const results: SearchResult[] = []
   let visited = 0
@@ -54,15 +54,11 @@ export function rollCombosDfs(
   // Lets us prune "not enough skill-bearing slots remain" before even trying combinations.
   const setSlotMask: Record<string, boolean[]> = {}
   for (const sk of setSkillKeys) {
-    setSlotMask[sk] = ARMOR_SLOT_TYPES.map((slot) =>
-      slotEntries[slot].some(([, p]) => p.setSkills.includes(sk)),
-    )
+    setSlotMask[sk] = ARMOR_SLOT_TYPES.map((slot) => slotEntries[slot].some(([, p]) => p.setSkills.includes(sk)))
   }
   const groupSlotMask: Record<string, boolean[]> = {}
   for (const gk of groupSkillKeys) {
-    groupSlotMask[gk] = ARMOR_SLOT_TYPES.map((slot) =>
-      slotEntries[slot].some(([, p]) => p.groupSkills.includes(gk)),
-    )
+    groupSlotMask[gk] = ARMOR_SLOT_TYPES.map((slot) => slotEntries[slot].some(([, p]) => p.groupSkills.includes(gk)))
   }
 
   // Tracks cumulative skill points already covered by placed armor pieces.
@@ -74,7 +70,7 @@ export function rollCombosDfs(
     currentArmor: Record<string, PieceEntry>,
     usedNames: Set<string>,
     setCounts: Record<string, number>,
-    groupCounts: Record<string, number>,
+    groupCounts: Record<string, number>
   ): void {
     if (++visited > LIMIT) return
 

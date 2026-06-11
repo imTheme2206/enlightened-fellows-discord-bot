@@ -1,10 +1,6 @@
 import { z } from 'zod'
 import type { SeedData } from './types'
 
-// ---------------------------------------------------------------------------
-// Zod schemas for source JSON validation
-// ---------------------------------------------------------------------------
-
 const CompactArmorSchema = z.tuple([
   z.string(), // type
   z.record(z.string(), z.number()), // skills
@@ -103,20 +99,12 @@ export interface DecorationInsert {
   skillLevel: number
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function toCleanName(name: string): string {
   return name
     .toLowerCase()
     .replace(/\s+/g, '_')
     .replace(/[^a-z0-9_]/g, '')
 }
-
-// ---------------------------------------------------------------------------
-// Transform
-// ---------------------------------------------------------------------------
 
 export interface TransformResult {
   skills: SkillInsert[]
@@ -146,9 +134,7 @@ export function transformSeedData(data: SeedData): TransformResult {
   }
 
   // --- Set skills: stored by SET NAME so armor pieces can reference them ---
-  for (const [setName, [effectName, piecesRequired, bonusLevels]] of Object.entries(
-    data.setSkills
-  )) {
+  for (const [setName, [effectName, piecesRequired, bonusLevels]] of Object.entries(data.setSkills)) {
     skills.push({
       name: setName,
       cleanName: toCleanName(setName),
@@ -162,9 +148,7 @@ export function transformSeedData(data: SeedData): TransformResult {
   }
 
   // --- Group skills: stored by GROUP NAME so armor pieces can reference them ---
-  for (const [groupName, [effectName, levelGranted, piecesRequired]] of Object.entries(
-    data.groupSkills
-  )) {
+  for (const [groupName, [effectName, levelGranted, piecesRequired]] of Object.entries(data.groupSkills)) {
     skills.push({
       name: groupName,
       cleanName: toCleanName(groupName),
@@ -182,8 +166,7 @@ export function transformSeedData(data: SeedData): TransformResult {
   for (const armorType of armorTypes) {
     const pieces = data.armor[armorType]
     for (const [name, piece] of Object.entries(pieces)) {
-      const [_type, pieceSkills, groupSkillsList, slots, defense, resists, rank, setSkillNames] =
-        piece
+      const [, pieceSkills, groupSkillsList, slots, defense, resists, rank, setSkillNames] = piece
 
       armor.push({
         name,
@@ -208,7 +191,7 @@ export function transformSeedData(data: SeedData): TransformResult {
   }
 
   // --- Talismans ---
-  for (const [name, [_type, talisSkills]] of Object.entries(data.talisman)) {
+  for (const [name, [, talisSkills]] of Object.entries(data.talisman)) {
     armor.push({
       name,
       type: 'talisman',

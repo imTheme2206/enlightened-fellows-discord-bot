@@ -1,6 +1,4 @@
-import { Elysia } from "elysia";
-import { runScraper } from "../../services/scraper-service";
+import { Elysia } from 'elysia'
+import { runScraper } from '../../services/scraper-service'
 
-export const fetchArmorsRoutes = new Elysia().post("/fetch-armors", () =>
-  runScraper({ source: "manual" }),
-);
+export const fetchArmorsRoutes = new Elysia().post('/fetch-armors', () => runScraper({ source: 'manual' }))

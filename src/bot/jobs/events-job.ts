@@ -1,18 +1,16 @@
 import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
+import { CRON_JOB } from '../../config'
 import logger from '../../config/logger'
 import { mhEventsChannels } from '../../modules/channels/service'
 import { execute as eventsExecute } from '../commands/mhwilds/events'
 
-const cronSchedule = '0 10 * * 3' // every Wednesday at 10:00 SGT
-
 export function startEventsJob(client: Client): void {
   try {
-    logger.info(`Setting up cron job with schedule: ${cronSchedule}`)
     logger.info('Using timezone: Asia/Bangkok')
 
     const task = cron.schedule(
-      cronSchedule,
+      CRON_JOB.WEDNESDAY_10AM,
       async () => {
         const now = new Date().toLocaleString('en-US', {
           timeZone: 'Asia/Bangkok',
@@ -38,9 +36,9 @@ export function startEventsJob(client: Client): void {
 
           for (const channelId of channelIds) {
             try {
-              const channel = client.guilds.cache
-                .map((g) => g.channels.cache.get(channelId))
-                .find((c) => c != null) as TextChannel | undefined
+              const channel = client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find((c) => c != null) as
+                | TextChannel
+                | undefined
 
               if (!channel) {
                 logger.error(`Channel not found in cache: ${channelId}`)
@@ -85,7 +83,6 @@ export function startEventsJob(client: Client): void {
 
     if (task) {
       logger.info('Cron job scheduled successfully')
-      logger.info(`Schedule: ${cronSchedule} (Asia/Singapore timezone)`)
       logger.info('Next execution: Every Wednesday at 10:00 AM Thailand time')
     } else {
       logger.error('Failed to schedule cron job')

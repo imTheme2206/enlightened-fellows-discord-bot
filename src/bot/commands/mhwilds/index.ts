@@ -1,5 +1,5 @@
-export * as events from "./events";
-export * as hzv from "./hzv";
-export * as metaGuide from "./meta-guide";
-export * as registerChannel from "./register-channel";
-export * as searchSet from "./search-set";
+export * as events from './events'
+export * as hzv from './hzv'
+export * as metaGuide from './meta-guide'
+export * as registerChannel from './register-channel'
+export * as searchSet from './search-set'

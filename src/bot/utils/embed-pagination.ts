@@ -35,11 +35,7 @@ export type EmbedPaginationOptions = {
   timeoutMs?: number
   initialPage?: number
   commandUserId?: string | null
-  buildComponents?: (
-    page: number,
-    totalPages: number,
-    buttonIds: PaginationButtonIds
-  ) => ActionRowBuilder<ButtonBuilder>[]
+  buildComponents?: (page: number, totalPages: number, buttonIds: PaginationButtonIds) => ActionRowBuilder<ButtonBuilder>[]
   onPageChange?: (page: number) => void | Promise<void>
   onCollectorEnd?: (page: number) => void | Promise<void>
 }
@@ -63,9 +59,7 @@ export const chunkEntries = <T>(entries: T[], pageSize: number): T[][] => {
   return pages
 }
 
-const collectAttachmentsForPage = (
-  entries: EmbedPaginationEntry[]
-): AttachmentBuilder[] => {
+const collectAttachmentsForPage = (entries: EmbedPaginationEntry[]): AttachmentBuilder[] => {
   const unique = new Map<string, AttachmentRef>()
   entries.forEach((entry) => {
     entry.attachments.forEach((attachment) => {
@@ -77,14 +71,9 @@ const collectAttachmentsForPage = (
   return Array.from(unique.values()).map((attachment) => attachment.file)
 }
 
-export const paginateEmbedEntries = (
-  entries: EmbedPaginationEntry[],
-  pageSize: number
-): PaginatedEmbeds => {
+export const paginateEmbedEntries = (entries: EmbedPaginationEntry[], pageSize: number): PaginatedEmbeds => {
   const pages = chunkEntries(entries, pageSize)
-  const attachmentsByPage = pages.map((pageEntries) =>
-    collectAttachmentsForPage(pageEntries)
-  )
+  const attachmentsByPage = pages.map((pageEntries) => collectAttachmentsForPage(pageEntries))
 
   return {
     pages,
@@ -118,8 +107,7 @@ export const buildPaginationComponents = (
   ]
 }
 
-const isPaginationButton = (customId: string, buttonIds: PaginationButtonIds) =>
-  customId === buttonIds.prev || customId === buttonIds.next
+const isPaginationButton = (customId: string, buttonIds: PaginationButtonIds) => customId === buttonIds.prev || customId === buttonIds.next
 
 export const registerEmbedPaginationCollector = (
   message: Message,
@@ -128,10 +116,7 @@ export const registerEmbedPaginationCollector = (
 ) => {
   const { pages, attachmentsByPage } = paginatedEmbeds
 
-  if (
-    pages.length <= 1 ||
-    typeof message.createMessageComponentCollector !== 'function'
-  ) {
+  if (pages.length <= 1 || typeof message.createMessageComponentCollector !== 'function') {
     return
   }
 

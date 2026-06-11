@@ -1,2 +1,2 @@
-export * from "./code";
-export * as registerGenshinChannel from "./register-channel";
+export * from './code'
+export * as registerGenshinChannel from './register-channel'

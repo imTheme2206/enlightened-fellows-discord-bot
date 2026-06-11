@@ -1,6 +1,4 @@
-import { Elysia } from "elysia";
-import { ChannelService } from "./service";
+import { Elysia } from 'elysia'
+import { ChannelService } from './service'
 
-export const channelsRoutes = new Elysia().get("/channels", () =>
-  ChannelService.getAll(),
-);
+export const channelsRoutes = new Elysia().get('/channels', () => ChannelService.getAll())
