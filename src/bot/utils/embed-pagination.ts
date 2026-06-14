@@ -142,7 +142,7 @@ export const registerEmbedPaginationCollector = (
     if (commandUserId && interaction.user?.id !== commandUserId) {
       await interaction.reply({
         content: 'Only the command invoker can use these buttons.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }

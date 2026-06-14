@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../../db/schema'
 import type { ArmorPiece, ArmorType, DecorationItem, GroupSkillMeta, SetSearchIndex, SetSkillMeta, SkillMeta } from './types'
@@ -7,23 +8,23 @@ export async function buildIndexFromDb(): Promise<SetSearchIndex> {
   const decoRows = await db
     .select({ name: decoration.name, slotSize: decoration.slotSize, skillName: skill.name, skillLevel: decoration.skillLevel })
     .from(decoration)
-    .innerJoin(skill, (t) => t.eq(decoration.skillId, skill.id))
+    .innerJoin(skill, eq(decoration.skillId, skill.id))
   const armorRows = await db.select().from(armor)
   const armorSkillRows = await db
     .select({ armorName: armor.name, skillName: skill.name, level: armorSkill.level })
     .from(armorSkill)
-    .innerJoin(armor, (t) => t.eq(armorSkill.armorId, armor.id))
-    .innerJoin(skill, (t) => t.eq(armorSkill.skillId, skill.id))
+    .innerJoin(armor, eq(armorSkill.armorId, armor.id))
+    .innerJoin(skill, eq(armorSkill.skillId, skill.id))
   const armorSetSkillRows = await db
     .select({ armorName: armor.name, skillName: skill.name })
     .from(armorSetSkill)
-    .innerJoin(armor, (t) => t.eq(armorSetSkill.armorId, armor.id))
-    .innerJoin(skill, (t) => t.eq(armorSetSkill.skillId, skill.id))
+    .innerJoin(armor, eq(armorSetSkill.armorId, armor.id))
+    .innerJoin(skill, eq(armorSetSkill.skillId, skill.id))
   const armorGroupSkillRows = await db
     .select({ armorName: armor.name, skillName: skill.name })
     .from(armorGroupSkill)
-    .innerJoin(armor, (t) => t.eq(armorGroupSkill.armorId, armor.id))
-    .innerJoin(skill, (t) => t.eq(armorGroupSkill.skillId, skill.id))
+    .innerJoin(armor, eq(armorGroupSkill.armorId, armor.id))
+    .innerJoin(skill, eq(armorGroupSkill.skillId, skill.id))
 
   const skills = new Map<string, SkillMeta>()
   const setSkills = new Map<string, SetSkillMeta>()

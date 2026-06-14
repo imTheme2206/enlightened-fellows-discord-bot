@@ -99,14 +99,14 @@ export async function handleComponent(interaction: MessageComponentInteraction):
     if (!state.skills.length && !state.setSkills.length && !state.groupSkills.length) {
       await interaction.reply({
         content: 'Session expired — run /search-set again.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }
     await interaction.reply({
       embeds: [buildEmbed({ ...state, step: 'main' })],
       components: await buildComponents({ ...state, step: 'main' }),
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
     return
   }
@@ -201,7 +201,7 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
   if (!state.pendingSkills || state.pendingSkills.length === 0) {
     await interaction.reply({
       content: 'Session expired — run /search-set again.',
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
     return
   }

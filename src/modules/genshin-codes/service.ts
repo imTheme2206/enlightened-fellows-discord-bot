@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { Client, TextChannel } from 'discord.js'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { asc, desc, inArray } from 'drizzle-orm'
 import logger from '../../config/logger'
 import { db } from '../../db/client'
 import { genshinCode, type GenshinCode } from '../../db/schema'

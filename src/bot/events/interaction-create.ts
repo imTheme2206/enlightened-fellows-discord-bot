@@ -18,9 +18,7 @@ export async function execute(interaction: Interaction): Promise<void> {
     try {
       await command.execute(interaction)
     } catch (error) {
-      logger.error(`Error executing command ${interaction.commandName}:`, {
-        error,
-      })
+      logger.error(`Error executing command ${interaction.commandName}: ${error instanceof Error ? error.stack : String(error)}`)
     }
     return
   }
@@ -33,9 +31,7 @@ export async function execute(interaction: Interaction): Promise<void> {
       try {
         await handler.call(command, interaction)
       } catch (error) {
-        logger.error(`Error handling button for command ${commandName}:`, {
-          error,
-        })
+        logger.error(`Error handling button for command ${commandName}: ${error instanceof Error ? error.stack : String(error)}`)
       }
     }
     return
@@ -48,9 +44,7 @@ export async function execute(interaction: Interaction): Promise<void> {
       try {
         await command.handleComponent(interaction)
       } catch (error) {
-        logger.error(`Error handling select menu for command ${commandName}:`, {
-          error,
-        })
+        logger.error(`Error handling select menu for command ${commandName}: ${error instanceof Error ? error.stack : String(error)}`)
       }
     }
     return
@@ -63,9 +57,7 @@ export async function execute(interaction: Interaction): Promise<void> {
       try {
         await command.handleModal(interaction)
       } catch (error) {
-        logger.error(`Error handling modal for command ${commandName}:`, {
-          error,
-        })
+        logger.error(`Error handling modal for command ${commandName}: ${error instanceof Error ? error.stack : String(error)}`)
       }
     }
     return
@@ -77,7 +69,7 @@ export async function execute(interaction: Interaction): Promise<void> {
       try {
         await command.handleAutocomplete(interaction)
       } catch (error) {
-        logger.error(`Error handling autocomplete for command ${interaction.commandName}:`, { error })
+        logger.error(`Error handling autocomplete for command ${interaction.commandName}: ${error instanceof Error ? error.stack : String(error)}`)
       }
     }
     return

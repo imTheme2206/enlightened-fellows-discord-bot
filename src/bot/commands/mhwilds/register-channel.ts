@@ -24,7 +24,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (await mhEventsChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is already registered for Monster Hunter Wilds event alerts.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }
@@ -34,13 +34,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: 'This channel will now receive Monster Hunter Wilds event alerts.',
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
   } else {
-    if (!await mhEventsChannels.get(channelId)) {
+    if (!(await mhEventsChannels.get(channelId))) {
       await interaction.reply({
         content: 'This channel is not registered for Monster Hunter Wilds event alerts.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }
@@ -50,7 +50,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: 'This channel will no longer receive Monster Hunter Wilds event alerts.',
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
   }
 }

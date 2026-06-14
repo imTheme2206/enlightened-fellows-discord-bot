@@ -26,7 +26,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     if (await genshinCodeChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is already registered for Genshin Impact code alerts.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }
@@ -36,7 +36,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: 'This channel will now receive Genshin Impact code alerts.',
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
 
     const codes = await GenshinCodeService.getUnalerted()
@@ -54,10 +54,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
     }
   } else {
-    if (!await genshinCodeChannels.get(channelId)) {
+    if (!(await genshinCodeChannels.get(channelId))) {
       await interaction.reply({
         content: 'This channel is not registered for Genshin Impact code alerts.',
-        ephemeral: true,
+        flags: ['Ephemeral'],
       })
       return
     }
@@ -67,7 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     await interaction.reply({
       content: 'This channel will no longer receive Genshin Impact code alerts.',
-      ephemeral: true,
+      flags: ['Ephemeral'],
     })
   }
 }

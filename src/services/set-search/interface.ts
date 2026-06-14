@@ -1,4 +1,4 @@
-import { asc, eq, inArray, notInArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { decoration, skill } from '../../db/schema'
 
@@ -62,7 +62,7 @@ export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
     .selectDistinct({ name: skill.name })
     .from(decoration)
     .innerJoin(skill, eq(decoration.skillId, skill.id))
-    .where((t) => t.and(eq(decoration.type, 'armor'), eq(decoration.slotSize, slot), notInArray(skill.name, EXCLUDE_SLOT_1_SKILLS)))
+    .where(and(eq(decoration.type, 'armor'), eq(decoration.slotSize, slot), notInArray(skill.name, EXCLUDE_SLOT_1_SKILLS)))
     .orderBy(asc(skill.name))
 
   return rows.map((r) => ({ label: r.name, value: r.name }))
