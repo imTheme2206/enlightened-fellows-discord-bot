@@ -23,7 +23,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const channelId = interaction.channelId
 
   if (action === 'register') {
-    if (genshinCodeChannels.get(channelId)) {
+    if (await genshinCodeChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is already registered for Genshin Impact code alerts.',
         ephemeral: true,
@@ -31,7 +31,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    genshinCodeChannels.register(channelId)
+    await genshinCodeChannels.register(channelId)
     logger.info(`Registered Genshin code channel: ${channelId}`)
 
     await interaction.reply({
@@ -39,13 +39,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       ephemeral: true,
     })
 
-    const codes = GenshinCodeService.getUnalerted()
+    const codes = await GenshinCodeService.getUnalerted()
     if (codes.length > 0) {
       const channel = interaction.guild?.channels.cache.get(channelId) as TextChannel | undefined
       if (channel) {
         try {
           await sendCodesToChannel(channel, codes)
-          GenshinCodeService.markAlerted(codes.map((c) => c.id))
+          await GenshinCodeService.markAlerted(codes.map((c) => c.id))
         } catch (err) {
           logger.error(`register-genshin-code-channel: immediate alert failed for ${channelId}`, { err })
         }
@@ -54,7 +54,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       }
     }
   } else {
-    if (!genshinCodeChannels.get(channelId)) {
+    if (!await genshinCodeChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is not registered for Genshin Impact code alerts.',
         ephemeral: true,
@@ -62,7 +62,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    genshinCodeChannels.unregister(channelId)
+    await genshinCodeChannels.unregister(channelId)
     logger.info(`Unregistered Genshin code channel: ${channelId}`)
 
     await interaction.reply({

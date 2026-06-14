@@ -1,5 +1,22 @@
 import type { SearchResult } from '../types'
+import { DEFENSE_BAND } from './constants'
 
+/** Total skill levels across a result (skills are already capped to their max). */
+function totalSkillLevels(result: SearchResult): number {
+  return Object.values(result.skills).reduce((sum, lv) => sum + lv, 0)
+}
+
+function countSlots(slots: number[], size: number): number {
+  return slots.filter((s) => s === size).length
+}
+
+/**
+ * Ranks results in two defense tiers:
+ * - Tier 1 (within DEFENSE_BAND of the best defense found): free slots first
+ *   (size-3, then size-2, then count), then total skill levels, then defense.
+ * - Tier 2 (below the band): defense first, then total skill levels, then free slots.
+ * Discovery order breaks any remaining ties.
+ */
 export function reorder(dataList: SearchResult[], skillMaxMap: Record<string, number>): SearchResult[] {
   // Cap visual skill levels and normalize set/group counts
   for (const data of dataList) {
@@ -25,53 +42,32 @@ export function reorder(dataList: SearchResult[], skillMaxMap: Record<string, nu
     data.slots.sort((a, b) => b - a)
   }
 
-  // Primary sort: most 3-slots → most 2-slots → longest free slots → most skill keys → highest defense
-  const primarySorted = [...dataList].sort((a, b) => {
-    const aThrees = a.freeSlots.filter((s) => s === 3).length
-    const bThrees = b.freeSlots.filter((s) => s === 3).length
-    const aTwos = a.freeSlots.filter((s) => s === 2).length
-    const bTwos = b.freeSlots.filter((s) => s === 2).length
-    return (
-      bThrees - aThrees ||
-      bTwos - aTwos ||
-      b.freeSlots.length - a.freeSlots.length ||
-      Object.keys(b.skills).length - Object.keys(a.skills).length ||
-      b.defense - a.defense
-    )
-  })
+  const maxDefense = dataList.reduce((max, r) => Math.max(max, r.defense), 0)
+  const tierThreshold = maxDefense - DEFENSE_BAND
 
-  // Tier 1 dedup: keep one entry per (numThrees, numTwos) signature
-  const pre: SearchResult[] = []
-  const post: SearchResult[] = []
-  const bestPerSignature: Record<string, number> = {}
+  return [...dataList].sort((a, b) => {
+    const aTopTier = a.defense >= tierThreshold
+    const bTopTier = b.defense >= tierThreshold
+    if (aTopTier !== bTopTier) return aTopTier ? -1 : 1
 
-  for (const res of primarySorted) {
-    const numThrees = res.freeSlots.filter((s) => s === 3).length
-    const numTwos = res.freeSlots.filter((s) => s === 2).length
-    const key = `${numThrees},${numTwos}`
-
-    if (!(key in bestPerSignature)) {
-      pre.push(res)
-      bestPerSignature[key] = res.freeSlots.length
-    } else {
-      post.push(res)
-    }
-  }
-
-  // Tier 2 fallback: sort remaining by total free slots, prioritizing those with 2- or 3-slots, then original index
-  const preIds = new Set(pre.map((r) => r._originalIndex))
-  const longestSlots = [...dataList]
-    .filter((r) => !preIds.has(r._originalIndex))
-    .sort((a, b) => {
-      const aHasPriority = a.freeSlots.some((v) => v >= 2) ? a.freeSlots.length : 0
-      const bHasPriority = b.freeSlots.some((v) => v >= 2) ? b.freeSlots.length : 0
+    if (aTopTier) {
       return (
+        countSlots(b.freeSlots, 3) - countSlots(a.freeSlots, 3) ||
+        countSlots(b.freeSlots, 2) - countSlots(a.freeSlots, 2) ||
         b.freeSlots.length - a.freeSlots.length ||
-        bHasPriority - aHasPriority ||
+        totalSkillLevels(b) - totalSkillLevels(a) ||
         b.defense - a.defense ||
         (a._originalIndex ?? 0) - (b._originalIndex ?? 0)
       )
-    })
+    }
 
-  return [...pre, ...longestSlots]
+    return (
+      b.defense - a.defense ||
+      totalSkillLevels(b) - totalSkillLevels(a) ||
+      countSlots(b.freeSlots, 3) - countSlots(a.freeSlots, 3) ||
+      countSlots(b.freeSlots, 2) - countSlots(a.freeSlots, 2) ||
+      b.freeSlots.length - a.freeSlots.length ||
+      (a._originalIndex ?? 0) - (b._originalIndex ?? 0)
+    )
+  })
 }

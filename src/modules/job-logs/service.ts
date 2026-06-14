@@ -1,12 +1,14 @@
 import { randomUUID } from 'crypto'
+import { desc } from 'drizzle-orm'
 import { db } from '../../db/client'
+import { jobLog, type JobLog } from '../../db/schema'
 
 export abstract class JobLogService {
-  static log(jobName: string, status: string, message?: string): void {
-    db.prepare('INSERT INTO JobLog (id, jobName, status, message) VALUES (?, ?, ?, ?)').run(randomUUID(), jobName, status, message ?? null)
+  static async log(jobName: string, status: string, message?: string): Promise<void> {
+    await db.insert(jobLog).values({ id: randomUUID(), jobName, status, message: message ?? null })
   }
 
-  static getRecent(limit = 20) {
-    return db.prepare('SELECT * FROM JobLog ORDER BY createdAt DESC LIMIT ?').all(limit)
+  static async getRecent(limit = 20): Promise<JobLog[]> {
+    return db.query.jobLog.findMany({ orderBy: (t) => [desc(t.createdAt)], limit })
   }
 }

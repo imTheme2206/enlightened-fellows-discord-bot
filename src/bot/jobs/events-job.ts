@@ -25,7 +25,7 @@ export function startEventsJob(client: Client): void {
         logger.info(`[${now}] Running scheduled /events limited job...`)
 
         try {
-          const channelIds = mhEventsChannels.getAll().map((c) => c.channelId)
+          const channelIds = (await mhEventsChannels.getAll()).map((c) => c.channelId)
 
           if (channelIds.length === 0) {
             logger.warn('No registered MH events channels — skipping job')

@@ -1,6 +1,6 @@
 import type { ArmorPiece, DecorationItem } from '../types'
 import type { GearPool, SkillPotentialAlias } from './constants'
-import { ARMOR_SLOT_TYPES } from './constants'
+import { ARMOR_SLOT_TYPES, DEFENSE_POOL_SIZE } from './constants'
 import {
   emptyGearPiece,
   emptyGearSet,
@@ -450,6 +450,22 @@ export function getBestArmor(
     )
     for (const [name, piece] of sorted.slice(0, setGroupCap)) {
       bareMinimum[category][name] = piece
+    }
+  }
+
+  // Results are ranked defense-first, so the pool must also carry the top
+  // defenders per slot (among pieces still contributing a desired skill or a
+  // required set/group skill) — skill-potential winners alone skew low-defense.
+  const relevantByType: Record<string, ArmorPiece[]> = { head: [], chest: [], arms: [], waist: [], legs: [] }
+  for (const piece of Object.values(filteredArmor)) {
+    if (hasNeededSkill(piece.skills, skills) || isInSets(piece, setSkills) || isInGroups(piece, groupSkills)) {
+      relevantByType[piece.type]?.push(piece)
+    }
+  }
+  for (const [category, pieces] of Object.entries(relevantByType)) {
+    const topDefenders = pieces.sort((a, b) => b.defense - a.defense).slice(0, DEFENSE_POOL_SIZE)
+    for (const piece of topDefenders) {
+      bareMinimum[category][piece.name] = piece
     }
   }
 

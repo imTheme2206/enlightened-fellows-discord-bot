@@ -13,16 +13,12 @@ primary_region = 'sin'
 
 [deploy]
   strategy = 'immediate'
+  release_command = 'pnpm db:migrate'
 
 [env]
   NODE_ENV = 'production'
   TZ = 'Asia/Singapore'
-  DATABASE_PATH = '/data/data.db'
   WEB_PORT = '3000'
-
-[mounts]
-  source = 'enlightened_fellows_data'
-  destination = '/data'
 
 [processes]
   app = 'node dist/index.js'

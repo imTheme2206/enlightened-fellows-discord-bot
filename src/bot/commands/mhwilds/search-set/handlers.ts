@@ -39,28 +39,24 @@ async function runSearch(interaction: MessageComponentInteraction, state: Search
     const msg = err instanceof Error ? err.message : 'Unknown error during search.'
     await interaction.editReply({
       embeds: [buildEmbed(state).setDescription(`Search failed: ${msg}`)],
-      components: buildComponents(state),
+      components: await buildComponents(state),
     })
     return
   }
 
-  SearchHistoryService.save(
-    interaction.user.id,
-    buildHistoryLabel(state),
-    JSON.stringify({
-      skills: state.skills,
-      setSkills: state.setSkills,
-      groupSkills: state.groupSkills,
-      gogmaSetSkill: state.gogmaSkills.setSkill,
-      gogmaGroupSkill: state.gogmaSkills.groupSkill,
-      rank: state.rank,
-    } satisfies SavedSearch)
-  )
+  void SearchHistoryService.save(interaction.user.id, buildHistoryLabel(state), {
+    skills: state.skills,
+    setSkills: state.setSkills,
+    groupSkills: state.groupSkills,
+    gogmaSetSkill: state.gogmaSkills.setSkill,
+    gogmaGroupSkill: state.gogmaSkills.groupSkill,
+    rank: state.rank,
+  } satisfies SavedSearch)
 
   if (results.length === 0) {
     await interaction.editReply({
       embeds: [buildEmbed(state).setDescription('No armor sets found. Adjust your search and try again:')],
-      components: buildComponents(state),
+      components: await buildComponents(state),
     })
     return
   }
@@ -82,7 +78,7 @@ async function runSearch(interaction: MessageComponentInteraction, state: Search
   // Restore the search UI so the user can keep refining without re-invoking /search-set
   await interaction.editReply({
     embeds: [buildEmbed(state)],
-    components: buildComponents(state),
+    components: await buildComponents(state),
   })
 
   registerEmbedPaginationCollector(message, paginated, {
@@ -109,7 +105,7 @@ export async function handleComponent(interaction: MessageComponentInteraction):
     }
     await interaction.reply({
       embeds: [buildEmbed({ ...state, step: 'main' })],
-      components: buildComponents({ ...state, step: 'main' }),
+      components: await buildComponents({ ...state, step: 'main' }),
       ephemeral: true,
     })
     return
@@ -136,7 +132,7 @@ export async function handleComponent(interaction: MessageComponentInteraction):
     return
   }
   if (id === 'search-set:btn-history') {
-    const entries = SearchHistoryService.getRecent(interaction.user.id)
+    const entries = await SearchHistoryService.getRecent(interaction.user.id)
     await updateSession(interaction, {
       ...state,
       step: 'history',
@@ -210,7 +206,7 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
     return
   }
 
-  const maxLevels = getSkillMaxLevels(state.pendingSkills.map((p) => p.name))
+  const maxLevels = await getSkillMaxLevels(state.pendingSkills.map((p) => p.name))
   const newEntries = state.pendingSkills.slice(0, 5).map(({ name, slotSize }, i) => {
     const maxLevel = maxLevels.get(name) ?? 7
     const raw = parseInt(interaction.fields.getTextInputValue(`level_${i}`), 10)
@@ -226,16 +222,10 @@ export async function handleModal(interaction: ModalSubmitInteraction): Promise<
   }
   saveSession(interaction.user.id, next)
 
+  const components = await buildComponents(next)
   if (interaction.isFromMessage()) {
-    await interaction.update({
-      embeds: [buildEmbed(next)],
-      components: buildComponents(next),
-    })
+    await interaction.update({ embeds: [buildEmbed(next)], components })
   } else {
-    await interaction.reply({
-      embeds: [buildEmbed(next)],
-      components: buildComponents(next),
-      ephemeral: true,
-    })
+    await interaction.reply({ embeds: [buildEmbed(next)], components, ephemeral: true })
   }
 }

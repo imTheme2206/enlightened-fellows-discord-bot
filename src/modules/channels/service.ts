@@ -1,38 +1,37 @@
+import { and, eq } from 'drizzle-orm'
 import { db } from '../../db/client'
-
-export interface RegisteredChannelRow {
-  channelId: string
-  type: string
-  createdAt: string
-}
+import { registeredChannel, type RegisteredChannel } from '../../db/schema'
 
 export class ChannelRegistry {
   constructor(private readonly type: string) {}
 
-  register(channelId: string): void {
-    db.prepare('INSERT OR IGNORE INTO RegisteredChannel (channelId, type) VALUES (?, ?)').run(channelId, this.type)
+  async register(channelId: string): Promise<void> {
+    await db.insert(registeredChannel).values({ channelId, type: this.type }).onConflictDoNothing()
   }
 
-  unregister(channelId: string): void {
-    db.prepare('DELETE FROM RegisteredChannel WHERE channelId = ? AND type = ?').run(channelId, this.type)
+  async unregister(channelId: string): Promise<void> {
+    await db.delete(registeredChannel).where(and(eq(registeredChannel.channelId, channelId), eq(registeredChannel.type, this.type)))
   }
 
-  get(channelId: string): { channelId: string } | null {
-    return (
-      (db.prepare('SELECT channelId FROM RegisteredChannel WHERE channelId = ? AND type = ?').get(channelId, this.type) as
-        | { channelId: string }
-        | undefined) ?? null
-    )
+  async get(channelId: string): Promise<{ channelId: string } | null> {
+    const row = await db.query.registeredChannel.findFirst({
+      columns: { channelId: true },
+      where: (t, { and, eq }) => and(eq(t.channelId, channelId), eq(t.type, this.type)),
+    })
+    return row ?? null
   }
 
-  getAll(): { channelId: string }[] {
-    return db.prepare('SELECT channelId FROM RegisteredChannel WHERE type = ?').all(this.type) as { channelId: string }[]
+  async getAll(): Promise<{ channelId: string }[]> {
+    return db.query.registeredChannel.findMany({
+      columns: { channelId: true },
+      where: (t, { eq }) => eq(t.type, this.type),
+    })
   }
 }
 
 export abstract class ChannelService {
-  static getAll(): RegisteredChannelRow[] {
-    return db.prepare('SELECT * FROM RegisteredChannel ORDER BY createdAt DESC').all() as RegisteredChannelRow[]
+  static async getAll(): Promise<RegisteredChannel[]> {
+    return db.query.registeredChannel.findMany({ orderBy: (t, { desc }) => [desc(t.createdAt)] })
   }
 }
 

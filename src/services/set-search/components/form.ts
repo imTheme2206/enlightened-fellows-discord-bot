@@ -6,9 +6,8 @@ import { cancelRow } from './ui'
 
 export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>
 
-function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
-  const setOptions = loadSetSkillOptions()
-  const groupOptions = loadGroupSkillOptions()
+async function buildWeaponSkillComponents(state: SearchState): Promise<AnyRow[]> {
+  const [setOptions, groupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
   const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill)
 
   return [
@@ -37,13 +36,14 @@ function buildWeaponSkillComponents(state: SearchState): AnyRow[] {
   ]
 }
 
-function buildSetSkillComponents(state: SearchState): AnyRow[] {
+async function buildSetSkillComponents(state: SearchState): Promise<AnyRow[]> {
   const rows: AnyRow[] = []
   const addedSetSkills = new Set(state.setSkills)
   const addedGroupSkills = new Set(state.groupSkills)
 
-  const setOptions = loadSetSkillOptions().filter((o) => !addedSetSkills.has(o.value))
-  const groupOptions = loadGroupSkillOptions().filter((o) => !addedGroupSkills.has(o.value))
+  const [allSetOptions, allGroupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+  const setOptions = allSetOptions.filter((o) => !addedSetSkills.has(o.value))
+  const groupOptions = allGroupOptions.filter((o) => !addedGroupSkills.has(o.value))
 
   if (setOptions.length) {
     rows.push(
@@ -93,7 +93,7 @@ function buildHistoryComponents(state: SearchState): AnyRow[] {
     entries.length > 0
       ? entries.map((e) => ({
           label: e.label,
-          description: `Searched: ${e.searchedAt.slice(0, 16)}`,
+          description: `Searched: ${e.searchedAt.toISOString().slice(0, 16)}`,
           value: e.id,
         }))
       : [{ label: 'No search history found', value: '__none__' }]
@@ -120,21 +120,23 @@ function buildRemoveSkillComponents(state: SearchState): AnyRow[] {
   ]
 }
 
-function buildMainComponents(state: SearchState): AnyRow[] {
+async function buildMainComponents(state: SearchState): Promise<AnyRow[]> {
   const rows: AnyRow[] = []
   const skillCount = state.skills.length
   const hasSkills = skillCount > 0
   const atMax = skillCount >= MAX_SKILLS
   const addedSkills = new Set(state.skills.map((s) => s.name))
 
-  const slotOneOptions = loadArmorSkills(1).filter((s) => !addedSkills.has(s.value))
-  const displaySlotOneOptions = slotOneOptions.length ? slotOneOptions : [{ label: `All slot ${1} skills added`, value: '__none__' }]
+  const [slot1, slot2, slot3] = await Promise.all([loadArmorSkills(1), loadArmorSkills(2), loadArmorSkills(3)])
+
+  const slotOneOptions = slot1.filter((s) => !addedSkills.has(s.value))
+  const displaySlotOneOptions = slotOneOptions.length ? slotOneOptions : [{ label: 'All slot 1 skills added', value: '__none__' }]
 
   rows.push(
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(`search-set:slot-${1}-pick`)
-        .setPlaceholder(`Add Slot ${1} skill…`)
+        .setCustomId('search-set:slot-1-pick')
+        .setPlaceholder('Add Slot 1 skill…')
         .setDisabled(atMax)
         .setMinValues(1)
         .setMaxValues(Math.min(5, displaySlotOneOptions.length))
@@ -142,16 +144,14 @@ function buildMainComponents(state: SearchState): AnyRow[] {
     )
   )
 
-  const SlotTwoThreeOptions = [...loadArmorSkills(2), ...loadArmorSkills(3)].filter((s) => !addedSkills.has(s.value))
-  const displaySlotTwoThreeOptions = SlotTwoThreeOptions.length
-    ? SlotTwoThreeOptions
-    : [{ label: `All slot ${1} skills added`, value: '__none__' }]
+  const slotTwoThreeOptions = [...slot2, ...slot3].filter((s) => !addedSkills.has(s.value))
+  const displaySlotTwoThreeOptions = slotTwoThreeOptions.length ? slotTwoThreeOptions : [{ label: 'All slot 2/3 skills added', value: '__none__' }]
 
   rows.push(
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(`search-set:slot-${2}-pick`)
-        .setPlaceholder(`Add Slot 2 or 3 skill…`)
+        .setCustomId('search-set:slot-2-pick')
+        .setPlaceholder('Add Slot 2 or 3 skill…')
         .setDisabled(atMax)
         .setMinValues(1)
         .setMaxValues(Math.min(5, displaySlotTwoThreeOptions.length))
@@ -161,11 +161,7 @@ function buildMainComponents(state: SearchState): AnyRow[] {
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId('search-set:btn-remove')
-        .setLabel('Remove Skill')
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(!hasSkills),
+      new ButtonBuilder().setCustomId('search-set:btn-remove').setLabel('Remove Skill').setStyle(ButtonStyle.Danger).setDisabled(!hasSkills),
       new ButtonBuilder().setCustomId('search-set:btn-history').setLabel('History').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('search-set:btn-weapon').setLabel('Weapon Skills').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('search-set:btn-set-bonus').setLabel('Set/Group Bonus').setStyle(ButtonStyle.Secondary),
@@ -176,7 +172,7 @@ function buildMainComponents(state: SearchState): AnyRow[] {
   return rows
 }
 
-export function buildComponents(state: SearchState): AnyRow[] {
+export async function buildComponents(state: SearchState): Promise<AnyRow[]> {
   switch (state.step) {
     case 'weapon-skill':
       return buildWeaponSkillComponents(state)

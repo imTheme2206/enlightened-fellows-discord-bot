@@ -9,7 +9,7 @@ export const updateSession = async (interaction: MessageComponentInteraction, ne
   saveSession(interaction.user.id, next)
   await interaction.update({
     embeds: [buildEmbed(next)],
-    components: buildComponents(next),
+    components: await buildComponents(next),
   })
 }
 
@@ -49,7 +49,7 @@ export const handleSlotPick = async (state: SearchState, interaction: MessageCom
   const pending: PendingSkill[] = values.slice(0, remaining).map((name) => ({ name, slotSize }))
 
   saveSession(interaction.user.id, { ...state, pendingSkills: pending })
-  const maxLevels = getSkillMaxLevels(pending.map((p) => p.name))
+  const maxLevels = await getSkillMaxLevels(pending.map((p) => p.name))
   await interaction.showModal(buildLevelModal(pending, maxLevels))
 }
 
@@ -114,7 +114,7 @@ export const handleHistoryPick = async (state: SearchState, interaction: Message
     })
     return
   }
-  const saved = JSON.parse(entry.data) as SavedSearch
+  const saved = entry.data as SavedSearch
   await updateSession(interaction, {
     ...state,
     skills: saved.skills,

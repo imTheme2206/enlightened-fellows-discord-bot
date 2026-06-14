@@ -7,7 +7,7 @@ import { reorder } from './reorder'
 /**
  * Main entry point for set search.
  * @param input - User-specified skill requirements and filters.
- * @param index - The pre-built search index from buildSearchIndex().
+ * @param index - The pre-built search index from buildIndexFromDb().
  */
 export function search(input: SearchInput, index: SetSearchIndex): SearchResult[] {
   const skills = input.skills ?? {}

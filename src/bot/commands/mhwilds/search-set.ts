@@ -25,7 +25,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
   await interaction.reply({
     embeds: [buildEmbed(fresh)],
-    components: buildComponents(fresh),
+    components: await buildComponents(fresh),
     ephemeral: true,
   })
 }

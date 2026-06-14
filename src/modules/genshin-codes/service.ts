@@ -1,44 +1,36 @@
 import { randomUUID } from 'crypto'
 import { Client, TextChannel } from 'discord.js'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import logger from '../../config/logger'
 import { db } from '../../db/client'
+import { genshinCode, type GenshinCode } from '../../db/schema'
 import { isDefined } from '../../utils/is-defined'
 import { genshinCodeChannels } from '../channels/service'
-
-export interface GenshinCodeRow {
-  id: string
-  code: string
-  rewards: string | null
-  createdAt: string
-  isExpired: number
-  isAlerted: number
-}
 
 export abstract class GenshinCodeService {
   static redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
 
-  static save(code: string, isAlerted = false, isExpired = false, rewards?: string): void {
-    db.prepare('INSERT OR IGNORE INTO GenshinCode (id, code, rewards, isAlerted, isExpired) VALUES (?, ?, ?, ?, ?)').run(
-      randomUUID(),
-      code,
-      rewards ?? null,
-      isAlerted ? 1 : 0,
-      isExpired ? 1 : 0
-    )
+  static async save(code: string, isAlerted = false, isExpired = false, rewards?: string): Promise<void> {
+    await db
+      .insert(genshinCode)
+      .values({ id: randomUUID(), code, rewards: rewards ?? null, isAlerted, isExpired })
+      .onConflictDoNothing()
   }
 
-  static getUnalerted(): GenshinCodeRow[] {
-    return db.prepare('SELECT * FROM GenshinCode WHERE isAlerted = 0 AND isExpired = 0 ORDER BY createdAt ASC').all() as GenshinCodeRow[]
+  static async getUnalerted(): Promise<GenshinCode[]> {
+    return db.query.genshinCode.findMany({
+      where: (t, { and, eq }) => and(eq(t.isAlerted, false), eq(t.isExpired, false)),
+      orderBy: (t) => [asc(t.createdAt)],
+    })
   }
 
-  static markAlerted(ids: string[]): void {
+  static async markAlerted(ids: string[]): Promise<void> {
     if (ids.length === 0) return
-    const placeholders = ids.map(() => '?').join(', ')
-    db.prepare(`UPDATE GenshinCode SET isAlerted = 1 WHERE id IN (${placeholders})`).run(...ids)
+    await db.update(genshinCode).set({ isAlerted: true }).where(inArray(genshinCode.id, ids))
   }
 
-  static getAll(limit = 100): GenshinCodeRow[] {
-    return db.prepare('SELECT * FROM GenshinCode ORDER BY createdAt DESC LIMIT ?').all(limit) as GenshinCodeRow[]
+  static async getAll(limit = 100): Promise<GenshinCode[]> {
+    return db.query.genshinCode.findMany({ orderBy: (t) => [desc(t.createdAt)], limit })
   }
 
   static buildRedeemUrl(code: string): string {
@@ -47,12 +39,11 @@ export abstract class GenshinCodeService {
 
   static async saveAndNotify(codes: string[], client: Client): Promise<void> {
     for (const code of codes) {
-      this.save(code, true)
+      await this.save(code, true)
     }
 
     const content = codes.map((c) => this.buildRedeemUrl(c)).join('\n')
-
-    const channels = genshinCodeChannels.getAll()
+    const channels = await genshinCodeChannels.getAll()
 
     for (const { channelId } of channels) {
       const channel = client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find(isDefined) as TextChannel | undefined

@@ -21,7 +21,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const channelId = interaction.channelId
 
   if (action === 'register') {
-    if (mhEventsChannels.get(channelId)) {
+    if (await mhEventsChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is already registered for Monster Hunter Wilds event alerts.',
         ephemeral: true,
@@ -29,7 +29,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    mhEventsChannels.register(channelId)
+    await mhEventsChannels.register(channelId)
     logger.info(`Registered MH events channel: ${channelId}`)
 
     await interaction.reply({
@@ -37,7 +37,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       ephemeral: true,
     })
   } else {
-    if (!mhEventsChannels.get(channelId)) {
+    if (!await mhEventsChannels.get(channelId)) {
       await interaction.reply({
         content: 'This channel is not registered for Monster Hunter Wilds event alerts.',
         ephemeral: true,
@@ -45,7 +45,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    mhEventsChannels.unregister(channelId)
+    await mhEventsChannels.unregister(channelId)
     logger.info(`Unregistered MH events channel: ${channelId}`)
 
     await interaction.reply({

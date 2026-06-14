@@ -1,134 +1,23 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import fs from 'fs'
 import path from 'path'
-import { search } from '../logic/search'
-import type {
-  SetSearchIndex,
-  ArmorPiece,
-  DecorationItem,
-  ArmorType,
-  SearchInput,
-  SearchResult,
-  SetSkillMeta,
-  GroupSkillMeta,
-  SkillMeta,
-} from '../types'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { DEFENSE_BAND } from '../logic/constants'
+import type { SearchInput, SearchResult, SetSearchIndex } from '../types'
 
-// ---------------------------------------------------------------------------
-// Test index builder — reads from assets/seed/ without touching the DB
-// ---------------------------------------------------------------------------
+// The index is built from the same SQLite database the real app uses.
+// DATABASE_PATH must be set before the db client module is loaded, so the
+// search/build-index modules are imported dynamically inside beforeAll.
+process.env.DATABASE_PATH ??= path.join(process.cwd(), 'db', 'data.db')
 
-const SEED_DIR = path.join(process.cwd(), 'assets', 'seed')
-
-function readSeed<T>(file: string): T {
-  return JSON.parse(fs.readFileSync(path.join(SEED_DIR, file), 'utf8')) as T
-}
-
-function buildTestIndex(): SetSearchIndex {
-  // compact armor: [type, skills, groupSkills, slots, defense, resists, rank, setSkills]
-  const mapArmor = (name: string, d: unknown[]): ArmorPiece => ({
-    name,
-    type: d[0] as ArmorType,
-    skills: d[1] as Record<string, number>,
-    groupSkills: d[2] as string[],
-    slots: d[3] as number[],
-    defense: d[4] as number,
-    resists: d[5] as [number, number, number, number, number],
-    rank: d[6] as 'low' | 'high' | 'master',
-    setSkills: d[7] as string[],
-  })
-
-  // d[0] is the compact type tag "talisman" — type is hardcoded below
-  const mapTalisman = (name: string, d: unknown[]): ArmorPiece => ({
-    name,
-    type: 'talisman',
-    skills: d[1] as Record<string, number>,
-    groupSkills: [],
-    slots: [],
-    defense: 0,
-    resists: [0, 0, 0, 0, 0],
-    rank: 'high',
-    setSkills: [],
-  })
-
-  const armorFiles = ['head', 'chest', 'arms', 'waist', 'legs'] as const
-
-  const byType: Record<ArmorType, ArmorPiece[]> = {
-    head: [],
-    chest: [],
-    arms: [],
-    waist: [],
-    legs: [],
-    talisman: [],
-  }
-
-  for (const slot of armorFiles) {
-    const raw = readSeed<Record<string, unknown[]>>(`${slot}.json`)
-    byType[slot] = Object.entries(raw).map(([n, d]) => mapArmor(n, d))
-  }
-
-  const talisRaw = readSeed<Record<string, unknown[]>>('talisman.json')
-  byType.talisman = Object.entries(talisRaw).map(([n, d]) => mapTalisman(n, d))
-
-  // compact deco: [type, skills, slotSize]
-  const decoRaw = readSeed<Record<string, unknown[]>>('decoration.json')
-  const decorations: DecorationItem[] = Object.entries(decoRaw).map(([name, d]) => ({
-    name,
-    skills: d[1] as Record<string, number>,
-    slotSize: d[2] as number,
-  }))
-
-  // compact set-skill: [skillName, piecesRequired, bonusLevels]
-  const setSkillsRaw = readSeed<Record<string, unknown[]>>('set-skills.json')
-  const setSkills = new Map<string, SetSkillMeta>()
-  for (const [name, d] of Object.entries(setSkillsRaw)) {
-    setSkills.set(name, {
-      name,
-      skillName: d[0] as string,
-      piecesRequired: d[1] as number,
-      bonusLevels: d[2] as number[],
-    })
-  }
-
-  // compact group-skill: [skillName, levelGranted, piecesRequired]
-  const groupSkillsRaw = readSeed<Record<string, unknown[]>>('group-skills.json')
-  const groupSkills = new Map<string, GroupSkillMeta>()
-  for (const [name, d] of Object.entries(groupSkillsRaw)) {
-    groupSkills.set(name, {
-      name,
-      skillName: d[0] as string,
-      levelGranted: d[1] as number,
-      piecesRequired: d[2] as number,
-    })
-  }
-
-  // skills seed: { skillName: maxLevel }
-  const skillsRaw = readSeed<Record<string, number>>('skills.json')
-  const skills = new Map<string, SkillMeta>()
-  for (const [name, maxLevel] of Object.entries(skillsRaw)) {
-    skills.set(name, { name, maxLevel })
-  }
-
-  return {
-    version: '1.0.0',
-    byType,
-    allArmor: [...byType.head, ...byType.chest, ...byType.arms, ...byType.waist, ...byType.legs, ...byType.talisman],
-    decorations,
-    setSkills,
-    groupSkills,
-    skills,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+type SearchFn = (input: SearchInput, index: SetSearchIndex) => SearchResult[]
 
 describe('set-search', () => {
   let index: SetSearchIndex
+  let search: SearchFn
 
-  beforeAll(() => {
-    index = buildTestIndex()
+  beforeAll(async () => {
+    const [{ buildIndexFromDb }, { search: searchFn }] = await Promise.all([import('../build-index'), import('../logic/search')])
+    index = buildIndexFromDb()
+    search = searchFn
   })
 
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
@@ -144,7 +33,7 @@ describe('set-search', () => {
     const input: SearchInput = {
       skills: {
         Antivirus: 3,
-        'Free Meal': 2,
+        'Speed Eating': 2,
         'Maximum Might': 3,
         Earplugs: 1,
         Agitator: 4,
@@ -168,11 +57,11 @@ describe('set-search', () => {
 
     let results: SearchResult[]
 
-    // Lord's Soul is a 3-piece group skill; the DFS explores a larger combination space
-    // and may take up to ~10 seconds on a cold run.
+    // Lord's Soul is a 3-piece group skill; the DFS explores a larger combination
+    // space and the full enumeration takes ~15 seconds.
     beforeAll(() => {
       results = search(input, index)
-    }, 20_000)
+    }, 60_000)
 
     it('finds at least one valid build', () => {
       expect(results.length).toBeGreaterThan(0)
@@ -185,52 +74,18 @@ describe('set-search', () => {
       }
     })
 
-    it('every result satisfies Antivirus 3', () => {
+    it.each([
+      ['Antivirus', 3],
+      ['Speed Eating', 2],
+      ['Maximum Might', 3],
+      ['Earplugs', 1],
+      ['Agitator', 4],
+      ['Weakness Exploit', 5],
+      ['Burst', 1],
+    ])('every result satisfies %s %i', (skill, level) => {
       expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
-        expect(result.skills['Antivirus'] ?? 0).toBeGreaterThanOrEqual(3)
-      }
-    })
-
-    it('every result satisfies Free Meal 2', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Free Meal'] ?? 0).toBeGreaterThanOrEqual(2)
-      }
-    })
-
-    it('every result satisfies Maximum Might 3', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Maximum Might'] ?? 0).toBeGreaterThanOrEqual(3)
-      }
-    })
-
-    it('every result satisfies Earplugs 1', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Earplugs'] ?? 0).toBeGreaterThanOrEqual(1)
-      }
-    })
-
-    it('every result satisfies Agitator 4', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Agitator'] ?? 0).toBeGreaterThanOrEqual(4)
-      }
-    })
-
-    it('every result satisfies Weakness Exploit 5', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Weakness Exploit'] ?? 0).toBeGreaterThanOrEqual(5)
-      }
-    })
-
-    it('every result satisfies Burst 1', () => {
-      expect(results.length).toBeGreaterThan(0)
-      for (const result of results) {
-        expect(result.skills['Burst'] ?? 0).toBeGreaterThanOrEqual(1)
+        expect(result.skills[skill] ?? 0).toBeGreaterThanOrEqual(level)
       }
     })
 
@@ -248,7 +103,7 @@ describe('set-search', () => {
       }
     })
 
-    it('innate-skill-first: no skill in any result exceeds its maximum level', () => {
+    it('no skill in any result exceeds its maximum level', () => {
       expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
         for (const [sk, lv] of Object.entries(result.skills)) {
@@ -260,11 +115,42 @@ describe('set-search', () => {
       }
     })
 
-    it('innate-skill-first: top result has the most or equal size-3 free slots among all results', () => {
+    it('top-tier results (within the defense band) come before all lower-defense results', () => {
       expect(results.length).toBeGreaterThan(0)
-      const maxThrees = Math.max(...results.map((r) => r.freeSlots.filter((s) => s === 3).length))
-      const topThrees = results[0].freeSlots.filter((s) => s === 3).length
-      expect(topThrees).toBe(maxThrees)
+      const maxDefense = Math.max(...results.map((r) => r.defense))
+      const threshold = maxDefense - DEFENSE_BAND
+      const firstLowTier = results.findIndex((r) => r.defense < threshold)
+      if (firstLowTier !== -1) {
+        for (const result of results.slice(firstLowTier)) {
+          expect(result.defense).toBeLessThan(threshold)
+        }
+      }
+    })
+
+    it('top-tier results are ordered by free slots (size 3, size 2, count) descending', () => {
+      expect(results.length).toBeGreaterThan(0)
+      const maxDefense = Math.max(...results.map((r) => r.defense))
+      const topTier = results.filter((r) => r.defense >= maxDefense - DEFENSE_BAND)
+      const slotRank = (r: SearchResult): [number, number, number] => [
+        r.freeSlots.filter((s) => s === 3).length,
+        r.freeSlots.filter((s) => s === 2).length,
+        r.freeSlots.length,
+      ]
+      for (let i = 1; i < topTier.length; i++) {
+        const [prev3, prev2, prevN] = slotRank(topTier[i - 1])
+        const [cur3, cur2, curN] = slotRank(topTier[i])
+        const ordered = cur3 < prev3 || (cur3 === prev3 && (cur2 < prev2 || (cur2 === prev2 && curN <= prevN)))
+        expect(ordered).toBe(true)
+      }
+    })
+
+    it('below-band results are ordered by defense descending', () => {
+      expect(results.length).toBeGreaterThan(0)
+      const maxDefense = Math.max(...results.map((r) => r.defense))
+      const lowTier = results.filter((r) => r.defense < maxDefense - DEFENSE_BAND)
+      for (let i = 1; i < lowTier.length; i++) {
+        expect(lowTier[i].defense).toBeLessThanOrEqual(lowTier[i - 1].defense)
+      }
     })
 
     it('decorations used only cover the skill gap left by innate armor skills', () => {
@@ -281,7 +167,7 @@ describe('set-search', () => {
         }
 
         // Decos should only fill the gap left by innate armor skills
-        for (const [sk, needed] of Object.entries(input.skills)) {
+        for (const [sk, needed] of Object.entries(input.skills ?? {})) {
           const decoContrib = decoSkills[sk] ?? 0
           const innateContrib = (result.skills[sk] ?? 0) - decoContrib
           const gap = Math.max(0, needed - innateContrib)
@@ -289,5 +175,100 @@ describe('set-search', () => {
         }
       }
     })
+
+    // ── Ground truth: known-good sets verified against an external set builder ──
+    //
+    // Each pinned search must reproduce the reference solution exactly:
+    // same armor, same decoration loadout, same activated skills.
+
+    const groundTruthSets: Array<{
+      armor: string[]
+      decos: string[]
+      skills: Record<string, number>
+    }> = [
+      {
+        armor: ['Udra Mirehelm Gamma', 'Dahaad Shardmail Gamma', 'Arkvulcan Vambraces Gamma', 'Numinous Overlay Beta', 'Gore Greaves Beta', 'Exploiter Charm III'],
+        decos: ['Earplugs Jewel 2', 'Gobbler Jewel 1', 'Gobbler Jewel 1', 'Mighty Jewel 2', 'Mighty Jewel 2', 'Mighty Jewel 2', 'Sane Jewel 1', 'Sane Jewel 1'],
+        skills: {
+          'Weakness Exploit': 5,
+          Agitator: 4,
+          Antivirus: 3,
+          Burst: 3,
+          'Maximum Might': 3,
+          Flayer: 2,
+          'Speed Eating': 2,
+          Coalescence: 1,
+          Earplugs: 1,
+          'Flinch Free': 1,
+        },
+      },
+      {
+        armor: ['Udra Mirehelm Gamma', 'Dahaad Shardmail Gamma', 'Rey Sandbraces Gamma', 'Numinous Overlay Beta', 'Gore Greaves Beta', 'Exploiter Charm III'],
+        decos: [
+          'Earplugs Jewel 2',
+          'Gobbler Jewel 1',
+          'Gobbler Jewel 1',
+          'Mighty Jewel 2',
+          'Mighty Jewel 2',
+          'Mighty Jewel 2',
+          'Sane Jewel 1',
+          'Sane Jewel 1',
+          'Tenderizer Jewel 3',
+          'Tenderizer Jewel 3',
+        ],
+        skills: {
+          'Weakness Exploit': 5,
+          Agitator: 4,
+          Antivirus: 3,
+          Burst: 3,
+          'Maximum Might': 3,
+          'Evade Extender': 2,
+          'Speed Eating': 2,
+          Coalescence: 1,
+          Earplugs: 1,
+          'Flinch Free': 1,
+        },
+      },
+      {
+        armor: ['Udra Mirehelm Gamma', 'Dahaad Shardmail Gamma', 'Gogmazios Vambraces Alpha', 'Duna Wildcoil Gamma', 'Gore Greaves Beta', 'Exploiter Charm III'],
+        decos: [
+          'Challenger Jewel 3',
+          'Earplugs Jewel 2',
+          'Gobbler Jewel 1',
+          'Gobbler Jewel 1',
+          'Mighty Jewel 2',
+          'Sane Jewel 1',
+          'Sane Jewel 1',
+          'Tenderizer Jewel 3',
+          'Tenderizer Jewel 3',
+        ],
+        skills: {
+          'Weakness Exploit': 5,
+          Agitator: 4,
+          Antivirus: 3,
+          Burst: 3,
+          'Maximum Might': 3,
+          'Speed Eating': 2,
+          'Tool Specialist': 2,
+          Earplugs: 1,
+          'Flinch Free': 1,
+        },
+      },
+    ]
+
+    it.each(groundTruthSets.map((set, i) => [i + 1, set] as const))(
+      'pinning ground-truth set #%i reproduces the reference solution exactly',
+      (_n, groundTruth) => {
+        const pinned = search({ ...input, mandatoryArmor: groundTruth.armor }, index)
+        expect(pinned.length).toBeGreaterThan(0)
+
+        const top = pinned[0]
+        expect([...top.armorNames].sort()).toEqual([...groundTruth.armor].sort())
+        expect([...top.decoNames].sort()).toEqual([...groundTruth.decos].sort())
+        expect(top.skills).toEqual(groundTruth.skills)
+        expect(top.setSkills["Gore Magala's Tyranny"]).toBeGreaterThanOrEqual(1)
+        expect(top.groupSkills["Lord's Soul"]).toBeGreaterThanOrEqual(1)
+      }
+    )
   })
 })

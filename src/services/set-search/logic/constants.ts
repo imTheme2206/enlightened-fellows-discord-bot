@@ -1,6 +1,14 @@
 import type { ArmorPiece, DecorationItem } from '../types'
 
 export const LIMIT = 300_000
+/** How many top-defense pieces per slot to keep as candidates beyond skill-potential winners. */
+export const DEFENSE_POOL_SIZE = 8
+/**
+ * Results within this many defense points of the best-found set rank as one tier,
+ * ordered by free slots first — trading a sliver of defense for free big slots
+ * is almost always worth it for an endgame player.
+ */
+export const DEFENSE_BAND = 10
 export const MAX_RESULTS = 200
 export const SLOT_COUNT = 3
 export const ARMOR_SLOT_TYPES = ['head', 'chest', 'arms', 'waist', 'legs', 'talisman'] as const

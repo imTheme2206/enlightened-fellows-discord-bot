@@ -1,8 +1,13 @@
-import Database from 'better-sqlite3'
 import dotenv from 'dotenv'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
+import * as schema from './schema'
 
 dotenv.config()
 
-export const db = new Database(process.env.DATABASE_PATH || '')
-db.pragma('journal_mode = WAL')
-db.pragma('foreign_keys = ON')
+const client = postgres(process.env.DATABASE_URL!, {
+  prepare: false, // required for Supabase transaction pooler (pgBouncer)
+  max: 5,
+})
+
+export const db = drizzle(client, { schema })

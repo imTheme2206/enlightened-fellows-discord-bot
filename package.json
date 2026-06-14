@@ -8,10 +8,13 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "pnpm --filter dashboard build && tsup src/index.ts --minify",
+    "build": "tsup src/index.ts --minify",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "format": "prettier --check src"
+    "format": "prettier --check src",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "keywords": [],
   "author": "",
@@ -19,31 +22,32 @@
   "dependencies": {
     "@elysiajs/node": "^1.4.5",
     "@elysiajs/static": "^1.4.10",
-    "better-sqlite3": "^11.10.0",
     "dayjs": "^1.11.19",
     "discord.js": "^14.19.2",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
+    "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.28",
     "mh-wilds-event-scraper": "git+https://github.com/imTheme2206/mh-wilds-event-scraper.git#main",
     "node-cron": "^4.2.1",
+    "postgres": "^3.4.9",
     "ts-node": "^10.9.2",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/winston": "^2.4.4",
-    "tsup": "^8.4.0",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3",
-    "vitest": "3.2.4",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.4.1",
     "eslint-config-next": "^13.5.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "prettier": "^3.8.4",
-    "typescript-eslint": "^8.2.0"
+    "tsup": "^8.4.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.2.0",
+    "vitest": "3.2.4"
   },
   "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1"
 }

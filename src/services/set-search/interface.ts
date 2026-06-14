@@ -1,10 +1,11 @@
+import { asc, eq, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../../db/client'
+import { decoration, skill } from '../../db/schema'
 
 const EXCLUDE_SLOT_1_SKILLS = [
   'Survival Expert',
   'Jump Master',
   'Leap of Faith',
-  'Jump Master',
   'Cliffhanger',
   'Botanist',
   'Geologist',
@@ -23,7 +24,6 @@ const EXCLUDE_SLOT_1_SKILLS = [
   'Iron Skin',
   'Flinch Free',
   'Blast Resistance',
-  'Entomologist',
   'Grillmaster',
   'Poison Resistance',
   'Paralysis Resistance',
@@ -46,47 +46,30 @@ interface GroupSkillOption {
   value: string
 }
 
-/** All unique skill names available via weapon-slot decorations. */
-export function loadWeaponSkills(): SkillOption[] {
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT s.name
-       FROM Decoration d
-       JOIN Skill s ON d.skillId = s.id
-       WHERE d.type = 'weapon'
-       ORDER BY s.name`
-    )
-    .all() as { name: string }[]
+export async function loadWeaponSkills(): Promise<SkillOption[]> {
+  const rows = await db
+    .selectDistinct({ name: skill.name })
+    .from(decoration)
+    .innerJoin(skill, eq(decoration.skillId, skill.id))
+    .where(eq(decoration.type, 'weapon'))
+    .orderBy(asc(skill.name))
 
   return rows.map((r) => ({ label: r.name, value: r.name }))
 }
 
-/** All unique skill names available via armor decorations of the given slot size. */
-export function loadArmorSkills(slot: 1 | 2 | 3): SkillOption[] {
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT s.name
-       FROM Decoration d
-       JOIN Skill s ON d.skillId = s.id
-       WHERE d.type = 'armor' AND d.slotSize = ?
-       AND s.name NOT IN (${EXCLUDE_SLOT_1_SKILLS.map((s) => `'${s}'`).join(', ')})
-       ORDER BY s.name`
-    )
-    .all(slot) as { name: string }[]
+export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
+  const rows = await db
+    .selectDistinct({ name: skill.name })
+    .from(decoration)
+    .innerJoin(skill, eq(decoration.skillId, skill.id))
+    .where((t) => t.and(eq(decoration.type, 'armor'), eq(decoration.slotSize, slot), notInArray(skill.name, EXCLUDE_SLOT_1_SKILLS)))
+    .orderBy(asc(skill.name))
 
   return rows.map((r) => ({ label: r.name, value: r.name }))
 }
 
-/** All set skills (keyed by set name) for the weapon-contribution dropdown. */
-export function loadSetSkillOptions(): SetSkillOption[] {
-  const rows = db
-    .prepare(
-      `SELECT name, effectName
-       FROM Skill
-       WHERE isSetSkill = 1
-       ORDER BY name`
-    )
-    .all() as { name: string; effectName: string | null }[]
+export async function loadSetSkillOptions(): Promise<SetSkillOption[]> {
+  const rows = await db.select({ name: skill.name, effectName: skill.effectName }).from(skill).where(eq(skill.isSetSkill, true)).orderBy(asc(skill.name))
 
   return rows.map((r) => ({
     label: r.name,
@@ -95,31 +78,18 @@ export function loadSetSkillOptions(): SetSkillOption[] {
   }))
 }
 
-/** Max level for each skill name in the given list. */
-export function getSkillMaxLevels(names: string[]): Map<string, number> {
+export async function loadGroupSkillOptions(): Promise<GroupSkillOption[]> {
+  const rows = await db.select({ name: skill.name, effectName: skill.effectName }).from(skill).where(eq(skill.isGroupSkill, true)).orderBy(asc(skill.name))
+
+  return rows.map((r) => ({
+    label: r.name,
+    description: r.effectName ? `→ ${r.effectName}` : r.name,
+    value: r.name,
+  }))
+}
+
+export async function getSkillMaxLevels(names: string[]): Promise<Map<string, number>> {
   if (names.length === 0) return new Map()
-  const placeholders = names.map(() => '?').join(', ')
-  const rows = db.prepare(`SELECT name, maxLevel FROM Skill WHERE name IN (${placeholders})`).all(...names) as {
-    name: string
-    maxLevel: number
-  }[]
+  const rows = await db.select({ name: skill.name, maxLevel: skill.maxLevel }).from(skill).where(inArray(skill.name, names))
   return new Map(rows.map((r) => [r.name, r.maxLevel]))
-}
-
-/** All group skills (keyed by group name) for the weapon-contribution dropdown. */
-export function loadGroupSkillOptions(): GroupSkillOption[] {
-  const rows = db
-    .prepare(
-      `SELECT name, effectName
-       FROM Skill
-       WHERE isGroupSkill = 1
-       ORDER BY name`
-    )
-    .all() as { name: string; effectName: string | null }[]
-
-  return rows.map((r) => ({
-    label: r.name,
-    description: r.effectName ? `→ ${r.effectName}` : r.name,
-    value: r.name,
-  }))
 }

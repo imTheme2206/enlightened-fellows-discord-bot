@@ -34,7 +34,7 @@ export async function fetchAndSaveGenshinCodes(): Promise<void> {
 
   for (const entry of codes) {
     const isExpired = entry.status !== 'OK'
-    GenshinCodeService.save(entry.code, false, isExpired, entry.rewards)
+    await GenshinCodeService.save(entry.code, false, isExpired, entry.rewards)
   }
 
   logger.info('Genshin codes saved to DB')

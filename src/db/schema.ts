@@ -1,131 +1,129 @@
-import { db } from './client'
+import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
 
-// Detect stale schema by checking for a column that only exists in the new schema.
-// If missing, drop all tables so CREATE TABLE IF NOT EXISTS rebuilds them correctly.
-const decoColumns = (db.prepare('PRAGMA table_info(Decoration)').all() as { name: string }[]).map((c) => c.name)
+export const skill = pgTable('skill', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  cleanName: text('clean_name').notNull().unique(),
+  type: text('type').notNull().default('armor'),
+  maxLevel: integer('max_level').notNull().default(1),
+  isSetSkill: boolean('is_set_skill').notNull().default(false),
+  isGroupSkill: boolean('is_group_skill').notNull().default(false),
+  requiredPieces: integer('required_pieces'),
+  effectName: text('effect_name'),
+})
 
-if (decoColumns.length > 0 && !decoColumns.includes('skillId')) {
-  db.exec(`
-    DROP TABLE IF EXISTS ArmorGroupSkill;
-    DROP TABLE IF EXISTS ArmorSetSkill;
-    DROP TABLE IF EXISTS ArmorSkill;
-    DROP TABLE IF EXISTS Decoration;
-    DROP TABLE IF EXISTS Armor;
-    DROP TABLE IF EXISTS SkillRank;
-    DROP TABLE IF EXISTS Skill;
-    DROP TABLE IF EXISTS JobLog;
-  `)
-}
+export const decoration = pgTable('decoration', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  type: text('type').notNull(),
+  slotSize: integer('slot_size').notNull(),
+  skillId: text('skill_id')
+    .notNull()
+    .references(() => skill.id, { onDelete: 'cascade' }),
+  skillLevel: integer('skill_level').notNull(),
+})
 
-const genshinCodeColumns = (db.prepare('PRAGMA table_info(GenshinCode)').all() as { name: string }[]).map((c) => c.name)
+export const armor = pgTable('armor', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  type: text('type').notNull(),
+  rank: text('rank').notNull().default('HIGH'),
+  rarity: integer('rarity').notNull().default(0),
+  defense: integer('defense').notNull().default(0),
+  fireRes: integer('fire_res').notNull().default(0),
+  waterRes: integer('water_res').notNull().default(0),
+  thunderRes: integer('thunder_res').notNull().default(0),
+  iceRes: integer('ice_res').notNull().default(0),
+  dragonRes: integer('dragon_res').notNull().default(0),
+  slots: jsonb('slots').$type<number[]>().notNull().default([]),
+})
 
-if (genshinCodeColumns.length > 0 && !genshinCodeColumns.includes('rewards')) {
-  db.exec('ALTER TABLE GenshinCode ADD COLUMN rewards TEXT')
-}
+export const armorSkill = pgTable(
+  'armor_skill',
+  {
+    armorId: text('armor_id')
+      .notNull()
+      .references(() => armor.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skill.id, { onDelete: 'cascade' }),
+    level: integer('level').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
+)
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS Skill (
-    id TEXT PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
-    cleanName TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL DEFAULT 'armor',
-    maxLevel INTEGER NOT NULL DEFAULT 1,
-    isSetSkill INTEGER NOT NULL DEFAULT 0,
-    isGroupSkill INTEGER NOT NULL DEFAULT 0,
-    requiredPieces INTEGER,
-    effectName TEXT
-  );
+export const armorSetSkill = pgTable(
+  'armor_set_skill',
+  {
+    armorId: text('armor_id')
+      .notNull()
+      .references(() => armor.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skill.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
+)
 
-  CREATE TABLE IF NOT EXISTS Decoration (
-    id TEXT PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL,
-    slotSize INTEGER NOT NULL,
-    skillId TEXT NOT NULL,
-    skillLevel INTEGER NOT NULL,
-    FOREIGN KEY (skillId) REFERENCES Skill(id) ON DELETE CASCADE
-  );
+export const armorGroupSkill = pgTable(
+  'armor_group_skill',
+  {
+    armorId: text('armor_id')
+      .notNull()
+      .references(() => armor.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skill.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
+)
 
-  CREATE TABLE IF NOT EXISTS Armor (
-    id TEXT PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
-    type TEXT NOT NULL,
-    rank TEXT NOT NULL DEFAULT 'HIGH',
-    rarity INTEGER NOT NULL DEFAULT 0,
-    defense INTEGER NOT NULL DEFAULT 0,
-    fireRes INTEGER NOT NULL DEFAULT 0,
-    waterRes INTEGER NOT NULL DEFAULT 0,
-    thunderRes INTEGER NOT NULL DEFAULT 0,
-    iceRes INTEGER NOT NULL DEFAULT 0,
-    dragonRes INTEGER NOT NULL DEFAULT 0,
-    slots TEXT NOT NULL DEFAULT '[]'
-  );
+export const jobLog = pgTable('job_log', {
+  id: text('id').primaryKey(),
+  jobName: text('job_name').notNull(),
+  status: text('status').notNull(),
+  message: text('message'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
-  CREATE TABLE IF NOT EXISTS ArmorSkill (
-    armorId TEXT NOT NULL,
-    skillId TEXT NOT NULL,
-    level INTEGER NOT NULL,
-    PRIMARY KEY (armorId, skillId),
-    FOREIGN KEY (armorId) REFERENCES Armor(id) ON DELETE CASCADE,
-    FOREIGN KEY (skillId) REFERENCES Skill(id) ON DELETE CASCADE
-  );
+export const searchHistory = pgTable('search_history', {
+  id: text('id').primaryKey(),
+  // Discord snowflake — intentionally text, not a FK to auth.users.
+  // The web app resolves Discord ID → Supabase user via auth.identities at query time.
+  userId: text('user_id').notNull(),
+  label: text('label').notNull(),
+  data: jsonb('data').notNull(),
+  searchedAt: timestamp('searched_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
-  CREATE TABLE IF NOT EXISTS ArmorSetSkill (
-    armorId TEXT NOT NULL,
-    skillId TEXT NOT NULL,
-    PRIMARY KEY (armorId, skillId),
-    FOREIGN KEY (armorId) REFERENCES Armor(id) ON DELETE CASCADE,
-    FOREIGN KEY (skillId) REFERENCES Skill(id) ON DELETE CASCADE
-  );
+export const genshinCode = pgTable('genshin_code', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull().unique(),
+  rewards: text('rewards'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  isExpired: boolean('is_expired').notNull().default(false),
+  isAlerted: boolean('is_alerted').notNull().default(false),
+})
 
-  CREATE TABLE IF NOT EXISTS ArmorGroupSkill (
-    armorId TEXT NOT NULL,
-    skillId TEXT NOT NULL,
-    PRIMARY KEY (armorId, skillId),
-    FOREIGN KEY (armorId) REFERENCES Armor(id) ON DELETE CASCADE,
-    FOREIGN KEY (skillId) REFERENCES Skill(id) ON DELETE CASCADE
-  );
+export const registeredChannel = pgTable(
+  'registered_channel',
+  {
+    channelId: text('channel_id').notNull(),
+    type: text('type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.channelId, t.type] })]
+)
 
-  CREATE TABLE IF NOT EXISTS JobLog (
-    id TEXT PRIMARY KEY,
-    jobName TEXT NOT NULL,
-    status TEXT NOT NULL,
-    message TEXT,
-    createdAt TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS SearchHistory (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    label TEXT NOT NULL,
-    data TEXT NOT NULL,
-    searchedAt TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS GenshinCode (
-    id TEXT PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
-    rewards TEXT,
-    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-    isExpired INTEGER NOT NULL DEFAULT 0,
-    isAlerted INTEGER NOT NULL DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS RegisteredChannel (
-    channelId TEXT NOT NULL,
-    type TEXT NOT NULL,
-    createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (channelId, type)
-  );
-`)
-
-// Migrate legacy GenshinCodeChannel rows into RegisteredChannel
-const legacyGenshinChannelTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='GenshinCodeChannel'").get()
-
-if (legacyGenshinChannelTable) {
-  db.exec(`
-    INSERT OR IGNORE INTO RegisteredChannel (channelId, type, createdAt)
-      SELECT channelId, 'genshin_code', createdAt FROM GenshinCodeChannel;
-    DROP TABLE GenshinCodeChannel;
-  `)
-}
+// Inferred types (replace the hand-written *Row interfaces in service files)
+export type Skill = typeof skill.$inferSelect
+export type Decoration = typeof decoration.$inferSelect
+export type Armor = typeof armor.$inferSelect
+export type JobLog = typeof jobLog.$inferSelect
+export type NewJobLog = typeof jobLog.$inferInsert
+export type SearchHistory = typeof searchHistory.$inferSelect
+export type NewSearchHistory = typeof searchHistory.$inferInsert
+export type GenshinCode = typeof genshinCode.$inferSelect
+export type NewGenshinCode = typeof genshinCode.$inferInsert
+export type RegisteredChannel = typeof registeredChannel.$inferSelect
+export type NewRegisteredChannel = typeof registeredChannel.$inferInsert

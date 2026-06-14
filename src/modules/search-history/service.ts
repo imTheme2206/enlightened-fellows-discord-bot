@@ -1,31 +1,32 @@
 import { randomUUID } from 'crypto'
+import { desc, eq, notInArray } from 'drizzle-orm'
 import { db } from '../../db/client'
-
-export interface SearchHistoryRow {
-  id: string
-  userId: string
-  label: string
-  data: string
-  searchedAt: string
-}
+import { searchHistory, type SearchHistory } from '../../db/schema'
 
 export abstract class SearchHistoryService {
-  static save(userId: string, label: string, data: string): void {
-    const old = db.prepare('SELECT id FROM SearchHistory WHERE userId = ? ORDER BY searchedAt DESC LIMIT -1 OFFSET 9').all(userId) as {
-      id: string
-    }[]
+  static async save(userId: string, label: string, data: unknown): Promise<void> {
+    await db.transaction(async (tx) => {
+      const keep = await tx.query.searchHistory.findMany({
+        columns: { id: true },
+        where: (t, { eq }) => eq(t.userId, userId),
+        orderBy: (t) => [desc(t.searchedAt)],
+        limit: 9,
+      })
 
-    if (old.length > 0) {
-      const placeholders = old.map(() => '?').join(', ')
-      db.prepare(`DELETE FROM SearchHistory WHERE id IN (${placeholders})`).run(...old.map((r) => r.id))
-    }
+      if (keep.length === 9) {
+        const keepIds = keep.map((r) => r.id)
+        await tx.delete(searchHistory).where(notInArray(searchHistory.id, keepIds))
+      }
 
-    db.prepare('INSERT INTO SearchHistory (id, userId, label, data) VALUES (?, ?, ?, ?)').run(randomUUID(), userId, label, data)
+      await tx.insert(searchHistory).values({ id: randomUUID(), userId, label, data })
+    })
   }
 
-  static getRecent(userId: string, limit = 10): SearchHistoryRow[] {
-    return db
-      .prepare('SELECT * FROM SearchHistory WHERE userId = ? ORDER BY searchedAt DESC LIMIT ?')
-      .all(userId, limit) as SearchHistoryRow[]
+  static async getRecent(userId: string, limit = 10): Promise<SearchHistory[]> {
+    return db.query.searchHistory.findMany({
+      where: (t, { eq }) => eq(t.userId, userId),
+      orderBy: (t) => [desc(t.searchedAt)],
+      limit,
+    })
   }
 }

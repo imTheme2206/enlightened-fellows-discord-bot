@@ -1,4 +1,4 @@
-import type { SearchHistoryRow } from '../../../../modules/search-history/service'
+import type { SearchHistory } from '../../../../db/schema'
 
 export const MAX_SKILLS = 10
 export const SESSION_TTL_MS = 10 * 60 * 1000
@@ -39,7 +39,7 @@ export interface SearchState {
   pendingSkills: PendingSkill[] | null
   weaponSkillPage: number
   slotPages: Partial<Record<1 | 2 | 3, number>>
-  historyEntries?: SearchHistoryRow[]
+  historyEntries?: SearchHistory[]
 }
 
 const sessions = new Map<string, SearchState>()

@@ -6,11 +6,11 @@ import type { SearchInput, SearchResult, SetSearchIndex } from './types'
 let currentIndex: SetSearchIndex | null = null
 
 /**
- * Builds (or rebuilds) the in-memory search index from seed JSON files.
+ * Builds (or rebuilds) the in-memory search index from the database.
  */
 export async function initSearchIndex(): Promise<void> {
   logger.info('[setSearch] Building search index from DB...')
-  currentIndex = buildIndexFromDb()
+  currentIndex = await buildIndexFromDb()
   logger.info(`[setSearch] Index ready: ${currentIndex.allArmor.length} armor pieces`)
 }
 
