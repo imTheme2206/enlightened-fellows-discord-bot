@@ -13,8 +13,8 @@ export function buildSearchInput(state: SearchState): SearchInput {
   const setSkills: Record<string, number> = {}
   const initialSetCounts: Record<string, number> = {}
   for (const s of state.setSkills) {
-    setSkills[s] = 1
-    if (state.gogmaSkills.setSkill === s) initialSetCounts[s] = 1
+    setSkills[s.name] = s.rank
+    if (state.gogmaSkills.setSkill === s.name) initialSetCounts[s.name] = 1
   }
 
   const groupSkills: Record<string, number> = {}

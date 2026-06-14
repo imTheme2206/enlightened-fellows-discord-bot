@@ -15,7 +15,7 @@ export interface MhdbSkill {
   kind: 'armor' | 'weapon' | 'set' | 'group'
   icon: { kind: string }
   description: string
-  ranks: Array<{ name: string; description: string }>
+  ranks: Array<{ name: string; description: string; setPiecesRequired?: number }>
 }
 
 export interface MhdbArmorSet {

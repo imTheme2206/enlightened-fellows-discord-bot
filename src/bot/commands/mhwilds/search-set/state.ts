@@ -12,9 +12,14 @@ export interface SkillEntry {
   slotSize: 1 | 2 | 3
 }
 
+export interface SetSkillEntry {
+  name: string
+  rank: number
+}
+
 export interface SavedSearch {
   skills: SkillEntry[]
-  setSkills: string[]
+  setSkills: SetSkillEntry[]
   groupSkills: string[]
   gogmaSetSkill: string
   gogmaGroupSkill: string
@@ -26,17 +31,23 @@ export interface PendingSkill {
   slotSize: 1 | 2 | 3
 }
 
+export interface PendingSetSkill {
+  name: string
+  maxLevel: number
+}
+
 export interface SearchState {
   gogmaSkills: {
     setSkill: string
     groupSkill: string
   }
   skills: SkillEntry[]
-  setSkills: string[]
+  setSkills: SetSkillEntry[]
   groupSkills: string[]
   rank: 'low' | 'high' | 'master'
   step: Step
   pendingSkills: PendingSkill[] | null
+  pendingSetSkill: PendingSetSkill | null
   weaponSkillPage: number
   slotPages: Partial<Record<1 | 2 | 3, number>>
   historyEntries?: SearchHistory[]
@@ -54,6 +65,7 @@ export function getSession(userId: string): SearchState {
       rank: 'high',
       step: 'main',
       pendingSkills: null,
+      pendingSetSkill: null,
       weaponSkillPage: 0,
       slotPages: {},
     }

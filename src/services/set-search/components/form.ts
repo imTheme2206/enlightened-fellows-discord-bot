@@ -7,7 +7,12 @@ import { cancelRow } from './ui'
 export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>
 
 async function buildWeaponSkillComponents(state: SearchState): Promise<AnyRow[]> {
-  const [setOptions, groupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+  const [setData, groupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+  const setOptions = setData.map((s) => ({
+    label: s.name,
+    description: s.effectName ? `→ ${s.effectName}` : s.name,
+    value: s.name,
+  }))
   const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill)
 
   return [
@@ -36,13 +41,22 @@ async function buildWeaponSkillComponents(state: SearchState): Promise<AnyRow[]>
   ]
 }
 
+const RANK_LABELS = ['I', 'II', 'III', 'IV', 'V']
+
 async function buildSetSkillComponents(state: SearchState): Promise<AnyRow[]> {
   const rows: AnyRow[] = []
-  const addedSetSkills = new Set(state.setSkills)
+  const addedSetNames = new Set(state.setSkills.map((s) => s.name))
   const addedGroupSkills = new Set(state.groupSkills)
 
-  const [allSetOptions, allGroupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
-  const setOptions = allSetOptions.filter((o) => !addedSetSkills.has(o.value))
+  const [allSetData, allGroupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+
+  const setOptions = allSetData
+    .filter((s) => !addedSetNames.has(s.name))
+    .map((s) => ({
+      label: s.name,
+      description: s.effectName ? `→ ${s.effectName}` : s.name,
+      value: s.name,
+    }))
   const groupOptions = allGroupOptions.filter((o) => !addedGroupSkills.has(o.value))
 
   if (setOptions.length) {
@@ -67,7 +81,12 @@ async function buildSetSkillComponents(state: SearchState): Promise<AnyRow[]> {
         new StringSelectMenuBuilder()
           .setCustomId('search-set:remove-set-pick')
           .setPlaceholder('Remove a set bonus…')
-          .addOptions(state.setSkills.map((s) => ({ label: s, value: s })))
+          .addOptions(
+            state.setSkills.map((s) => ({
+              label: `${s.name} (${RANK_LABELS[s.rank - 1] ?? s.rank})`,
+              value: `${s.name}|${s.rank}`,
+            }))
+          )
       )
     )
   }

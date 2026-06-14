@@ -13,6 +13,7 @@ import {
   handleRemovePick,
   handleRemoveSetPick,
   handleSetPick,
+  handleSetRankModal,
   handleSlotPick,
   updateSession,
 } from '../../../../services/set-search/handler/form-handler'
@@ -195,6 +196,12 @@ export async function handleComponent(interaction: MessageComponentInteraction):
 }
 
 export async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
+  if (interaction.customId === 'search-set:set-rank-modal') {
+    const state = getSession(interaction.user.id)
+    await handleSetRankModal(state, interaction)
+    return
+  }
+
   if (interaction.customId !== 'search-set:level-modal') return
 
   const state = getSession(interaction.user.id)

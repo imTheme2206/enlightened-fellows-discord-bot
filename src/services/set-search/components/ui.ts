@@ -3,8 +3,14 @@ import type { SearchState, Step } from '../../../bot/commands/mhwilds/search-set
 import { buildPaginationComponents } from '../../../bot/utils/embed-pagination'
 import { truncate } from '../../../bot/utils/text-truncate'
 
+const RANK_LABELS = ['I', 'II', 'III', 'IV', 'V']
+
 export function buildHistoryLabel(state: SearchState): string {
-  const parts = [...state.skills.map((s) => `${s.name} ${s.level}`), ...state.setSkills, ...state.groupSkills]
+  const parts = [
+    ...state.skills.map((s) => `${s.name} ${s.level}`),
+    ...state.setSkills.map((s) => `${s.name} ${RANK_LABELS[s.rank - 1] ?? s.rank}`),
+    ...state.groupSkills,
+  ]
   const base = parts.length > 0 ? parts.join(', ') : 'Empty search'
   const labeled = `[${state.rank.toUpperCase()}] ${base}`
   return truncate(labeled, 100)
@@ -13,7 +19,9 @@ export function buildHistoryLabel(state: SearchState): string {
 export function buildEmbed(state: SearchState): EmbedBuilder {
   const skillLines = state.skills.length ? state.skills.map((s) => `•  ${s.name} Lv ${s.level}`).join('\n') : '_None_'
 
-  const setLines = state.setSkills.length ? state.setSkills.map((s) => `• ${s}`).join('\n') : '_None_'
+  const setLines = state.setSkills.length
+    ? state.setSkills.map((s) => `• ${s.name} (${RANK_LABELS[s.rank - 1] ?? s.rank})`).join('\n')
+    : '_None_'
 
   const weaponLines = `${state.gogmaSkills.groupSkill || '_None_'} + ${state.gogmaSkills.setSkill || '_None_'}`
 

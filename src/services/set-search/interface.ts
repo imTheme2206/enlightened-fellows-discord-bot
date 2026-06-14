@@ -29,24 +29,24 @@ const EXCLUDE_SLOT_1_SKILLS = [
   'Paralysis Resistance',
 ]
 
-interface SkillOption {
+type SkillOption = {
   label: string
   value: string
 }
 
-interface SetSkillOption {
+export type SetSkillData = {
+  name: string
+  effectName: string | null
+  maxLevel: number
+}
+
+type GroupSkillOption = {
   label: string
   description: string
   value: string
 }
 
-interface GroupSkillOption {
-  label: string
-  description: string
-  value: string
-}
-
-export async function loadWeaponSkills(): Promise<SkillOption[]> {
+export const loadWeaponSkills: () => Promise<SkillOption[]> = async () => {
   const rows = await db
     .selectDistinct({ name: skill.name })
     .from(decoration)
@@ -68,18 +68,22 @@ export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
   return rows.map((r) => ({ label: r.name, value: r.name }))
 }
 
-export async function loadSetSkillOptions(): Promise<SetSkillOption[]> {
-  const rows = await db.select({ name: skill.name, effectName: skill.effectName }).from(skill).where(eq(skill.isSetSkill, true)).orderBy(asc(skill.name))
+export async function loadSetSkillOptions(): Promise<SetSkillData[]> {
+  const rows = await db
+    .select({ name: skill.name, effectName: skill.effectName, maxLevel: skill.maxLevel })
+    .from(skill)
+    .where(eq(skill.isSetSkill, true))
+    .orderBy(asc(skill.name))
 
-  return rows.map((r) => ({
-    label: r.name,
-    description: r.effectName ? `→ ${r.effectName}` : r.name,
-    value: r.name,
-  }))
+  return rows.map((r) => ({ name: r.name, effectName: r.effectName, maxLevel: r.maxLevel }))
 }
 
 export async function loadGroupSkillOptions(): Promise<GroupSkillOption[]> {
-  const rows = await db.select({ name: skill.name, effectName: skill.effectName }).from(skill).where(eq(skill.isGroupSkill, true)).orderBy(asc(skill.name))
+  const rows = await db
+    .select({ name: skill.name, effectName: skill.effectName })
+    .from(skill)
+    .where(eq(skill.isGroupSkill, true))
+    .orderBy(asc(skill.name))
 
   return rows.map((r) => ({
     label: r.name,

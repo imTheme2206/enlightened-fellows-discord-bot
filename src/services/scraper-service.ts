@@ -119,7 +119,8 @@ async function fetchSeedData() {
         break
       case 'set': {
         const effectName = getBaseName(s.ranks.map((r) => r.name))
-        setSkills[cleanName] = [effectName, 2, [2, 4]]
+        const thresholds = s.ranks.map((r) => r.setPiecesRequired ?? 2)
+        setSkills[cleanName] = [effectName, thresholds[0] ?? 2, thresholds]
         setMap[cleanName] = effectName
         break
       }

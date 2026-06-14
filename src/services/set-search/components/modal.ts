@@ -26,4 +26,18 @@ export function buildLevelModal(pending: PendingSkill[], maxLevels: Map<string, 
   return builder
 }
 
+export function buildSetRankModal(skillName: string, maxLevel: number): ModalBuilder {
+  const label = truncate(`${skillName} rank (1–${maxLevel})`)
+
+  const rankInput = new TextInputBuilder()
+    .setCustomId('set_rank')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder(`1–${maxLevel}`)
+    .setRequired(true)
+
+  const rankLabel = new LabelBuilder().setLabel(label).setTextInputComponent(rankInput)
+
+  return new ModalBuilder().setCustomId('search-set:set-rank-modal').setTitle('Set Bonus Rank').addLabelComponents(rankLabel)
+}
+
 export { getSkillMaxLevels }

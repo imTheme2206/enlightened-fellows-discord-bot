@@ -1,7 +1,7 @@
-import { MessageComponentInteraction } from 'discord.js'
-import { MAX_SKILLS, PendingSkill, SavedSearch, saveSession, SearchState } from '../../../bot/commands/mhwilds/search-set/state'
+import { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js'
+import { MAX_SKILLS, PendingSkill, SavedSearch, saveSession, SearchState, SetSkillEntry } from '../../../bot/commands/mhwilds/search-set/state'
 import { buildComponents } from '../components/form'
-import { buildLevelModal } from '../components/modal'
+import { buildLevelModal, buildSetRankModal } from '../components/modal'
 import { buildEmbed } from '../components/ui'
 import { getSkillMaxLevels } from '../interface'
 
@@ -53,12 +53,52 @@ export const handleSlotPick = async (state: SearchState, interaction: MessageCom
   await interaction.showModal(buildLevelModal(pending, maxLevels))
 }
 
+function parseSetSkillValue(value: string): SetSkillEntry {
+  const sep = value.lastIndexOf('|')
+  if (sep === -1) return { name: value, rank: 1 }
+  return { name: value.slice(0, sep), rank: parseInt(value.slice(sep + 1), 10) || 1 }
+}
+
+function normalizeSetSkills(raw: unknown): SetSkillEntry[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((item) => {
+    if (typeof item === 'string') return { name: item, rank: 1 }
+    if (item && typeof item.name === 'string') return { name: item.name, rank: Number(item.rank) || 1 }
+    return { name: String(item), rank: 1 }
+  })
+}
+
 export const handleSetPick = async (state: SearchState, interaction: MessageComponentInteraction): Promise<void> => {
   if (!interaction.isStringSelectMenu()) return
-  await updateSession(interaction, {
+  const name = interaction.values[0]
+  const maxLevels = await getSkillMaxLevels([name])
+  const maxLevel = maxLevels.get(name) ?? 2
+  saveSession(interaction.user.id, { ...state, pendingSetSkill: { name, maxLevel } })
+  await interaction.showModal(buildSetRankModal(name, maxLevel))
+}
+
+export const handleSetRankModal = async (state: SearchState, interaction: ModalSubmitInteraction): Promise<void> => {
+  const pending = state.pendingSetSkill
+  if (!pending) {
+    await interaction.reply({ content: 'Session expired — run /search-set again.', flags: ['Ephemeral'] })
+    return
+  }
+
+  const raw = parseInt(interaction.fields.getTextInputValue('set_rank'), 10)
+  const rank = Math.min(pending.maxLevel, Math.max(1, isNaN(raw) ? 1 : raw))
+
+  const next: SearchState = {
     ...state,
-    setSkills: [...state.setSkills, interaction.values[0]],
-  })
+    setSkills: [...state.setSkills, { name: pending.name, rank }],
+    pendingSetSkill: null,
+  }
+  saveSession(interaction.user.id, next)
+
+  if (interaction.isFromMessage()) {
+    await interaction.update({ embeds: [buildEmbed(next)], components: await buildComponents(next) })
+  } else {
+    await interaction.reply({ embeds: [buildEmbed(next)], components: await buildComponents(next), ephemeral: true })
+  }
 }
 
 export const handleGroupPick = async (state: SearchState, interaction: MessageComponentInteraction): Promise<void> => {
@@ -118,7 +158,7 @@ export const handleHistoryPick = async (state: SearchState, interaction: Message
   await updateSession(interaction, {
     ...state,
     skills: saved.skills,
-    setSkills: saved.setSkills,
+    setSkills: normalizeSetSkills(saved.setSkills),
     groupSkills: saved.groupSkills,
     gogmaSkills: {
       setSkill: saved.gogmaSetSkill,
@@ -141,9 +181,10 @@ export const handleRemovePick = async (state: SearchState, interaction: MessageC
 
 export const handleRemoveSetPick = async (state: SearchState, interaction: MessageComponentInteraction): Promise<void> => {
   if (!interaction.isStringSelectMenu()) return
+  const { name, rank } = parseSetSkillValue(interaction.values[0])
   await updateSession(interaction, {
     ...state,
-    setSkills: state.setSkills.filter((s) => s !== interaction.values[0]),
+    setSkills: state.setSkills.filter((s) => !(s.name === name && s.rank === rank)),
   })
 }
 
