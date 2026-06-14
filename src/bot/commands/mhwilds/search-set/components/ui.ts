@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js'
-import type { SearchState, Step } from '../../../bot/commands/mhwilds/search-set/state'
-import { buildPaginationComponents } from '../../../bot/utils/embed-pagination'
-import { truncate } from '../../../bot/utils/text-truncate'
+import type { SearchState, Step } from '../state'
+import { buildPaginationComponents } from '../../../../utils/embed-pagination'
+import { truncate } from '../../../../utils/text-truncate'
 
 const RANK_LABELS = ['I', 'II', 'III', 'IV', 'V']
 

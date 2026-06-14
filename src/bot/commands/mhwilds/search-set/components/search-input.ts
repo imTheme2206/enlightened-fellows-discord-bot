@@ -1,11 +1,6 @@
-import type { SearchState } from '../../../bot/commands/mhwilds/search-set/state'
-import type { SearchInput } from '../types'
+import type { SearchState } from '../state'
+import type { SearchInput } from '../../../../../services/set-search/types'
 
-/**
- * Builds the SearchInput from the current session state.
- * Gogma weapon skills contribute 1 level toward their respective set/group skills,
- * so we subtract 1 from the remaining pieces required for each gogma-contributed bonus.
- */
 export function buildSearchInput(state: SearchState): SearchInput {
   const skills: Record<string, number> = {}
   for (const s of state.skills) skills[s.name] = s.level

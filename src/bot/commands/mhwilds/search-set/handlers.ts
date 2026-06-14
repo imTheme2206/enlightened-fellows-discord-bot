@@ -1,9 +1,9 @@
 import type { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js'
 import { SearchHistoryService } from '../../../../modules/search-history/service'
 import { searchSets } from '../../../../services/set-search'
-import { buildComponents } from '../../../../services/set-search/components/form'
-import { buildSearchInput } from '../../../../services/set-search/components/search-input'
-import { buildEmbed, buildHistoryLabel, buildResultRows } from '../../../../services/set-search/components/ui'
+import { buildComponents } from './components/form'
+import { buildSearchInput } from './components/search-input'
+import { buildEmbed, buildHistoryLabel, buildResultRows } from './components/ui'
 import {
   handleGogmaGroupPick,
   handleGogmaSetPick,
@@ -16,8 +16,8 @@ import {
   handleSetRankModal,
   handleSlotPick,
   updateSession,
-} from '../../../../services/set-search/handler/form-handler'
-import { getSkillMaxLevels } from '../../../../services/set-search/interface'
+} from './handler/form-handler'
+import { getSkillMaxLevels } from '../../../../services/set-search/queries'
 import type { EmbedPaginationEntry } from '../../../utils/embed-pagination'
 import { DEFAULT_PAGINATION_TIMEOUT_MS, paginateEmbedEntries, registerEmbedPaginationCollector } from '../../../utils/embed-pagination'
 import { buildSearchResultEmbed } from '../../../utils/search-result-embed'

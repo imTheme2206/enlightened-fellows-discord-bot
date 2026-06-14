@@ -1,33 +1,40 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js'
+import logger from '../../../config/logger'
+import { genshinCodeChannels } from '../../../modules/channels/service'
 import { GenshinCodeService } from '../../../modules/genshin-codes/service'
+import { isDefined } from '../../../utils/is-defined'
 import { Command } from '../_types'
 
-const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
-
 enum CodeFields {
-  CODE1 = 'c1',
-  CODE2 = 'c2',
-  CODE3 = 'c3',
+  CODE = 'code',
 }
 
 export const data = new SlashCommandBuilder()
   .setName('gi-code')
-  .setDescription('Return a redeem link for Genshin Impact, up to 3 codes')
-  .addStringOption((option) => option.setName(CodeFields.CODE1).setDescription('Enter the code').setRequired(true))
-  .addStringOption((option) => option.setName(CodeFields.CODE2).setDescription('Enter the code').setRequired(false))
-  .addStringOption((option) => option.setName(CodeFields.CODE3).setDescription('Enter the code').setRequired(false))
+  .setDescription('Return a redeem link for Genshin Impact')
+  .addStringOption((option) => option.setName(CodeFields.CODE).setDescription('Enter the code').setRequired(true))
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  const code1 = interaction.options.getString(CodeFields.CODE1, true)
-  const code2 = interaction.options.getString(CodeFields.CODE2, false)
-  const code3 = interaction.options.getString(CodeFields.CODE3, false)
+  const code = interaction.options.getString(CodeFields.CODE, true)
 
-  const codes = [code1, code2, code3].filter((c): c is string => !!c)
+  await GenshinCodeService.save(code, true)
 
-  // All business logic is in the service — command is just parse + respond
-  await GenshinCodeService.saveAndNotify(codes, interaction.client)
+  const content = GenshinCodeService.buildRedeemUrl(code)
 
-  const content = codes.map((c) => `${redeemUrl}${c}`).join('\n')
+  const channels = await genshinCodeChannels.getAll()
+  for (const { channelId } of channels) {
+    const channel = interaction.client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find(isDefined) as TextChannel | undefined
+    if (!channel) {
+      logger.warn(`gi-code: channel ${channelId} not in cache`)
+      continue
+    }
+    try {
+      await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
+    } catch (err) {
+      logger.error(`gi-code: failed to send to ${channelId}`, { err })
+    }
+  }
+
   await interaction.reply({ content })
 }
 

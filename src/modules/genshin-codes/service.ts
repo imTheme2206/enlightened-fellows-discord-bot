@@ -1,11 +1,7 @@
 import { randomUUID } from 'crypto'
-import { Client, TextChannel } from 'discord.js'
 import { asc, desc, inArray } from 'drizzle-orm'
-import logger from '../../config/logger'
 import { db } from '../../db/client'
 import { genshinCode, type GenshinCode } from '../../db/schema'
-import { isDefined } from '../../utils/is-defined'
-import { genshinCodeChannels } from '../channels/service'
 
 export abstract class GenshinCodeService {
   static redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
@@ -35,29 +31,5 @@ export abstract class GenshinCodeService {
 
   static buildRedeemUrl(code: string): string {
     return `${this.redeemUrl}${code}`
-  }
-
-  static async saveAndNotify(codes: string[], client: Client): Promise<void> {
-    for (const code of codes) {
-      await this.save(code, true)
-    }
-
-    const content = codes.map((c) => this.buildRedeemUrl(c)).join('\n')
-    const channels = await genshinCodeChannels.getAll()
-
-    for (const { channelId } of channels) {
-      const channel = client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find(isDefined) as TextChannel | undefined
-
-      if (!channel) {
-        logger.warn(`GenshinCodeService: channel ${channelId} not in cache`)
-        continue
-      }
-
-      try {
-        await channel.send({ content })
-      } catch (err) {
-        logger.error(`GenshinCodeService: failed to send to ${channelId}`, { err })
-      }
-    }
   }
 }

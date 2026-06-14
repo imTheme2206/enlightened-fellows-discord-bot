@@ -1,9 +1,9 @@
 import { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js'
-import { MAX_SKILLS, PendingSkill, SavedSearch, saveSession, SearchState, SetSkillEntry } from '../../../bot/commands/mhwilds/search-set/state'
+import { MAX_SKILLS, PendingSkill, SavedSearch, saveSession, SearchState, SetSkillEntry } from '../state'
 import { buildComponents } from '../components/form'
 import { buildLevelModal, buildSetRankModal } from '../components/modal'
 import { buildEmbed } from '../components/ui'
-import { getSkillMaxLevels } from '../interface'
+import { getSkillMaxLevels } from '../../../../../services/set-search/queries'
 
 export const updateSession = async (interaction: MessageComponentInteraction, next: SearchState): Promise<void> => {
   saveSession(interaction.user.id, next)

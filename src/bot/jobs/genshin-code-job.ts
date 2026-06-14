@@ -45,10 +45,14 @@ export function startGenshinCodeJob(client: Client): void {
         return
       }
 
-      await GenshinCodeService.saveAndNotify(
-        codes.map((c) => c.code),
-        client
-      )
+      for (const { channelId } of channels) {
+        const channel = client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find((c) => c != null) as TextChannel | undefined
+        if (!channel) {
+          logger.warn(`Genshin code job: channel not found in cache: ${channelId}`)
+          continue
+        }
+        await sendCodesToChannel(channel, codes)
+      }
 
       await GenshinCodeService.markAlerted(codes.map((c) => c.id))
       logger.info(`Genshin code job: marked ${codes.length} code(s) as alerted`)

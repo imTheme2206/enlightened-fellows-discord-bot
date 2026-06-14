@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { desc, eq, notInArray } from 'drizzle-orm'
+import { desc, notInArray } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { searchHistory, type SearchHistory } from '../../db/schema'
 
