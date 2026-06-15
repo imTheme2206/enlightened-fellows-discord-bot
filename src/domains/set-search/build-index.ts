@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { db } from '../../db/client'
-import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../../db/schema'
+import { db } from '../../infra/db/client'
+import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../../infra/db/schema'
 import type { ArmorPiece, ArmorType, DecorationItem, GroupSkillMeta, SetSearchIndex, SetSkillMeta, SkillMeta } from './types'
 
 export async function buildIndexFromDb(): Promise<SetSearchIndex> {

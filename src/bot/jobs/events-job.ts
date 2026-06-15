@@ -1,8 +1,8 @@
 import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
-import { CRON_JOB } from '../../config'
-import logger from '../../config/logger'
-import { mhEventsChannels } from '../../modules/channels/service'
+import { CRON_JOB } from '../../infra/config'
+import logger from '../../infra/logger'
+import { mhEventsChannels } from '../../domains/channels/service'
 import { execute as eventsExecute } from '../commands/mhwilds/events'
 
 export function startEventsJob(client: Client): void {

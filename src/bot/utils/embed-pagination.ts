@@ -8,7 +8,7 @@ import {
   EmbedBuilder,
   Message,
 } from 'discord.js'
-import logger from '../../config/logger'
+import logger from '../../infra/logger'
 
 export type AttachmentRef = {
   key: string

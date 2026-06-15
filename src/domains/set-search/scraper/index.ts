@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto'
-import logger from '../config/logger'
-import { db } from '../db/client'
-import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../db/schema'
-import { JobLogService } from '../modules/job-logs/service'
-import type { MhdbArmorPiece, MhdbArmorSet, MhdbCharmGroup, MhdbDecoration, MhdbSkill } from './scraper/mhdb-types'
-import { SeedDataSchema, transformSeedData } from './scraper/transform'
-import { initSearchIndex } from './set-search'
+import logger from '../../../infra/logger'
+import { db } from '../../../infra/db/client'
+import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../../../infra/db/schema'
+import { JobLogService } from '../../job-logs/service'
+import type { MhdbArmorPiece, MhdbArmorSet, MhdbCharmGroup, MhdbDecoration, MhdbSkill } from './mhdb-types'
+import { SeedDataSchema, transformSeedData } from './transform'
+import { initSearchIndex } from '../service'
 
 const BASE_URL = 'https://wilds.mhdb.io/en'
 

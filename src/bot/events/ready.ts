@@ -1,5 +1,5 @@
 import { Client } from 'discord.js'
-import logger from '../../config/logger'
+import logger from '../../infra/logger'
 import { deployCommands, loadCommands } from '../handlers/command-handler'
 import { seedOnBoot } from '../jobs/db-init'
 import { startEventsJob } from '../jobs/events-job'

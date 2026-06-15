@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm'
-import { db } from '../../db/client'
-import { decoration, skill } from '../../db/schema'
+import { db } from '../../infra/db/client'
+import { decoration, skill } from '../../infra/db/schema'
 
 const EXCLUDE_SLOT_1_SKILLS = [
   'Survival Expert',

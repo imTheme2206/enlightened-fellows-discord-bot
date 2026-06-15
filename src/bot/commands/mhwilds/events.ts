@@ -10,7 +10,7 @@ import {
 import fs from 'fs'
 import { EventQuestItem, MHWIldsEventResponse, parseMHWildsEvents } from 'mh-wilds-event-scraper'
 import path from 'path'
-import logger from '../../../config/logger'
+import logger from '../../../infra/logger'
 import {
   AttachmentRef,
   DEFAULT_PAGINATION_TIMEOUT_MS,

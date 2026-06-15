@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
-import logger from '../../../config/logger'
-import { mhEventsChannels } from '../../../modules/channels/service'
+import logger from '../../../infra/logger'
+import { mhEventsChannels } from '../../../domains/channels/service'
 import { Command } from '../_types'
 
 export const data = new SlashCommandBuilder()

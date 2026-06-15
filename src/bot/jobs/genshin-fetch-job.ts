@@ -1,7 +1,7 @@
 import cron from 'node-cron'
-import { CRON_JOB } from '../../config'
-import logger from '../../config/logger'
-import { GenshinCodeService } from '../../modules/genshin-codes/service'
+import { CRON_JOB } from '../../infra/config'
+import logger from '../../infra/logger'
+import { GenshinCodeService } from '../../domains/genshin-codes/service'
 
 const CODES_API = 'https://hoyo-codes.seria.moe/codes?game=genshin'
 

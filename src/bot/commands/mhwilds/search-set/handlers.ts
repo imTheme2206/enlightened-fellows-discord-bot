@@ -1,6 +1,6 @@
 import type { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js'
-import { SearchHistoryService } from '../../../../modules/search-history/service'
-import { searchSets } from '../../../../services/set-search'
+import { SearchHistoryService } from '../../../../domains/search-history/service'
+import { searchSets } from '../../../../domains/set-search/service'
 import { buildComponents } from './components/form'
 import { buildSearchInput } from './components/search-input'
 import { buildEmbed, buildHistoryLabel, buildResultRows } from './components/ui'
@@ -17,7 +17,7 @@ import {
   handleSlotPick,
   updateSession,
 } from './handler/form-handler'
-import { getSkillMaxLevels } from '../../../../services/set-search/queries'
+import { getSkillMaxLevels } from '../../../../domains/set-search/repository'
 import type { EmbedPaginationEntry } from '../../../utils/embed-pagination'
 import { DEFAULT_PAGINATION_TIMEOUT_MS, paginateEmbedEntries, registerEmbedPaginationCollector } from '../../../utils/embed-pagination'
 import { buildSearchResultEmbed } from '../../../utils/search-result-embed'

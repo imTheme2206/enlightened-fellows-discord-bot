@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { GenshinCodeService } from './service'
+import { GenshinCodeService } from '../../domains/genshin-codes/service'
 
 export const genshinCodesRoutes = new Elysia()
   .get('/genshin-codes', () => GenshinCodeService.getAll(100))
