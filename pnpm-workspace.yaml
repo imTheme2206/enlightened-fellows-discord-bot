@@ -6,7 +6,6 @@ overrides:
   '@vitest/pretty-format': 3.2.4
 
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
   mh-wilds-event-scraper: true
   msw: true
