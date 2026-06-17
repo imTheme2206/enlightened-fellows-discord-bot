@@ -1,11 +1,12 @@
-import { Client } from 'discord.js'
-import logger from '../../config/logger'
-import * as interactionCreate from '../events/interaction-create'
-import * as ready from '../events/ready'
+import { Client } from "discord.js"
+import logger from "../../infra/logger"
+import * as interactionCreate from "../events/interaction-create"
+import * as ready from "../events/ready"
 
 interface EventModule {
   name: string
   once?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- event handlers have heterogeneous arg types (Interaction, Client, ...)
   execute: (...args: any[]) => Promise<void> | void
 }
 

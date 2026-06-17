@@ -1,9 +1,9 @@
 import { count } from 'drizzle-orm'
-import logger from '../../config/logger'
-import { db } from '../../db/client'
-import { armor } from '../../db/schema'
-import { runScraper } from '../../services/scraper-service'
-import { initSearchIndex } from '../../services/set-search'
+import logger from '../../infra/logger'
+import { db } from '../../infra/db/client'
+import { armor } from '../../infra/db/schema'
+import { runScraper } from '../../domains/set-search/scraper'
+import { initSearchIndex } from '../../domains/set-search/service'
 
 export async function seedOnBoot(): Promise<void> {
   const [{ value }] = await db.select({ value: count() }).from(armor)

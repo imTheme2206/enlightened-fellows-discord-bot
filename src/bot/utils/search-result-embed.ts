@@ -1,5 +1,5 @@
 import { EmbedBuilder } from 'discord.js'
-import type { SearchResult } from '../../services/set-search/types'
+import type { SearchResult } from '../../domains/set-search/types'
 
 const SLOT_LABELS = ['Head', 'Chest', 'Arms', 'Waist', 'Legs', 'Talisman']
 

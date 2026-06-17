@@ -1,7 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js'
 import type { SearchState } from '../state'
 import { MAX_SKILLS } from '../state'
-import { loadArmorSkills, loadGroupSkillOptions, loadSetSkillOptions } from '../../../../../services/set-search/queries'
+import { loadArmorSkills, loadGroupSkillOptions, loadSetSkillOptions } from '../../../../../domains/set-search/repository'
 import { cancelRow } from './ui'
 
 export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>

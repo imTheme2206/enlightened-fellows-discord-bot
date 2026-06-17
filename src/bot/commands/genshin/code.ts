@@ -1,8 +1,8 @@
 import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js'
-import logger from '../../../config/logger'
-import { genshinCodeChannels } from '../../../modules/channels/service'
-import { GenshinCodeService } from '../../../modules/genshin-codes/service'
-import { isDefined } from '../../../utils/is-defined'
+import logger from '../../../infra/logger'
+import { genshinCodeChannels } from '../../../domains/channels/service'
+import { GenshinCodeService } from '../../../domains/genshin-codes/service'
+import { isDefined } from '../../../shared/utils/is-defined'
 import { Command } from '../_types'
 
 enum CodeFields {

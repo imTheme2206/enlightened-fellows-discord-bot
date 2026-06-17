@@ -1,5 +1,5 @@
 import { Interaction } from 'discord.js'
-import logger from '../../config/logger'
+import logger from '../../infra/logger'
 import { commandRegistry } from '../registry'
 
 /**

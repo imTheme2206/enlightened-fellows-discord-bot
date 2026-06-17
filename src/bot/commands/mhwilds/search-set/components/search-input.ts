@@ -1,5 +1,5 @@
 import type { SearchState } from '../state'
-import type { SearchInput } from '../../../../../services/set-search/types'
+import type { SearchInput } from '../../../../../domains/set-search/types'
 
 export function buildSearchInput(state: SearchState): SearchInput {
   const skills: Record<string, number> = {}

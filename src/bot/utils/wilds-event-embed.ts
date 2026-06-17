@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import { ColorResolvable, EmbedBuilder } from 'discord.js'
-import { EventQuestItem } from 'mh-wilds-event-scraper'
+import { EventQuestItem } from '@imthmn/mh-wilds-event-scraper'
 import { resolveMonsterIcon } from './resolve-monster-icon'
 
 const toCapitalCase = (str: string) => {
@@ -50,9 +50,11 @@ export const craftEventEmbed = (event: EventQuestItem) => {
     )
 
   if (!event.isPermanent) {
+    const end = dayjs(event.endAt)
     embed.addFields({
       name: 'Last Until',
-      value: dayjs(event.endAt).format('YYYY-MM-DD'),
+      // dayjs(undefined) resolves to "now"; only format a genuinely valid date.
+      value: event.endAt && end.isValid() ? end.format('YYYY-MM-DD') : 'Unknown',
       inline: true,
     })
   }

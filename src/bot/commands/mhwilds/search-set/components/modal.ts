@@ -1,7 +1,7 @@
 import { LabelBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js'
 import type { PendingSkill } from '../state'
 import { truncate } from '../../../../utils/text-truncate'
-import { getSkillMaxLevels } from '../../../../../services/set-search/queries'
+import { getSkillMaxLevels } from '../../../../../domains/set-search/repository'
 
 export function buildLevelModal(pending: PendingSkill[], maxLevels: Map<string, number>): ModalBuilder {
   const builder = new ModalBuilder().setCustomId('search-set:level-modal').setTitle('Enter Skill Levels')

@@ -1,4 +1,4 @@
-import type { SearchHistory } from '../../../../db/schema'
+import type { SearchHistory } from '../../../../infra/db/schema'
 
 export const MAX_SKILLS = 10
 export const SESSION_TTL_MS = 10 * 60 * 1000

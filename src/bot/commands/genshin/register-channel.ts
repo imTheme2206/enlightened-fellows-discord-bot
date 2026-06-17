@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder, TextChannel } from 'discord.js'
-import logger from '../../../config/logger'
-import { genshinCodeChannels } from '../../../modules/channels/service'
-import { GenshinCodeService } from '../../../modules/genshin-codes/service'
+import logger from '../../../infra/logger'
+import { genshinCodeChannels } from '../../../domains/channels/service'
+import { GenshinCodeService } from '../../../domains/genshin-codes/service'
 import { sendCodesToChannel } from '../../jobs/genshin-code-job'
 import { Command } from '../_types'
 

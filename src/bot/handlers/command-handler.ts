@@ -1,6 +1,6 @@
 import { Client, REST, Routes } from 'discord.js'
-import { config } from '../../config'
-import logger from '../../config/logger'
+import { config } from '../../infra/config'
+import logger from '../../infra/logger'
 import { Command } from '../commands/_types'
 import * as genshinCode from '../commands/genshin/code'
 import * as genshinRegisterChannel from '../commands/genshin/register-channel'

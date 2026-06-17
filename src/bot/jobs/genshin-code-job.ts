@@ -1,10 +1,10 @@
 import { Client, MessageFlags, TextChannel } from 'discord.js'
 import cron from 'node-cron'
-import { CRON_JOB } from '../../config'
-import logger from '../../config/logger'
-import { genshinCodeChannels } from '../../modules/channels/service'
-import { GenshinCodeService } from '../../modules/genshin-codes/service'
-import type { GenshinCode } from '../../db/schema'
+import { CRON_JOB } from '../../infra/config'
+import logger from '../../infra/logger'
+import { genshinCodeChannels } from '../../domains/channels/service'
+import { GenshinCodeService } from '../../domains/genshin-codes/service'
+import type { GenshinCode } from '../../infra/db/schema'
 
 const redeemUrl = 'https://genshin.hoyoverse.com/en/gift?code='
 
