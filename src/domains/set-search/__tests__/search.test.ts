@@ -1,24 +1,15 @@
-import path from 'path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { DEFENSE_BAND } from '../logic/constants'
-import type { SearchInput, SearchResult, SetSearchIndex } from '../types'
+import { search } from '../logic/search'
+import type { SearchInput, SearchResult } from '../types'
+import { deserializeIndex, type SerializedIndex } from './fixtures/index-serde'
+import searchIndexFixture from './fixtures/search-index.json'
 
-// The index is built from the same SQLite database the real app uses.
-// DATABASE_PATH must be set before the db client module is loaded, so the
-// search/build-index modules are imported dynamically inside beforeAll.
-process.env.DATABASE_PATH ??= path.join(process.cwd(), 'db', 'data.db')
-
-type SearchFn = (input: SearchInput, index: SetSearchIndex) => SearchResult[]
+// The index is a committed snapshot of the production index (see
+// fixtures/generate-fixture.ts) so the suite runs hermetically — no database.
+const index = deserializeIndex(searchIndexFixture as unknown as SerializedIndex)
 
 describe('set-search', () => {
-  let index: SetSearchIndex
-  let search: SearchFn
-
-  beforeAll(async () => {
-    const [{ buildIndexFromDb }, { search: searchFn }] = await Promise.all([import('../build-index'), import('../logic/search')])
-    index = buildIndexFromDb()
-    search = searchFn
-  })
 
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 

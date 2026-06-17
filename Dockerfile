@@ -1,16 +1,14 @@
-FROM node:22-alpine AS deps
+FROM oven/bun:1.2-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache git python3 make g++
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-FROM node:22-alpine AS builder
+FROM oven/bun:1.2-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache git python3 make g++
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN corepack enable
-RUN pnpm build
+RUN bun run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app

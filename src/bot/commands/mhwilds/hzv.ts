@@ -1,5 +1,5 @@
 import { AutocompleteInteraction, ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js'
-import { MONSTER_LIST } from 'mh-wilds-event-scraper'
+import { MONSTER_LIST } from '@imthmn/mh-wilds-event-scraper'
 import { Command } from '../_types'
 
 export const data = new SlashCommandBuilder()

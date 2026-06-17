@@ -8,7 +8,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js'
 import fs from 'fs'
-import { EventQuestItem, MHWIldsEventResponse, parseMHWildsEvents } from 'mh-wilds-event-scraper'
+import { EventQuestItem, MHWIldsEventResponse, parseMHWildsEvents } from '@imthmn/mh-wilds-event-scraper'
 import path from 'path'
 import logger from '../../../infra/logger'
 import {

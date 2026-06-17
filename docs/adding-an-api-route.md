@@ -167,13 +167,13 @@ describe('GET /skills', () => {
 })
 ```
 
-Run: `pnpm vitest run src/api/routes/__tests__/skills.test.ts`
+Run: `bunx vitest run src/api/routes/__tests__/skills.test.ts`
 
 ## Before you finish
 
-- `pnpm build` — esbuild resolves every import; catches broken paths.
-- `pnpm lint` — must be clean.
-- `pnpm vitest run` — your new test green (note: the existing set-search test has
+- `bun run build` — esbuild resolves every import; catches broken paths.
+- `bun run lint` — must be clean.
+- `bunx vitest run` — your new test green (note: the existing set-search test has
   a pre-existing, unrelated failure).
 
 ## Gotchas

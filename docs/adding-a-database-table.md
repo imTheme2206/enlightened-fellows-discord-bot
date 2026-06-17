@@ -57,7 +57,7 @@ module to `drizzle(client, { schema })`.
 ## 3. Generate the migration
 
 ```bash
-pnpm db:generate
+bun run db:generate
 ```
 
 This diffs `schema.ts` against the current migrations and writes a new SQL file +
@@ -71,7 +71,7 @@ Commit the generated files in `drizzle/` together with the `schema.ts` change.
 ## 4. Apply the migration
 
 ```bash
-pnpm db:migrate
+bun run db:migrate
 ```
 
 - Locally/dev this runs against **`DIRECT_URL`** (direct Postgres, set in
