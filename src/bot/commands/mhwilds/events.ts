@@ -55,9 +55,22 @@ const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
 
   const uniqueEventsArray = Array.from(uniqueEvents.values())
 
-  return uniqueEventsArray.filter(
-    (event) => !event.isPermanent && dayjs(event.startAt).isBefore(currentDate) && dayjs(event.endAt).isAfter(currentDate)
-  )
+  return uniqueEventsArray.filter((event) => {
+    if (event.isPermanent || !event.startAt || !event.endAt) {
+      return false
+    }
+
+    const start = dayjs(event.startAt)
+    const end = dayjs(event.endAt)
+
+    // Guard against missing/malformed dates: dayjs(undefined) resolves to "now",
+    // which would otherwise let endless events leak through as currently ongoing.
+    if (!start.isValid() || !end.isValid()) {
+      return false
+    }
+
+    return start.isBefore(currentDate) && end.isAfter(currentDate)
+  })
 }
 
 const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>

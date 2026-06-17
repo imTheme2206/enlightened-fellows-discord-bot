@@ -50,9 +50,11 @@ export const craftEventEmbed = (event: EventQuestItem) => {
     )
 
   if (!event.isPermanent) {
+    const end = dayjs(event.endAt)
     embed.addFields({
       name: 'Last Until',
-      value: dayjs(event.endAt).format('YYYY-MM-DD'),
+      // dayjs(undefined) resolves to "now"; only format a genuinely valid date.
+      value: event.endAt && end.isValid() ? end.format('YYYY-MM-DD') : 'Unknown',
       inline: true,
     })
   }

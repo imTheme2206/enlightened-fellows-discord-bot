@@ -15,7 +15,7 @@ import { serializeIndex } from './index-serde'
 
 async function main() {
   const index = await buildIndexFromDb()
-  const out = path.join(__dirname, 'search-index.json')
+  const out = path.join(import.meta.dirname, 'search-index.json')
   fs.writeFileSync(out, JSON.stringify(serializeIndex(index)))
   // eslint-disable-next-line no-console
   console.log(`Wrote ${out}\n  ${index.allArmor.length} armor, ${index.decorations.length} decorations, ${index.skills.size} skills`)
@@ -23,7 +23,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err)
   process.exit(1)
 })

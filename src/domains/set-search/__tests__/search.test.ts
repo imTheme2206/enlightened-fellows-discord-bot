@@ -10,7 +10,6 @@ import searchIndexFixture from './fixtures/search-index.json'
 const index = deserializeIndex(searchIndexFixture as unknown as SerializedIndex)
 
 describe('set-search', () => {
-
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 
   describe("Gore Magala's Tyranny + Lord's Soul weapon build", () => {
