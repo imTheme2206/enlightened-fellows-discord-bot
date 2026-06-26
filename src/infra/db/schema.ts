@@ -10,6 +10,8 @@ export const skill = pgTable('skill', {
   isGroupSkill: boolean('is_group_skill').notNull().default(false),
   requiredPieces: integer('required_pieces'),
   effectName: text('effect_name'),
+  // Raw MHDB icon category, e.g. 'affinity', 'offense', 'handicraft'. Consumers map to their own assets.
+  icon: text('icon'),
 })
 
 export const decoration = pgTable('decoration', {

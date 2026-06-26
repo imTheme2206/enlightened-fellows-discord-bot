@@ -13,6 +13,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --check src",
+    "gen:openapi": "bun scripts/gen-openapi.ts",
     "gen:search-fixture": "tsx src/domains/set-search/__tests__/fixtures/generate-fixture.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -23,6 +24,7 @@
   "license": "ISC",
   "dependencies": {
     "@elysia/openapi": "^1.4.15",
+    "@elysiajs/cors": "^1.4.2",
     "@elysiajs/node": "^1.4.5",
     "@elysiajs/static": "^1.4.10",
     "@imthmn/mh-wilds-event-scraper": "^1.0.0",
@@ -47,6 +49,7 @@
     "eslint-config-next": "^13.5.11",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.4",
     "tsup": "^8.5.1",
     "tsx": "^4.22.4",

@@ -50,6 +50,9 @@ export const SeedDataSchema = z.object({
   groupSkills: z.record(z.string(), CompactGroupSkillSchema),
   setMap: z.record(z.string(), z.string()),
   armorSkills: z.array(z.string()),
+  weaponSkills: z.array(z.string()).optional(),
+  // Raw MHDB icon category keyed by clean skill/set/group name, e.g. {"Attack Boost": "offense"}.
+  skillIcons: z.record(z.string(), z.string()).optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -59,14 +62,16 @@ export const SeedDataSchema = z.object({
 export interface SkillInsert {
   name: string
   cleanName: string
-  /** 'armor' | 'set' | 'group' */
-  type: 'armor' | 'set' | 'group'
+  /** 'armor' | 'weapon' | 'set' | 'group' */
+  type: 'armor' | 'weapon' | 'set' | 'group'
   maxLevel: number
   isSetSkill: boolean
   isGroupSkill: boolean
   requiredPieces?: number
   /** For set/group skills: the actual granted skill name */
   effectName?: string
+  /** Raw MHDB icon category, e.g. 'offense'. Undefined if MHDB omitted it. */
+  icon?: string
 }
 
 export interface ArmorInsert {
@@ -116,20 +121,23 @@ export interface TransformResult {
 export function transformSeedData(data: SeedData): TransformResult {
   SeedDataSchema.parse(data)
 
+  const skillIcons = data.skillIcons ?? {}
   const skills: SkillInsert[] = []
   const armor: ArmorInsert[] = []
   const armorRegularSkills: ArmorRegularSkillInsert[] = []
   const decorations: DecorationInsert[] = []
 
-  // --- Regular armor skills ---
+  // --- Regular skills (armor + weapon; data.skills is the merged set) ---
+  const weaponSkillNames = new Set(data.weaponSkills ?? [])
   for (const [name, maxLevel] of Object.entries(data.skills)) {
     skills.push({
       name,
       cleanName: toCleanName(name),
-      type: 'armor',
+      type: weaponSkillNames.has(name) ? 'weapon' : 'armor',
       maxLevel,
       isSetSkill: false,
       isGroupSkill: false,
+      icon: skillIcons[name],
     })
   }
 
@@ -144,6 +152,7 @@ export function transformSeedData(data: SeedData): TransformResult {
       isGroupSkill: false,
       requiredPieces: piecesRequired,
       effectName,
+      icon: skillIcons[setName],
     })
   }
 
@@ -158,6 +167,7 @@ export function transformSeedData(data: SeedData): TransformResult {
       isGroupSkill: true,
       requiredPieces: piecesRequired,
       effectName,
+      icon: skillIcons[groupName],
     })
   }
 

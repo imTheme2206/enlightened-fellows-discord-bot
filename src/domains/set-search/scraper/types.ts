@@ -49,4 +49,5 @@ export interface SeedData {
   groupSkills: Record<string, CompactGroupSkill>
   setMap: Record<string, string> // setName → skillName
   armorSkills: string[] // array of armor skill names
+  weaponSkills?: string[] // array of weapon skill names (subset of `skills`)
 }

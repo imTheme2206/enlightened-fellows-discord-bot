@@ -1,22 +1,40 @@
-import { randomUUID } from 'crypto'
-import logger from '../../../infra/logger'
-import { db } from '../../../infra/db/client'
-import { armor, armorGroupSkill, armorSetSkill, armorSkill, decoration, skill } from '../../../infra/db/schema'
-import { JobLogService } from '../../job-logs/service'
-import type { MhdbArmorPiece, MhdbArmorSet, MhdbCharmGroup, MhdbDecoration, MhdbSkill } from './mhdb-types'
-import { SeedDataSchema, transformSeedData } from './transform'
-import { initSearchIndex } from '../service'
+import { randomUUID } from "crypto"
+import { db } from "../../../infra/db/client"
+import {
+  armor,
+  armorGroupSkill,
+  armorSetSkill,
+  armorSkill,
+  decoration,
+  skill,
+} from "../../../infra/db/schema"
+import logger from "../../../infra/logger"
+import { JobLogService } from "../../job-logs/service"
+import { initSearchIndex } from "../service"
+import type {
+  MhdbArmorPiece,
+  MhdbArmorSet,
+  MhdbCharmGroup,
+  MhdbDecoration,
+  MhdbSkill,
+} from "./mhdb-types"
+import { SeedDataSchema, transformSeedData } from "./transform"
 
-const BASE_URL = 'https://wilds.mhdb.io/en'
+const BASE_URL = "https://wilds.mhdb.io/en"
 
 function deKira(name: string): string {
-  return name.replace(/α/g, 'Alpha').replace(/β/g, 'Beta').replace(/γ/g, 'Gamma').replace(/"/g, "'").replace(/G\. /g, 'G ')
+  return name
+    .replace(/α/g, "Alpha")
+    .replace(/β/g, "Beta")
+    .replace(/γ/g, "Gamma")
+    .replace(/"/g, "'")
+    .replace(/G\. /g, "G ")
 }
 
 function getBaseName(names: string[]): string {
   const suffixRegex = /\s(I|II)\s*$/
-  const stripped = names.map((n) => n.replace(suffixRegex, '').trim())
-  return new Set(stripped).size === 1 ? stripped[0] : names.join('/')
+  const stripped = names.map((n) => n.replace(suffixRegex, "").trim())
+  return new Set(stripped).size === 1 ? stripped[0] : names.join("/")
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -26,13 +44,14 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 async function fetchSeedData() {
-  const [armorList, skillList, armorSetList, charmList, decorationList] = await Promise.all([
-    fetchJson<MhdbArmorPiece[]>(`${BASE_URL}/armor`),
-    fetchJson<MhdbSkill[]>(`${BASE_URL}/skills`),
-    fetchJson<MhdbArmorSet[]>(`${BASE_URL}/armor/sets`),
-    fetchJson<MhdbCharmGroup[]>(`${BASE_URL}/charms`),
-    fetchJson<MhdbDecoration[]>(`${BASE_URL}/decorations`),
-  ])
+  const [armorList, skillList, armorSetList, charmList, decorationList] =
+    await Promise.all([
+      fetchJson<MhdbArmorPiece[]>(`${BASE_URL}/armor`),
+      fetchJson<MhdbSkill[]>(`${BASE_URL}/skills`),
+      fetchJson<MhdbArmorSet[]>(`${BASE_URL}/armor/sets`),
+      fetchJson<MhdbCharmGroup[]>(`${BASE_URL}/charms`),
+      fetchJson<MhdbDecoration[]>(`${BASE_URL}/decorations`),
+    ])
 
   const pieceSetSkills = new Map<string, string[]>()
   const pieceGroupSkills = new Map<string, string[]>()
@@ -56,7 +75,9 @@ async function fetchSeedData() {
   }
 
   for (const piece of armorList) {
-    const directSetSkills = piece.skills.filter((s) => s.skill.kind === 'set').map((s) => s.skill.name)
+    const directSetSkills = piece.skills
+      .filter((s) => s.skill.kind === "set")
+      .map((s) => s.skill.name)
     if (directSetSkills.length > 0) {
       const arr = pieceSetSkills.get(piece.name) ?? []
       for (const sk of directSetSkills) {
@@ -66,13 +87,19 @@ async function fetchSeedData() {
     }
   }
 
-  const armorData: Record<string, Record<string, unknown[]>> = { head: {}, chest: {}, arms: {}, waist: {}, legs: {} }
+  const armorData: Record<string, Record<string, unknown[]>> = {
+    head: {},
+    chest: {},
+    arms: {},
+    waist: {},
+    legs: {},
+  }
 
   for (const piece of armorList) {
     const cleanName = deKira(piece.name)
     const skills: Record<string, number> = {}
     for (const s of piece.skills) {
-      if (s.skill.kind === 'armor') skills[s.skill.name] = s.level
+      if (s.skill.kind === "armor") skills[s.skill.name] = s.level
     }
     armorData[piece.kind][cleanName] = [
       piece.kind,
@@ -80,7 +107,13 @@ async function fetchSeedData() {
       pieceGroupSkills.get(piece.name) ?? [],
       piece.slots,
       piece.defense.base,
-      [piece.resistances.fire, piece.resistances.water, piece.resistances.thunder, piece.resistances.ice, piece.resistances.dragon],
+      [
+        piece.resistances.fire,
+        piece.resistances.water,
+        piece.resistances.thunder,
+        piece.resistances.ice,
+        piece.resistances.dragon,
+      ],
       piece.rank,
       pieceSetSkills.get(piece.name) ?? [],
     ]
@@ -91,13 +124,16 @@ async function fetchSeedData() {
     for (const charm of group.ranks) {
       const skills: Record<string, number> = {}
       for (const s of charm.skills) skills[s.skill.name] = s.level
-      talisman[deKira(charm.name)] = ['talisman', skills]
+      talisman[deKira(charm.name)] = ["talisman", skills]
     }
   }
 
   const decorationData: Record<string, unknown[]> = {}
   for (const deco of decorationList) {
-    const rawName = deco.name.replace(/\[/g, '').replace(/\]/g, '').replace(/\//g, '-')
+    const rawName = deco.name
+      .replace(/\[/g, "")
+      .replace(/\]/g, "")
+      .replace(/\//g, "-")
     const skills: Record<string, number> = {}
     for (const s of deco.skills) skills[s.skill.name] = s.level
     decorationData[deKira(rawName)] = [deco.kind, skills, deco.slot]
@@ -108,23 +144,29 @@ async function fetchSeedData() {
   const groupSkills: Record<string, unknown[]> = {}
   const setMap: Record<string, string> = {}
   const armorSkills: string[] = []
+  const weaponSkills: string[] = []
+  const skillIcons: Record<string, string> = {}
 
   for (const s of skillList) {
     const cleanName = deKira(s.name)
+    if (s.icon?.kind) skillIcons[cleanName] = s.icon.kind
     switch (s.kind) {
-      case 'armor':
-      case 'weapon':
+      case "armor":
         skillsData[cleanName] = s.ranks.length
-        if (s.kind === 'armor') armorSkills.push(cleanName)
+        if (s.kind === "armor") armorSkills.push(cleanName)
         break
-      case 'set': {
+      case "weapon":
+        skillsData[cleanName] = s.ranks.length
+        if (s.kind === "weapon") weaponSkills.push(cleanName)
+        break
+      case "set": {
         const effectName = getBaseName(s.ranks.map((r) => r.name))
         const thresholds = s.ranks.map((r) => r.setPiecesRequired ?? 2)
         setSkills[cleanName] = [effectName, thresholds[0] ?? 2, thresholds]
         setMap[cleanName] = effectName
         break
       }
-      case 'group': {
+      case "group": {
         const effectName = getBaseName(s.ranks.map((r) => r.name))
         groupSkills[cleanName] = [effectName, 1, 3]
         setMap[cleanName] = effectName
@@ -133,10 +175,23 @@ async function fetchSeedData() {
     }
   }
 
-  const raw = { armor: armorData, talisman, decoration: decorationData, skills: skillsData, setSkills, groupSkills, setMap, armorSkills }
+  const raw = {
+    armor: armorData,
+    talisman,
+    decoration: decorationData,
+    skills: skillsData,
+    setSkills,
+    groupSkills,
+    setMap,
+    armorSkills,
+    weaponSkills,
+    skillIcons,
+  }
   const parsed = SeedDataSchema.safeParse(raw)
   if (!parsed.success) {
-    throw new Error(`Fetched data validation failed: ${JSON.stringify(parsed.error.flatten())}`)
+    throw new Error(
+      `Fetched data validation failed: ${JSON.stringify(parsed.error.flatten())}`,
+    )
   }
   return parsed.data
 }
@@ -147,8 +202,10 @@ export interface ScraperResult {
   decoCount: number
 }
 
-export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' } = {}): Promise<ScraperResult> {
-  const source = options.source ?? 'manual'
+export async function runScraper(
+  options: { source?: "cron" | "manual" | "boot" } = {},
+): Promise<ScraperResult> {
+  const source = options.source ?? "manual"
   const jobName = `scraper:${source}`
 
   logger.info(`[scraperService] Starting scraper (source: ${source})`)
@@ -157,7 +214,12 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
 
   try {
     const seedData = await fetchSeedData()
-    const { skills, armor: armorPieces, armorRegularSkills, decorations } = transformSeedData(seedData)
+    const {
+      skills,
+      armor: armorPieces,
+      armorRegularSkills,
+      decorations,
+    } = transformSeedData(seedData)
 
     await db.transaction(async (tx) => {
       await tx.delete(armorGroupSkill)
@@ -184,7 +246,8 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
           isGroupSkill: s.isGroupSkill,
           requiredPieces: s.requiredPieces ?? null,
           effectName: s.effectName ?? null,
-        }))
+          icon: s.icon ?? null,
+        })),
       )
 
       const armorIdMap = new Map<string, string>()
@@ -207,19 +270,22 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
           iceRes: piece.iceRes,
           dragonRes: piece.dragonRes,
           slots: piece.slots,
-        }))
+        })),
       )
 
       const armorSkillRows = armorRegularSkills.flatMap((link) => {
         const armorId = armorIdMap.get(link.armorName)
         const skillId = skillIdMap.get(link.skillName)
         if (!armorId || !skillId) {
-          logger.warn(`[scraperService] Skipping ArmorSkill: armor=${link.armorName} skill=${link.skillName} (not found)`)
+          logger.warn(
+            `[scraperService] Skipping ArmorSkill: armor=${link.armorName} skill=${link.skillName} (not found)`,
+          )
           return []
         }
         return [{ armorId, skillId, level: link.level }]
       })
-      if (armorSkillRows.length) await tx.insert(armorSkill).values(armorSkillRows)
+      if (armorSkillRows.length)
+        await tx.insert(armorSkill).values(armorSkillRows)
 
       const setSkillRows = armorPieces.flatMap((piece) => {
         const armorId = armorIdMap.get(piece.name)
@@ -227,13 +293,16 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
         return piece.setSkillNames.flatMap((setName) => {
           const skillId = skillIdMap.get(setName)
           if (!skillId) {
-            logger.warn(`[scraperService] Skipping ArmorSetSkill: armor=${piece.name} set=${setName} (not found)`)
+            logger.warn(
+              `[scraperService] Skipping ArmorSetSkill: armor=${piece.name} set=${setName} (not found)`,
+            )
             return []
           }
           return [{ armorId, skillId }]
         })
       })
-      if (setSkillRows.length) await tx.insert(armorSetSkill).values(setSkillRows)
+      if (setSkillRows.length)
+        await tx.insert(armorSetSkill).values(setSkillRows)
 
       const groupSkillRows = armorPieces.flatMap((piece) => {
         const armorId = armorIdMap.get(piece.name)
@@ -241,21 +310,35 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
         return piece.groupSkillNames.flatMap((groupName) => {
           const skillId = skillIdMap.get(groupName)
           if (!skillId) {
-            logger.warn(`[scraperService] Skipping ArmorGroupSkill: armor=${piece.name} group=${groupName} (not found)`)
+            logger.warn(
+              `[scraperService] Skipping ArmorGroupSkill: armor=${piece.name} group=${groupName} (not found)`,
+            )
             return []
           }
           return [{ armorId, skillId }]
         })
       })
-      if (groupSkillRows.length) await tx.insert(armorGroupSkill).values(groupSkillRows)
+      if (groupSkillRows.length)
+        await tx.insert(armorGroupSkill).values(groupSkillRows)
 
       const decoRows = decorations.flatMap((deco) => {
         const skillId = skillIdMap.get(deco.skillName)
         if (!skillId) {
-          logger.warn(`[scraperService] Skipping Decoration: ${deco.name} (skill=${deco.skillName} not found)`)
+          logger.warn(
+            `[scraperService] Skipping Decoration: ${deco.name} (skill=${deco.skillName} not found)`,
+          )
           return []
         }
-        return [{ id: randomUUID(), name: deco.name, type: deco.type, slotSize: deco.slotSize, skillId, skillLevel: deco.skillLevel }]
+        return [
+          {
+            id: randomUUID(),
+            name: deco.name,
+            type: deco.type,
+            slotSize: deco.slotSize,
+            skillId,
+            skillLevel: deco.skillLevel,
+          },
+        ]
       })
       if (decoRows.length) await tx.insert(decoration).values(decoRows)
     })
@@ -266,14 +349,19 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
       decoCount: decorations.length,
     }
 
-    logger.info(`[scraperService] Success: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`)
-    await JobLogService.log(jobName, 'SUCCESS', JSON.stringify(result))
+    logger.info(
+      `[scraperService] Success: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`,
+    )
+    await JobLogService.log(jobName, "SUCCESS", JSON.stringify(result))
 
     try {
       await initSearchIndex()
-      logger.info('[scraperService] Search index rebuilt successfully')
+      logger.info("[scraperService] Search index rebuilt successfully")
     } catch (indexErr) {
-      logger.warn('[scraperService] Failed to rebuild search index (non-fatal):', { indexErr })
+      logger.warn(
+        "[scraperService] Failed to rebuild search index (non-fatal):",
+        { indexErr },
+      )
     }
 
     return result
@@ -281,7 +369,7 @@ export async function runScraper(options: { source?: 'cron' | 'manual' | 'boot' 
     const message = err instanceof Error ? err.message : String(err)
     logger.error(`[scraperService] Failed: ${message}`, { err })
     try {
-      await JobLogService.log(jobName, 'FAILED', message)
+      await JobLogService.log(jobName, "FAILED", message)
     } catch {
       // ignore logging failure
     }
