@@ -22,8 +22,16 @@ export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
   const setSkillCounts: Record<string, number> = {}
   const groupSkillCounts: Record<string, number> = {}
   let defense = 0
+  // Elemental defenses aggregate over the same 5 body pieces as `defense`
+  // (talisman excluded). resists tuple order: [fire, water, thunder, ice, dragon].
+  const elementalDefenses = { fire: 0, water: 0, thunder: 0, ice: 0, dragon: 0 }
   for (const [, piece] of armorBodyPieces) {
     defense += piece.defense
+    elementalDefenses.fire += piece.resists[0]
+    elementalDefenses.water += piece.resists[1]
+    elementalDefenses.thunder += piece.resists[2]
+    elementalDefenses.ice += piece.resists[3]
+    elementalDefenses.dragon += piece.resists[4]
     for (const sk of piece.setSkills) {
       setSkillCounts[sk] = (setSkillCounts[sk] ?? 0) + 1
     }
@@ -34,11 +42,13 @@ export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
 
   return {
     names: allPieces.map(([n]) => n),
+    rarities: allPieces.map(([, piece]) => piece.rarity ?? 0),
     skills: Object.fromEntries(Object.entries(skillTotals).sort((a, b) => b[1] - a[1])),
     slots,
     setSkills: setSkillCounts,
     groupSkills: groupSkillCounts,
     defense,
+    elementalDefenses,
   }
 }
 
@@ -125,6 +135,7 @@ export function testCombo(
   if (done) {
     return {
       armorNames: armorSet.names,
+      rarities: armorSet.rarities,
       slots: armorSet.slots,
       decoNames: [],
       skills: armorSet.skills,
@@ -132,6 +143,7 @@ export function testCombo(
       groupSkills: armorSet.groupSkills,
       freeSlots: armorSet.slots,
       defense: armorSet.defense,
+      elementalDefenses: armorSet.elementalDefenses,
     }
   }
 
@@ -143,6 +155,7 @@ export function testCombo(
 
   return {
     armorNames: armorSet.names,
+    rarities: armorSet.rarities,
     slots: armorSet.slots,
     decoNames: decosUsed.decoNames,
     skills: combinedSkills,
@@ -150,5 +163,6 @@ export function testCombo(
     groupSkills: armorSet.groupSkills,
     freeSlots: decosUsed.freeSlots,
     defense: armorSet.defense,
+    elementalDefenses: armorSet.elementalDefenses,
   }
 }

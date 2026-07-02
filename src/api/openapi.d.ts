@@ -95,6 +95,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postApiMh-wildsSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -211,6 +227,124 @@ export interface operations {
                         requiredPieces: number | null;
                         effectName: string | null;
                         icon: string | null;
+                    }[];
+                };
+            };
+        };
+    };
+    "postApiMh-wildsSearch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    skills: {
+                        [key: string]: number;
+                    };
+                    setSkills?: {
+                        [key: string]: number;
+                    };
+                    groupSkills?: {
+                        [key: string]: number;
+                    };
+                    initialSetCounts?: {
+                        [key: string]: number;
+                    };
+                    initialGroupCounts?: {
+                        [key: string]: number;
+                    };
+                    mandatoryArmor?: (string | null)[];
+                    blacklistedArmor?: string[];
+                    slotFilters?: {
+                        [key: string]: number;
+                    };
+                    /** @enum {string} */
+                    rank?: "low" | "high" | "master";
+                };
+                "application/x-www-form-urlencoded": {
+                    skills: {
+                        [key: string]: number;
+                    };
+                    setSkills?: {
+                        [key: string]: number;
+                    };
+                    groupSkills?: {
+                        [key: string]: number;
+                    };
+                    initialSetCounts?: {
+                        [key: string]: number;
+                    };
+                    initialGroupCounts?: {
+                        [key: string]: number;
+                    };
+                    mandatoryArmor?: (string | null)[];
+                    blacklistedArmor?: string[];
+                    slotFilters?: {
+                        [key: string]: number;
+                    };
+                    /** @enum {string} */
+                    rank?: "low" | "high" | "master";
+                };
+                "multipart/form-data": {
+                    skills: {
+                        [key: string]: number;
+                    };
+                    setSkills?: {
+                        [key: string]: number;
+                    };
+                    groupSkills?: {
+                        [key: string]: number;
+                    };
+                    initialSetCounts?: {
+                        [key: string]: number;
+                    };
+                    initialGroupCounts?: {
+                        [key: string]: number;
+                    };
+                    mandatoryArmor?: (string | null)[];
+                    blacklistedArmor?: string[];
+                    slotFilters?: {
+                        [key: string]: number;
+                    };
+                    /** @enum {string} */
+                    rank?: "low" | "high" | "master";
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        armorNames: string[];
+                        rarities: number[];
+                        skills: {
+                            [key: string]: number;
+                        };
+                        setSkills: {
+                            [key: string]: number;
+                        };
+                        groupSkills: {
+                            [key: string]: number;
+                        };
+                        decoNames: string[];
+                        freeSlots: number[];
+                        slots: number[];
+                        defense: number;
+                        elementalDefenses: {
+                            fire: number;
+                            water: number;
+                            thunder: number;
+                            ice: number;
+                            dragon: number;
+                        };
                     }[];
                 };
             };

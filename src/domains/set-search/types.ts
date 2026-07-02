@@ -9,7 +9,16 @@ export interface ArmorPiece {
   defense: number
   resists: [number, number, number, number, number] // [fire,water,thunder,ice,dragon]
   rank: 'low' | 'high' | 'master'
+  rarity: number
   setSkills: string[] // set names this piece belongs to
+}
+
+export interface ElementalDefenses {
+  fire: number
+  water: number
+  thunder: number
+  ice: number
+  dragon: number
 }
 
 export interface DecorationItem {
@@ -47,20 +56,13 @@ export interface SetSearchIndex {
   skills: Map<string, SkillMeta>
 }
 
-export interface SearchInput {
-  skills: Record<string, number>
-  setSkills?: Record<string, number>
-  groupSkills?: Record<string, number>
-  initialSetCounts?: Record<string, number>
-  initialGroupCounts?: Record<string, number>
-  mandatoryArmor?: (string | null)[] // [head, chest, arms, waist, legs, talisman]
-  blacklistedArmor?: string[]
-  slotFilters?: Record<string, number> // {"3": 2} = need 2 free 3-slots
-  rank?: 'low' | 'high' | 'master'
-}
+// `SearchInput` is derived from the Zod request contract (single source of truth)
+// so the HTTP route and the bot validate/consume the exact same shape.
+export type { SearchInput } from './schema'
 
 export interface SearchResult {
   armorNames: string[]
+  rarities: number[] // parallel to armorNames; talisman has no rarity → 0
   skills: Record<string, number>
   setSkills: Record<string, number>
   groupSkills: Record<string, number>
@@ -68,5 +70,6 @@ export interface SearchResult {
   freeSlots: number[]
   slots: number[]
   defense: number
+  elementalDefenses: ElementalDefenses
   _originalIndex?: number
 }

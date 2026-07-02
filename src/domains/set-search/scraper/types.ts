@@ -2,7 +2,7 @@ export type ArmorType = 'head' | 'chest' | 'arms' | 'waist' | 'legs'
 
 /**
  * Compact armor format from seed JSON:
- * [type, skills, groupSkills, slots, defense, resists, rank, setSkills]
+ * [type, skills, groupSkills, slots, defense, resists, rank, setSkills, rarity]
  */
 export type CompactArmor = [
   string, // [0] type: "head"|"chest"|"arms"|"waist"|"legs"
@@ -13,6 +13,7 @@ export type CompactArmor = [
   [number, number, number, number, number], // [5] resists: [fire, water, thunder, ice, dragon]
   string, // [6] rank: "low"|"high"|"master"
   string[], // [7] setSkills: set names this piece belongs to
+  number, // [8] rarity
 ]
 
 /**

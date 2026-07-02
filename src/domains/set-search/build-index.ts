@@ -64,6 +64,7 @@ export async function buildIndexFromDb(): Promise<SetSearchIndex> {
       name: row.name,
       type: row.type as ArmorType,
       rank: row.rank.toLowerCase() as 'low' | 'high' | 'master',
+      rarity: row.rarity,
       defense: row.defense,
       slots: row.slots as number[],
       resists: [row.fireRes, row.waterRes, row.thunderRes, row.iceRes, row.dragonRes],

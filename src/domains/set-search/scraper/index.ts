@@ -116,6 +116,7 @@ async function fetchSeedData() {
       ],
       piece.rank,
       pieceSetSkills.get(piece.name) ?? [],
+      piece.rarity,
     ]
   }
 

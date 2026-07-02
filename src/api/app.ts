@@ -5,6 +5,7 @@ import { channelsRoutes } from './routes/channels'
 import { fetchArmorsRoutes } from './routes/fetch-armors'
 import { genshinCodesRoutes } from './routes/genshin-codes'
 import { jobLogsRoutes } from './routes/job-logs'
+import { searchRoutes } from './routes/search'
 import { skillsRoutes } from './routes/skills'
 
 export function createApp() {
@@ -25,5 +26,5 @@ export function createApp() {
     .group('/api', (app) =>
       app.onBeforeHandle(authGuard).use(jobLogsRoutes).use(genshinCodesRoutes).use(channelsRoutes).use(fetchArmorsRoutes)
     )
-    .group('/api/mh-wilds', (app) => app.use(skillsRoutes))
+    .group('/api/mh-wilds', (app) => app.use(skillsRoutes).use(searchRoutes))
 }

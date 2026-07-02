@@ -10,6 +10,7 @@ const CompactArmorSchema = z.tuple([
   z.tuple([z.number(), z.number(), z.number(), z.number(), z.number()]), // resists
   z.string(), // rank
   z.array(z.string()), // setSkills
+  z.number(), // rarity
 ])
 
 const CompactTalismanSchema = z.tuple([
@@ -176,13 +177,13 @@ export function transformSeedData(data: SeedData): TransformResult {
   for (const armorType of armorTypes) {
     const pieces = data.armor[armorType]
     for (const [name, piece] of Object.entries(pieces)) {
-      const [, pieceSkills, groupSkillsList, slots, defense, resists, rank, setSkillNames] = piece
+      const [, pieceSkills, groupSkillsList, slots, defense, resists, rank, setSkillNames, rarity] = piece
 
       armor.push({
         name,
         type: armorType,
         rank: rank.toUpperCase(),
-        rarity: 0,
+        rarity: rarity ?? 0,
         defense,
         fireRes: resists[0],
         waterRes: resists[1],

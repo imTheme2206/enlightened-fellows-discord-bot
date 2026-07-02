@@ -1,4 +1,4 @@
-import type { ArmorPiece, DecorationItem } from '../types'
+import type { ArmorPiece, DecorationItem, ElementalDefenses } from '../types'
 
 export const LIMIT = 300_000
 /** How many top-defense pieces per slot to keep as candidates beyond skill-potential winners. */
@@ -29,11 +29,13 @@ export interface GearPool {
 
 export interface ArmorComboResult {
   names: string[]
+  rarities: number[]
   skills: Record<string, number>
   slots: number[]
   setSkills: Record<string, number>
   groupSkills: Record<string, number>
   defense: number
+  elementalDefenses: ElementalDefenses
 }
 
 export interface DecoResult {
