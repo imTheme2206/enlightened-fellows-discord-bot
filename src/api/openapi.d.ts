@@ -111,6 +111,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/talismans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiTalismans"];
+        put?: never;
+        post: operations["postApiTalismans"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/talismans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteApiTalismansById"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -349,5 +381,79 @@ export interface operations {
                 };
             };
         };
+    };
+    getApiTalismans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: never;
+    };
+    postApiTalismans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    skills: {
+                        skillId: string;
+                        level: number;
+                    }[];
+                    /** @default [] */
+                    slots?: {
+                        /** @enum {string} */
+                        type: "weapon" | "armor";
+                        size: number;
+                    }[];
+                };
+                "application/x-www-form-urlencoded": {
+                    name: string;
+                    skills: {
+                        skillId: string;
+                        level: number;
+                    }[];
+                    /** @default [] */
+                    slots?: {
+                        /** @enum {string} */
+                        type: "weapon" | "armor";
+                        size: number;
+                    }[];
+                };
+                "multipart/form-data": {
+                    name: string;
+                    skills: {
+                        skillId: string;
+                        level: number;
+                    }[];
+                    /** @default [] */
+                    slots?: {
+                        /** @enum {string} */
+                        type: "weapon" | "armor";
+                        size: number;
+                    }[];
+                };
+            };
+        };
+        responses: never;
+    };
+    deleteApiTalismansById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: never;
     };
 }

@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
 export const skill = pgTable('skill', {
   id: text('id').primaryKey(),
@@ -91,7 +91,7 @@ export const jobLog = pgTable('job_log', {
 export const searchHistory = pgTable('search_history', {
   id: text('id').primaryKey(),
   // Discord snowflake — intentionally text, not a FK to auth.users.
-  // The web app resolves Discord ID → Supabase user via auth.identities at query time.
+  // The API obtains it from a Supabase JWT's app_metadata.discord_id claim (see ADR-0003), not by querying auth.identities.
   userId: text('user_id').notNull(),
   label: text('label').notNull(),
   data: jsonb('data').notNull(),
@@ -117,6 +117,30 @@ export const registeredChannel = pgTable(
   (t) => [primaryKey({ columns: [t.channelId, t.type] })]
 )
 
+/** A skill applied to a custom talisman: `skillId` references `skill.id`, `level` <= that skill's `maxLevel`. */
+export type TalismanSkill = { skillId: string; level: number }
+
+/**
+ * A slot on a custom talisman. Only the first slot (array index 0) may be
+ * `'weapon'` — real talismans in this game can carry one weapon-type slot;
+ * any additional slots are always `'armor'`. See docs/adr and CONTEXT.md.
+ */
+export type TalismanSlot = { type: 'weapon' | 'armor'; size: number }
+
+export const customTalisman = pgTable(
+  'custom_talisman',
+  {
+    id: text('id').primaryKey(),
+    // Discord snowflake — intentionally text, not a FK to auth.users (see ADR-0003).
+    userId: text('user_id').notNull(),
+    name: text('name').notNull(),
+    skills: jsonb('skills').$type<TalismanSkill[]>().notNull(),
+    slots: jsonb('slots').$type<TalismanSlot[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.userId, t.name)]
+)
+
 // Inferred types (replace the hand-written *Row interfaces in service files)
 export type Skill = typeof skill.$inferSelect
 export type Decoration = typeof decoration.$inferSelect
@@ -129,3 +153,5 @@ export type GenshinCode = typeof genshinCode.$inferSelect
 export type NewGenshinCode = typeof genshinCode.$inferInsert
 export type RegisteredChannel = typeof registeredChannel.$inferSelect
 export type NewRegisteredChannel = typeof registeredChannel.$inferInsert
+export type CustomTalisman = typeof customTalisman.$inferSelect
+export type NewCustomTalisman = typeof customTalisman.$inferInsert

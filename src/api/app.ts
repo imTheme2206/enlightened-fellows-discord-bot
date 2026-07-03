@@ -7,6 +7,7 @@ import { genshinCodesRoutes } from './routes/genshin-codes'
 import { jobLogsRoutes } from './routes/job-logs'
 import { searchRoutes } from './routes/search'
 import { skillsRoutes } from './routes/skills'
+import { talismansRoutes } from './routes/talismans'
 
 export function createApp() {
   return new Elysia()
@@ -27,4 +28,5 @@ export function createApp() {
       app.onBeforeHandle(authGuard).use(jobLogsRoutes).use(genshinCodesRoutes).use(channelsRoutes).use(fetchArmorsRoutes)
     )
     .group('/api/mh-wilds', (app) => app.use(skillsRoutes).use(searchRoutes))
+    .group('/api', (app) => app.use(talismansRoutes))
 }

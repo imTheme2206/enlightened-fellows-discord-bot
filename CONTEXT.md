@@ -25,12 +25,36 @@ _Avoid_: "rank" — **Rank** is a separate concept.
 The hunt tier of a piece / query: `low | high | master`. Orthogonal to **Rarity**.
 _Avoid_: using "rarity" and "rank" interchangeably.
 
+**Discord ID**:
+The raw Discord snowflake (string) identifying a user. Used as the bare `userId` column value across user-scoped tables (`search_history`, `custom_talisman`) — never a foreign key to Supabase's `auth` schema. See ADR-0003 for how the API obtains it from a Supabase JWT.
+_Avoid_: User ID, Supabase user ID (that's a different identifier — the Supabase Auth UUID, not stored in this codebase's tables).
+
+**Talisman (scraped)**:
+A fixed, community-sourced talisman from wilds.mhdb.io, shared globally across all users, with skills only — no slots. Lives in the `armor` table with `type = 'talisman'`.
+_Avoid_: Custom talisman, user talisman.
+
+**Custom Talisman**:
+A user-authored talisman, privately scoped to one Discord user, with 1-3 skills and up to 3 slots. Distinct from a scraped **Talisman**: it can have slots (a scraped Talisman cannot), and only the first slot may be a weapon slot — the rest are always armor slots.
+_Avoid_: Talisman alone (ambiguous — always qualify as "scraped" or "custom" when it matters).
+
 ## Relationships
 
 - A **Search result** contains 6 pieces but **Defense** and **Elemental defenses** aggregate only the 5 body pieces.
 - **Rarity** is per-piece; **Rank** is per-piece and also a query-level filter.
+- A **Custom Talisman** belongs to exactly one **Discord ID** (its owner), enforced by a per-user cap of 50 and a unique `(userId, name)` constraint.
+- A **Custom Talisman**'s skills reference real rows in the `skill` table; each skill's level is validated against that skill's `maxLevel` at write time (not enforceable at the DB level since skills are stored as jsonb, not join rows).
+- **Custom Talisman** management (create/list/delete) is dashboard-only for the current iteration; Discord bot slash commands to add/remove them, and feeding them into the set-search DFS as candidate pieces, are both deferred.
+
+## Example dialogue
+
+> **Dev:** "Can a custom talisman have 2 weapon slots?"
+> **Domain expert:** "No — only the first of its up to 3 slots may be a weapon slot; any additional slots are always armor slots."
+>
+> **Dev:** "If a user names their talisman the same as another user's, does that fail?"
+> **Domain expert:** "No — the unique-name constraint is scoped per Discord ID, not global."
 
 ## Flagged ambiguities
 
 - "total defense" was used to mean the existing `defense` value — resolved: that value is base-only over 5 body pieces; we keep it and do **not** rename it "total" to avoid implying augment/floor accuracy.
 - "armor's rarity" was ambiguous (per-piece vs aggregate) — resolved: per-piece `rarities[]` parallel to `armorNames`, not a single aggregate.
+- "Talisman" alone is ambiguous between the scraped, globally-shared game-data talisman (`armor` table) and the new per-user **Custom Talisman** — resolved: always qualify which one is meant.
