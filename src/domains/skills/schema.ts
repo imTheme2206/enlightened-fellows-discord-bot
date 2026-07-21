@@ -12,9 +12,9 @@ export type SkillDto = z.infer<typeof skillSchema>
 
 export const skillsResponseSchema = z.array(skillSchema)
 
-/** Query contract for `GET /api/skills`. */
+/** Query contract for `GET /api/skills`. Returns ordinary skills only; Set/Group
+ * Bonuses are separate entities (ADR-0011) exposed on their own route. */
 export const skillQuerySchema = z.object({
   type: z.enum(['armor', 'weapon']).optional(),
-  setSkill: z.stringbool().optional(),
 })
 export type SkillQuery = z.infer<typeof skillQuerySchema>

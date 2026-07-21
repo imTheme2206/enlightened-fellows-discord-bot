@@ -63,16 +63,33 @@ export const SeedDataSchema = z.object({
 export interface SkillInsert {
   name: string
   cleanName: string
-  /** 'armor' | 'weapon' | 'set' | 'group' */
-  type: 'armor' | 'weapon' | 'set' | 'group'
+  /** Ordinary skills only — Set/Group Bonuses are `BonusInsert` now (ADR-0011). */
+  type: 'armor' | 'weapon'
   maxLevel: number
-  isSetSkill: boolean
-  isGroupSkill: boolean
-  requiredPieces?: number
-  /** For set/group skills: the actual granted skill name */
-  effectName?: string
   /** Raw MHDB icon category, e.g. 'offense'. Undefined if MHDB omitted it. */
   icon?: string
+}
+
+/** A Set or Group Bonus catalog entity (ADR-0011). */
+export interface BonusInsert {
+  name: string
+  cleanName: string
+  kind: 'set' | 'group'
+  icon?: string
+}
+
+/** One ordered activation threshold of a bonus. */
+export interface BonusThresholdInsert {
+  bonusName: string
+  piecesRequired: number
+  effectName: string
+  level: number
+}
+
+/** Membership of an armor piece in a Set/Group bonus. */
+export interface ArmorBonusInsert {
+  armorName: string
+  bonusName: string
 }
 
 export interface ArmorInsert {
@@ -87,8 +104,6 @@ export interface ArmorInsert {
   iceRes: number
   dragonRes: number
   slots: number[]
-  setSkillNames: string[]
-  groupSkillNames: string[]
 }
 
 export interface ArmorRegularSkillInsert {
@@ -101,8 +116,13 @@ export interface DecorationInsert {
   name: string
   type: string
   slotSize: number
+}
+
+/** One skill grant of a decoration (decorations are multi-grant). */
+export interface DecorationSkillInsert {
+  decorationName: string
   skillName: string
-  skillLevel: number
+  level: number
 }
 
 function toCleanName(name: string): string {
@@ -114,9 +134,13 @@ function toCleanName(name: string): string {
 
 export interface TransformResult {
   skills: SkillInsert[]
+  bonuses: BonusInsert[]
+  bonusThresholds: BonusThresholdInsert[]
   armor: ArmorInsert[]
   armorRegularSkills: ArmorRegularSkillInsert[]
+  armorBonuses: ArmorBonusInsert[]
   decorations: DecorationInsert[]
+  decorationSkills: DecorationSkillInsert[]
 }
 
 export function transformSeedData(data: SeedData): TransformResult {
@@ -124,9 +148,13 @@ export function transformSeedData(data: SeedData): TransformResult {
 
   const skillIcons = data.skillIcons ?? {}
   const skills: SkillInsert[] = []
+  const bonuses: BonusInsert[] = []
+  const bonusThresholds: BonusThresholdInsert[] = []
   const armor: ArmorInsert[] = []
   const armorRegularSkills: ArmorRegularSkillInsert[] = []
+  const armorBonuses: ArmorBonusInsert[] = []
   const decorations: DecorationInsert[] = []
+  const decorationSkills: DecorationSkillInsert[] = []
 
   // --- Regular skills (armor + weapon; data.skills is the merged set) ---
   const weaponSkillNames = new Set(data.weaponSkills ?? [])
@@ -136,40 +164,28 @@ export function transformSeedData(data: SeedData): TransformResult {
       cleanName: toCleanName(name),
       type: weaponSkillNames.has(name) ? 'weapon' : 'armor',
       maxLevel,
-      isSetSkill: false,
-      isGroupSkill: false,
       icon: skillIcons[name],
     })
   }
 
-  // --- Set skills: stored by SET NAME so armor pieces can reference them ---
-  for (const [setName, [effectName, piecesRequired, bonusLevels]] of Object.entries(data.setSkills)) {
-    skills.push({
-      name: setName,
-      cleanName: toCleanName(setName),
-      type: 'set',
-      maxLevel: bonusLevels.length,
-      isSetSkill: true,
-      isGroupSkill: false,
-      requiredPieces: piecesRequired,
-      effectName,
-      icon: skillIcons[setName],
+  // --- Set bonuses: one bonus + one threshold per source rank (ADR-0011). ---
+  // Compact shape: [baseEffectName, piecesRequired0, thresholds[]], where
+  // `thresholds` is the piece-count for each successive rank. We restore the
+  // full ordered threshold list the previous pipeline collapsed to one row.
+  for (const [setName, [effectName, , thresholds]] of Object.entries(data.setSkills)) {
+    bonuses.push({ name: setName, cleanName: toCleanName(setName), kind: 'set', icon: skillIcons[setName] })
+    const seenPieces = new Set<number>()
+    thresholds.forEach((piecesRequired, i) => {
+      if (seenPieces.has(piecesRequired)) return // PK is (bonus, piecesRequired)
+      seenPieces.add(piecesRequired)
+      bonusThresholds.push({ bonusName: setName, piecesRequired, effectName, level: i + 1 })
     })
   }
 
-  // --- Group skills: stored by GROUP NAME so armor pieces can reference them ---
+  // --- Group bonuses: single 3-piece threshold. ---
   for (const [groupName, [effectName, levelGranted, piecesRequired]] of Object.entries(data.groupSkills)) {
-    skills.push({
-      name: groupName,
-      cleanName: toCleanName(groupName),
-      type: 'group',
-      maxLevel: levelGranted,
-      isSetSkill: false,
-      isGroupSkill: true,
-      requiredPieces: piecesRequired,
-      effectName,
-      icon: skillIcons[groupName],
-    })
+    bonuses.push({ name: groupName, cleanName: toCleanName(groupName), kind: 'group', icon: skillIcons[groupName] })
+    bonusThresholds.push({ bonusName: groupName, piecesRequired, effectName, level: levelGranted })
   }
 
   // --- Armor pieces ---
@@ -191,12 +207,13 @@ export function transformSeedData(data: SeedData): TransformResult {
         iceRes: resists[3],
         dragonRes: resists[4],
         slots: slots ?? [],
-        setSkillNames: setSkillNames ?? [],
-        groupSkillNames: groupSkillsList ?? [],
       })
 
       for (const [skillName, level] of Object.entries(pieceSkills)) {
         armorRegularSkills.push({ armorName: name, skillName, level })
+      }
+      for (const bonusName of [...(setSkillNames ?? []), ...(groupSkillsList ?? [])]) {
+        armorBonuses.push({ armorName: name, bonusName })
       }
     }
   }
@@ -215,20 +232,28 @@ export function transformSeedData(data: SeedData): TransformResult {
       iceRes: 0,
       dragonRes: 0,
       slots: [],
-      setSkillNames: [],
-      groupSkillNames: [],
     })
     for (const [skillName, level] of Object.entries(talisSkills)) {
       armorRegularSkills.push({ armorName: name, skillName, level })
     }
   }
 
-  // --- Decorations ---
+  // --- Decorations (multi-grant: keep every skill, not just the first) ---
   for (const [name, [type, decoSkills, slotSize]] of Object.entries(data.decoration)) {
-    const entries = Object.entries(decoSkills)
-    const [skillName, skillLevel] = entries.length > 0 ? entries[0] : ['', 0]
-    decorations.push({ name, type, slotSize, skillName, skillLevel })
+    decorations.push({ name, type, slotSize })
+    for (const [skillName, level] of Object.entries(decoSkills)) {
+      decorationSkills.push({ decorationName: name, skillName, level })
+    }
   }
 
-  return { skills, armor, armorRegularSkills, decorations }
+  return {
+    skills,
+    bonuses,
+    bonusThresholds,
+    armor,
+    armorRegularSkills,
+    armorBonuses,
+    decorations,
+    decorationSkills,
+  }
 }

@@ -22,6 +22,13 @@
       "when": 1782992017324,
       "tag": "0002_real_carmella_unuscione",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784619905691,
+      "tag": "0003_wandering_wendell_vaughn",
+      "breakpoints": true
     }
   ]
 }

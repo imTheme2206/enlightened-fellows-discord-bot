@@ -1,29 +1,75 @@
 import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp, unique } from 'drizzle-orm/pg-core'
 
+// Ordinary armor/weapon skills only. Set/Group Bonuses are separate entities
+// (`bonus` + `bonusThreshold` + `armorBonus`) — see ADR-0011. A skill is a
+// level-capped effect; a bonus activates at explicit piece-count thresholds.
 export const skill = pgTable('skill', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
   cleanName: text('clean_name').notNull().unique(),
-  type: text('type').notNull().default('armor'),
+  type: text('type').notNull().default('armor'), // 'armor' | 'weapon'
   maxLevel: integer('max_level').notNull().default(1),
-  isSetSkill: boolean('is_set_skill').notNull().default(false),
-  isGroupSkill: boolean('is_group_skill').notNull().default(false),
-  requiredPieces: integer('required_pieces'),
-  effectName: text('effect_name'),
   // Raw MHDB icon category, e.g. 'affinity', 'offense', 'handicraft'. Consumers map to their own assets.
   icon: text('icon'),
 })
 
+/**
+ * A Set or Group Bonus as a first-class catalog entity (ADR-0011). Its ordered
+ * activation thresholds live in `bonusThreshold`; the armor pieces that belong
+ * to it live in `armorBonus`. `kind` distinguishes 'set' from 'group' so a
+ * single membership table serves both.
+ */
+export const bonus = pgTable('bonus', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  cleanName: text('clean_name').notNull().unique(),
+  kind: text('kind').notNull(), // 'set' | 'group'
+  icon: text('icon'),
+})
+
+/**
+ * One activation threshold of a `bonus`: at `piecesRequired` equipped pieces the
+ * bonus grants `effectName` at `level`. Set bonuses have multiple ordered
+ * thresholds; group bonuses typically have one (3 pieces). Ordered by `level`.
+ */
+export const bonusThreshold = pgTable(
+  'bonus_threshold',
+  {
+    bonusId: text('bonus_id')
+      .notNull()
+      .references(() => bonus.id, { onDelete: 'cascade' }),
+    piecesRequired: integer('pieces_required').notNull(),
+    effectName: text('effect_name').notNull(),
+    level: integer('level').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.bonusId, t.piecesRequired] })]
+)
+
 export const decoration = pgTable('decoration', {
   id: text('id').primaryKey(),
   name: text('name').notNull().unique(),
-  type: text('type').notNull(),
+  type: text('type').notNull(), // 'armor' | 'weapon'
   slotSize: integer('slot_size').notNull(),
-  skillId: text('skill_id')
-    .notNull()
-    .references(() => skill.id, { onDelete: 'cascade' }),
-  skillLevel: integer('skill_level').notNull(),
 })
+
+/**
+ * A skill granted by a decoration. Decorations are multi-grant (a decoration may
+ * grant more than one skill), so grants are normalized here rather than as the
+ * former singular `decoration.skillId`/`skillLevel` columns.
+ */
+export const decorationSkill = pgTable(
+  'decoration_skill',
+  {
+    decorationId: text('decoration_id')
+      .notNull()
+      .references(() => decoration.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skill.id, { onDelete: 'cascade' }),
+    level: integer('level').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.decorationId, t.skillId] })]
+)
 
 export const armor = pgTable('armor', {
   id: text('id').primaryKey(),
@@ -54,30 +100,22 @@ export const armorSkill = pgTable(
   (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
 )
 
-export const armorSetSkill = pgTable(
-  'armor_set_skill',
+/**
+ * Membership of an armor piece in a Set or Group `bonus` (ADR-0011). Replaces
+ * the former `armorSetSkill` + `armorGroupSkill` tables; the set/group
+ * distinction lives on `bonus.kind`, so one membership table serves both.
+ */
+export const armorBonus = pgTable(
+  'armor_bonus',
   {
     armorId: text('armor_id')
       .notNull()
       .references(() => armor.id, { onDelete: 'cascade' }),
-    skillId: text('skill_id')
+    bonusId: text('bonus_id')
       .notNull()
-      .references(() => skill.id, { onDelete: 'cascade' }),
+      .references(() => bonus.id, { onDelete: 'cascade' }),
   },
-  (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
-)
-
-export const armorGroupSkill = pgTable(
-  'armor_group_skill',
-  {
-    armorId: text('armor_id')
-      .notNull()
-      .references(() => armor.id, { onDelete: 'cascade' }),
-    skillId: text('skill_id')
-      .notNull()
-      .references(() => skill.id, { onDelete: 'cascade' }),
-  },
-  (t) => [primaryKey({ columns: [t.armorId, t.skillId] })]
+  (t) => [primaryKey({ columns: [t.armorId, t.bonusId] })]
 )
 
 export const jobLog = pgTable('job_log', {
@@ -144,6 +182,11 @@ export const customTalisman = pgTable(
 // Inferred types (replace the hand-written *Row interfaces in service files)
 export type Skill = typeof skill.$inferSelect
 export type Decoration = typeof decoration.$inferSelect
+export type DecorationSkill = typeof decorationSkill.$inferSelect
+export type Bonus = typeof bonus.$inferSelect
+export type NewBonus = typeof bonus.$inferInsert
+export type BonusThreshold = typeof bonusThreshold.$inferSelect
+export type ArmorBonus = typeof armorBonus.$inferSelect
 export type Armor = typeof armor.$inferSelect
 export type JobLog = typeof jobLog.$inferSelect
 export type NewJobLog = typeof jobLog.$inferInsert

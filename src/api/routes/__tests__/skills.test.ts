@@ -16,10 +16,7 @@ const sampleSkill: Skill = {
   cleanName: 'Attack Boost',
   type: 'armor',
   maxLevel: 5,
-  isSetSkill: false,
-  isGroupSkill: false,
-  requiredPieces: null,
-  effectName: null,
+  icon: null,
 }
 
 const req = (url: string) => skillsRoutes.handle(new Request(`http://localhost${url}`))
@@ -37,8 +34,8 @@ describe('GET /skills', () => {
   })
 
   it('coerces query params through the Zod contract', async () => {
-    await req('/skills?type=armor&setSkill=true')
-    expect(getAll).toHaveBeenCalledWith({ type: 'armor', setSkill: true })
+    await req('/skills?type=armor')
+    expect(getAll).toHaveBeenCalledWith({ type: 'armor' })
   })
 
   it('rejects an invalid query value (422)', async () => {
