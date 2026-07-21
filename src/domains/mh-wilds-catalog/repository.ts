@@ -1,0 +1,99 @@
+import { asc, eq } from 'drizzle-orm'
+import { db } from '../../infra/db/client'
+import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill } from '../../infra/db/schema'
+import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
+
+/**
+ * All catalog reads live here (ADR-0009): armor, decorations, ordinary skills,
+ * and set/group bonuses. Nested grant/membership/threshold collections are
+ * assembled in memory from the normalized rows. All items are currently active
+ * (retirement is an operator-controlled future concern), so no active filter is
+ * applied yet.
+ */
+export abstract class CatalogRepository {
+  static async findArmorCatalog(): Promise<ArmorCatalogItem[]> {
+    const armorRows = await db.select().from(armor).orderBy(asc(armor.name))
+    const skillRows = await db
+      .select({ armorId: armorSkill.armorId, skillId: skill.id, name: skill.name, level: armorSkill.level })
+      .from(armorSkill)
+      .innerJoin(skill, eq(armorSkill.skillId, skill.id))
+    const bonusRows = await db
+      .select({ armorId: armorBonus.armorId, bonusId: bonus.id, name: bonus.name, kind: bonus.kind })
+      .from(armorBonus)
+      .innerJoin(bonus, eq(armorBonus.bonusId, bonus.id))
+
+    const skillsByArmor = new Map<string, ArmorCatalogItem['skills']>()
+    for (const r of skillRows) {
+      const list = skillsByArmor.get(r.armorId) ?? []
+      list.push({ skillId: r.skillId, name: r.name, level: r.level })
+      skillsByArmor.set(r.armorId, list)
+    }
+    const bonusesByArmor = new Map<string, ArmorCatalogItem['bonuses']>()
+    for (const r of bonusRows) {
+      const list = bonusesByArmor.get(r.armorId) ?? []
+      list.push({ bonusId: r.bonusId, name: r.name, kind: r.kind as 'set' | 'group' })
+      bonusesByArmor.set(r.armorId, list)
+    }
+
+    return armorRows.map((a) => ({
+      id: a.id,
+      name: a.name,
+      type: a.type as ArmorCatalogItem['type'],
+      rank: a.rank,
+      rarity: a.rarity,
+      defense: a.defense,
+      resistances: { fire: a.fireRes, water: a.waterRes, thunder: a.thunderRes, ice: a.iceRes, dragon: a.dragonRes },
+      slots: a.slots as number[],
+      skills: skillsByArmor.get(a.id) ?? [],
+      bonuses: bonusesByArmor.get(a.id) ?? [],
+    }))
+  }
+
+  static async findDecorationCatalog(): Promise<DecorationCatalogItem[]> {
+    const decoRows = await db.select().from(decoration).orderBy(asc(decoration.name))
+    const grantRows = await db
+      .select({ decorationId: decorationSkill.decorationId, skillId: skill.id, name: skill.name, level: decorationSkill.level })
+      .from(decorationSkill)
+      .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
+
+    const skillsByDeco = new Map<string, DecorationCatalogItem['skills']>()
+    for (const r of grantRows) {
+      const list = skillsByDeco.get(r.decorationId) ?? []
+      list.push({ skillId: r.skillId, name: r.name, level: r.level })
+      skillsByDeco.set(r.decorationId, list)
+    }
+
+    return decoRows.map((d) => ({
+      id: d.id,
+      name: d.name,
+      type: d.type as DecorationCatalogItem['type'],
+      slotSize: d.slotSize,
+      skills: skillsByDeco.get(d.id) ?? [],
+    }))
+  }
+
+  static async findSkillsAndBonuses(): Promise<SkillCatalogResponse> {
+    const skillRows = await db.select({ id: skill.id, name: skill.name, kind: skill.type, maxLevel: skill.maxLevel }).from(skill).orderBy(asc(skill.name))
+    const bonusRows = await db.select().from(bonus).orderBy(asc(bonus.name))
+    const thresholdRows = await db
+      .select({ bonusId: bonusThreshold.bonusId, piecesRequired: bonusThreshold.piecesRequired, effectName: bonusThreshold.effectName, level: bonusThreshold.level })
+      .from(bonusThreshold)
+
+    const thresholdsByBonus = new Map<string, SkillCatalogResponse['bonuses'][number]['thresholds']>()
+    for (const r of thresholdRows) {
+      const list = thresholdsByBonus.get(r.bonusId) ?? []
+      list.push({ piecesRequired: r.piecesRequired, effectName: r.effectName, level: r.level })
+      thresholdsByBonus.set(r.bonusId, list)
+    }
+
+    return {
+      skills: skillRows.map((s) => ({ id: s.id, name: s.name, kind: s.kind as 'armor' | 'weapon', maxLevel: s.maxLevel })),
+      bonuses: bonusRows.map((b) => ({
+        id: b.id,
+        name: b.name,
+        kind: b.kind as 'set' | 'group',
+        thresholds: (thresholdsByBonus.get(b.id) ?? []).sort((a, c) => a.piecesRequired - c.piecesRequired),
+      })),
+    }
+  }
+}

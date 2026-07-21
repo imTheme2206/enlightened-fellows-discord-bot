@@ -1,7 +1,9 @@
 import openapi from '@elysia/openapi'
 import { Elysia } from 'elysia'
 import { authGuard } from './middleware/auth-guard'
+import { armorsRoutes } from './routes/armors'
 import { channelsRoutes } from './routes/channels'
+import { decorationsRoutes } from './routes/decorations'
 import { fetchArmorsRoutes } from './routes/fetch-armors'
 import { genshinCodesRoutes } from './routes/genshin-codes'
 import { jobLogsRoutes } from './routes/job-logs'
@@ -27,6 +29,7 @@ export function createApp() {
     .group('/api', (app) =>
       app.onBeforeHandle(authGuard).use(jobLogsRoutes).use(genshinCodesRoutes).use(channelsRoutes).use(fetchArmorsRoutes)
     )
-    .group('/api/mh-wilds', (app) => app.use(skillsRoutes).use(searchRoutes))
+    // Public MH Wilds catalog + search (no admin guard; talismans self-authenticate).
+    .group('/api/mh-wilds', (app) => app.use(skillsRoutes).use(armorsRoutes).use(decorationsRoutes).use(searchRoutes))
     .group('/api', (app) => app.use(talismansRoutes))
 }

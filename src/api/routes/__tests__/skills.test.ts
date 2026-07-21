@@ -1,46 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Skill } from '../../../infra/db/schema'
+import type { SkillCatalogResponse } from '../../../domains/mh-wilds-catalog/schema'
 
-const getAll = vi.fn<(query?: unknown) => Promise<Skill[]>>()
+const getSkills = vi.fn<() => Promise<SkillCatalogResponse>>()
 
-vi.mock('../../../domains/skills/service', () => ({
-  SkillService: { getAll: (query?: unknown) => getAll(query) },
+vi.mock('../../../domains/mh-wilds-catalog/service', () => ({
+  CatalogService: { getSkills: () => getSkills() },
 }))
 
 // Imported after the mock so the route picks up the mocked service.
 const { skillsRoutes } = await import('../skills')
 
-const sampleSkill: Skill = {
-  id: 'skl_1',
-  name: 'Attack Boost',
-  cleanName: 'Attack Boost',
-  type: 'armor',
-  maxLevel: 5,
-  icon: null,
+const sample: SkillCatalogResponse = {
+  skills: [{ id: 'skl_1', name: 'Attack Boost', kind: 'armor', maxLevel: 5 }],
+  bonuses: [
+    {
+      id: 'bns_1',
+      name: "Gore's Tyranny",
+      kind: 'set',
+      thresholds: [
+        { piecesRequired: 2, effectName: 'Antivirus', level: 1 },
+        { piecesRequired: 4, effectName: 'Antivirus', level: 2 },
+      ],
+    },
+  ],
 }
 
 const req = (url: string) => skillsRoutes.handle(new Request(`http://localhost${url}`))
 
 describe('GET /skills', () => {
   beforeEach(() => {
-    getAll.mockReset()
-    getAll.mockResolvedValue([sampleSkill])
+    getSkills.mockReset()
+    getSkills.mockResolvedValue(sample)
   })
 
-  it('returns the validated skill list', async () => {
+  it('returns the split skills + bonuses catalog (ADR-0011)', async () => {
     const res = await req('/skills')
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual([sampleSkill])
+    expect(await res.json()).toEqual(sample)
   })
 
-  it('coerces query params through the Zod contract', async () => {
-    await req('/skills?type=armor')
-    expect(getAll).toHaveBeenCalledWith({ type: 'armor' })
-  })
-
-  it('rejects an invalid query value (422)', async () => {
-    const res = await req('/skills?type=bogus')
+  it('validates the response shape (rejects a malformed bonus)', async () => {
+    // Missing `thresholds` violates the response contract → 422 from Elysia.
+    getSkills.mockResolvedValue({ skills: [], bonuses: [{ id: 'x', name: 'Bad', kind: 'set' }] } as unknown as SkillCatalogResponse)
+    const res = await req('/skills')
     expect(res.status).toBe(422)
-    expect(getAll).not.toHaveBeenCalled()
   })
 })
