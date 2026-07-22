@@ -50,6 +50,14 @@ export type CompositionRequest = z.infer<typeof compositionRequestSchema>
 export const MAX_BUILD_NAME_LENGTH = 100
 export const MAX_BUILD_DESCRIPTION_LENGTH = 1000
 
+/** Per-owner caps (design doc §Ownership, limits, and discovery). */
+export const MAX_SAVED_BUILDS_PER_USER = 50
+export const MAX_SHARED_BUILDS_PER_USER = 5
+
+/** Shared-listing page sizes (design doc §Ownership, limits, and discovery). */
+export const DEFAULT_SHARED_PAGE_SIZE = 20
+export const MAX_SHARED_PAGE_SIZE = 50
+
 export const saveBuildRequestSchema = z.object({
   name: z.string().trim().min(1).max(MAX_BUILD_NAME_LENGTH),
   description: z.string().max(MAX_BUILD_DESCRIPTION_LENGTH).nullish(),

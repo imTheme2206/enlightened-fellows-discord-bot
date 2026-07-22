@@ -1,12 +1,12 @@
-import { randomUUID } from 'crypto'
-import { and, count, desc, eq } from 'drizzle-orm'
-import { db } from '../../infra/db/client'
+import { randomUUID } from "crypto"
+import { and, count, desc, eq } from "drizzle-orm"
+import { db } from "../../infra/db/client"
 import {
   customTalisman,
   type CustomTalisman,
   type TalismanSkill,
   type TalismanSlot,
-} from '../../infra/db/schema'
+} from "../../infra/db/schema"
 
 export abstract class TalismanRepository {
   static async findByUser(userId: string): Promise<CustomTalisman[]> {
@@ -16,8 +16,21 @@ export abstract class TalismanRepository {
     })
   }
 
+  /** One talisman scoped to its owner — used by Set Builder to snapshot it into a Saved Build. */
+  static async findOwned(
+    userId: string,
+    id: string,
+  ): Promise<CustomTalisman | undefined> {
+    return db.query.customTalisman.findFirst({
+      where: (t, { and, eq }) => and(eq(t.id, id), eq(t.userId, userId)),
+    })
+  }
+
   static async countByUser(userId: string): Promise<number> {
-    const [row] = await db.select({ value: count() }).from(customTalisman).where(eq(customTalisman.userId, userId))
+    const [row] = await db
+      .select({ value: count() })
+      .from(customTalisman)
+      .where(eq(customTalisman.userId, userId))
     return row?.value ?? 0
   }
 
@@ -25,7 +38,7 @@ export abstract class TalismanRepository {
     userId: string,
     name: string,
     skills: TalismanSkill[],
-    slots: TalismanSlot[]
+    slots: TalismanSlot[],
   ): Promise<CustomTalisman> {
     const [row] = await db
       .insert(customTalisman)
