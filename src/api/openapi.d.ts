@@ -111,6 +111,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/armors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsArmors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/talismans": {
         parameters: {
             query?: never;
@@ -234,7 +250,6 @@ export interface operations {
         parameters: {
             query?: {
                 type?: "armor" | "weapon";
-                setSkill?: string;
             };
             header?: never;
             path?: never;
@@ -254,10 +269,6 @@ export interface operations {
                         cleanName: string;
                         type: string;
                         maxLevel: number;
-                        isSetSkill: boolean;
-                        isGroupSkill: boolean;
-                        requiredPieces: number | null;
-                        effectName: string | null;
                         icon: string | null;
                     }[];
                 };
@@ -382,6 +393,44 @@ export interface operations {
             };
         };
     };
+    "getApiMh-wildsArmors": {
+        parameters: {
+            query?: {
+                type?: "head" | "chest" | "arms" | "waist" | "legs" | "talisman";
+                name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        type: string;
+                        rank: string;
+                        rarity: number;
+                        defense: number;
+                        fireRes: number;
+                        waterRes: number;
+                        thunderRes: number;
+                        iceRes: number;
+                        dragonRes: number;
+                        slots: (string | number | boolean | null) | {
+                            [key: string]: unknown;
+                        } | unknown[];
+                    }[];
+                };
+            };
+        };
+    };
     getApiTalismans: {
         parameters: {
             query?: never;
@@ -402,7 +451,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    name: string;
+                    name?: string;
                     skills: {
                         skillId: string;
                         level: number;
@@ -415,7 +464,7 @@ export interface operations {
                     }[];
                 };
                 "application/x-www-form-urlencoded": {
-                    name: string;
+                    name?: string;
                     skills: {
                         skillId: string;
                         level: number;
@@ -428,7 +477,7 @@ export interface operations {
                     }[];
                 };
                 "multipart/form-data": {
-                    name: string;
+                    name?: string;
                     skills: {
                         skillId: string;
                         level: number;

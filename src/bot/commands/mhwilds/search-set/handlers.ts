@@ -35,7 +35,7 @@ async function runSearch(interaction: MessageComponentInteraction, state: Search
 
   let results
   try {
-    results = searchSets(searchInput)
+    results = await searchSets(searchInput, interaction.user.id)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error during search.'
     await interaction.editReply({

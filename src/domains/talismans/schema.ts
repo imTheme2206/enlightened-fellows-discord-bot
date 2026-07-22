@@ -28,9 +28,15 @@ export type TalismanDto = z.infer<typeof talismanSchema>
 
 export const talismansResponseSchema = z.array(talismanSchema)
 
-/** Body contract for `POST /api/talismans`. */
+/** Max length of a talisman name (stored and auto-generated). */
+export const MAX_TALISMAN_NAME_LENGTH = 100
+
+/**
+ * Body contract for `POST /api/talismans`. `name` is optional — when omitted it
+ * is auto-generated from the talisman's skills (see `TalismanService.create`).
+ */
 export const createTalismanSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(MAX_TALISMAN_NAME_LENGTH).optional(),
   skills: z.array(talismanSkillSchema).min(1).max(MAX_SKILLS_PER_TALISMAN),
   slots: z
     .array(talismanSlotSchema)

@@ -185,3 +185,33 @@ export const buildSummarySchema = buildResponseSchema.omit({
   composition: true,
 })
 export type BuildSummary = z.infer<typeof buildSummarySchema>
+
+/** Cursor-paginated Shared Build listing; `nextCursor` is null on the last page. */
+export const sharedBuildListResponseSchema = z.object({
+  items: z.array(buildSummarySchema),
+  nextCursor: z.string().nullable(),
+})
+export type SharedBuildListResponse = z.infer<
+  typeof sharedBuildListResponseSchema
+>
+
+// ── HTTP transport contracts ─────────────────────────────────────────────────
+
+/** Optimistic-concurrency revision, supplied as `?revision=` on PUT/PATCH. */
+export const revisionQuerySchema = z.object({
+  revision: z.coerce.number().int().nonnegative(),
+})
+
+/** Shared-list paging: `?limit=` (1..50, default 20) and an opaque `?cursor=`. */
+export const sharedListQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_SHARED_PAGE_SIZE)
+    .default(DEFAULT_SHARED_PAGE_SIZE),
+  cursor: z.string().optional(),
+})
+
+/** `:id` path param — the Build's unguessable UUID read capability (ADR-0006). */
+export const buildParamsSchema = z.object({ id: z.string().min(1) })

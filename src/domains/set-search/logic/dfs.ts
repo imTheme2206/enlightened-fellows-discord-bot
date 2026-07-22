@@ -35,13 +35,11 @@ export function rollCombosDfs(
       const contrib: Record<string, number> = {}
       for (const [skillName] of desiredSkillEntries) {
         let pts = piece.skills[skillName] ?? 0
-        if (slot !== 'talisman') {
-          for (const deco of Object.values(decos)) {
-            const decoLevel = deco.skills[skillName]
-            if (decoLevel) {
-              pts += decoLevel * piece.slots.filter((s) => s >= deco.slotSize).length
-              break
-            }
+        for (const deco of Object.values(decos)) {
+          const decoLevel = deco.skills[skillName]
+          if (decoLevel) {
+            pts += decoLevel * piece.slots.filter((s) => s >= deco.slotSize).length
+            break
           }
         }
         if (pts > 0) contrib[skillName] = pts

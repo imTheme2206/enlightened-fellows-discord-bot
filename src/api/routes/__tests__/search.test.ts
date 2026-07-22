@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SearchResult } from '../../../domains/set-search/types'
 
-const searchSets = vi.fn<(input: unknown) => SearchResult[]>()
+const searchSets = vi.fn<(input: unknown, userId?: string) => SearchResult[]>()
+const verifyDiscordId = vi.fn<(authHeader: string | null) => Promise<string | null>>()
 
 vi.mock('../../../domains/set-search/service', () => ({
-  searchSets: (input: unknown) => searchSets(input),
+  searchSets: (input: unknown, userId?: string) => searchSets(input, userId),
+}))
+
+vi.mock('../../middleware/user-auth-guard', () => ({
+  verifyDiscordId: (authHeader: string | null) => verifyDiscordId(authHeader),
 }))
 
 // Imported after the mock so the route picks up the mocked service.
@@ -35,13 +40,15 @@ const post = (body: unknown) =>
 describe('POST /search', () => {
   beforeEach(() => {
     searchSets.mockReset()
+    verifyDiscordId.mockReset()
+    verifyDiscordId.mockResolvedValue(null)
   })
 
   it('runs the search and returns the enriched result', async () => {
     searchSets.mockReturnValue([sampleResult])
     const res = await post({ skills: { 'Weakness Exploit': 5 }, rank: 'high' })
     expect(res.status).toBe(200)
-    expect(searchSets).toHaveBeenCalledWith({ skills: { 'Weakness Exploit': 5 }, rank: 'high' })
+    expect(searchSets).toHaveBeenCalledWith({ skills: { 'Weakness Exploit': 5 }, rank: 'high' }, undefined)
     const body = (await res.json()) as SearchResult[]
     expect(body[0].rarities).toEqual([8, 8, 7, 6, 5, 0])
     expect(body[0].elementalDefenses).toEqual({ fire: 10, water: 5, thunder: -3, ice: 2, dragon: 0 })
@@ -52,5 +59,19 @@ describe('POST /search', () => {
     const res = await post({ skills: {}, rank: 'bogus' })
     expect(res.status).toBe(422)
     expect(searchSets).not.toHaveBeenCalled()
+  })
+
+  it('merges in the requester\'s custom talismans when a valid bearer token is present', async () => {
+    verifyDiscordId.mockResolvedValue('discord-user-123')
+    searchSets.mockReturnValue([sampleResult])
+    const res = await searchRoutes.handle(
+      new Request('http://localhost/search', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer token' },
+        body: JSON.stringify({ skills: { 'Weakness Exploit': 5 }, rank: 'high' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(searchSets).toHaveBeenCalledWith({ skills: { 'Weakness Exploit': 5 }, rank: 'high' }, 'discord-user-123')
   })
 })

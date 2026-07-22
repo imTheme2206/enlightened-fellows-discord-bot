@@ -7,6 +7,8 @@
  */
 
 export type SetBuilderErrorCode =
+  // Request transport (§Save request).
+  | "IDEMPOTENCY_KEY_REQUIRED"
   // Save validation (§Save validation) — well-formed request, rejected composition.
   | "ARMOR_NOT_FOUND"
   | "INVALID_ARMOR_POSITION"
@@ -26,6 +28,7 @@ export type SetBuilderErrorCode =
   | "SHARED_BUILD_LIMIT_REACHED"
 
 const STATUS: Record<SetBuilderErrorCode, number> = {
+  IDEMPOTENCY_KEY_REQUIRED: 400,
   ARMOR_NOT_FOUND: 422,
   INVALID_ARMOR_POSITION: 422,
   DECORATION_NOT_FOUND: 422,
@@ -45,6 +48,7 @@ const STATUS: Record<SetBuilderErrorCode, number> = {
 }
 
 const DEFAULT_MESSAGE: Record<SetBuilderErrorCode, string> = {
+  IDEMPOTENCY_KEY_REQUIRED: "A valid Idempotency-Key UUID header is required.",
   ARMOR_NOT_FOUND: "A selected armor piece no longer exists in the catalog.",
   INVALID_ARMOR_POSITION:
     "A selected armor piece does not belong to that body position.",
