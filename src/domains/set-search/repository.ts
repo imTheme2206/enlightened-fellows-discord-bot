@@ -29,9 +29,13 @@ const EXCLUDE_SLOT_1_SKILLS = [
   'Paralysis Resistance',
 ]
 
-type SkillOption = {
-  label: string
-  value: string
+/** A regular skill grantable by a decoration, domain-shaped (no Discord label/value). */
+export type WeaponSkillOption = {
+  name: string
+}
+
+export type ArmorSkillOption = {
+  name: string
 }
 
 export type SetSkillData = {
@@ -40,13 +44,13 @@ export type SetSkillData = {
   maxLevel: number
 }
 
-type GroupSkillOption = {
-  label: string
-  description: string
-  value: string
+/** A Group Bonus option, domain-shaped (no Discord label/description/value). */
+export type GroupSkillData = {
+  name: string
+  effectName: string | null
 }
 
-export const loadWeaponSkills: () => Promise<SkillOption[]> = async () => {
+export const loadWeaponSkills: () => Promise<WeaponSkillOption[]> = async () => {
   const rows = await db
     .selectDistinct({ name: skill.name })
     .from(decoration)
@@ -55,10 +59,10 @@ export const loadWeaponSkills: () => Promise<SkillOption[]> = async () => {
     .where(eq(decoration.type, 'weapon'))
     .orderBy(asc(skill.name))
 
-  return rows.map((r) => ({ label: r.name, value: r.name }))
+  return rows.map((r) => ({ name: r.name }))
 }
 
-export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
+export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<ArmorSkillOption[]> {
   const rows = await db
     .selectDistinct({ name: skill.name })
     .from(decoration)
@@ -67,7 +71,7 @@ export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
     .where(and(eq(decoration.type, 'armor'), eq(decoration.slotSize, slot), notInArray(skill.name, EXCLUDE_SLOT_1_SKILLS)))
     .orderBy(asc(skill.name))
 
-  return rows.map((r) => ({ label: r.name, value: r.name }))
+  return rows.map((r) => ({ name: r.name }))
 }
 
 /**
@@ -96,7 +100,7 @@ export async function loadSetSkillOptions(): Promise<SetSkillData[]> {
   return Array.from(byName.values())
 }
 
-export async function loadGroupSkillOptions(): Promise<GroupSkillOption[]> {
+export async function loadGroupSkillOptions(): Promise<GroupSkillData[]> {
   const rows = await db
     .select({ name: bonus.name, effectName: bonusThreshold.effectName })
     .from(bonus)
@@ -108,11 +112,7 @@ export async function loadGroupSkillOptions(): Promise<GroupSkillOption[]> {
   for (const r of rows) {
     if (!byName.has(r.name)) byName.set(r.name, r.effectName ?? null)
   }
-  return Array.from(byName.entries()).map(([name, effectName]) => ({
-    label: name,
-    description: effectName ? `→ ${effectName}` : name,
-    value: name,
-  }))
+  return Array.from(byName.entries()).map(([name, effectName]) => ({ name, effectName }))
 }
 
 export async function getSkillMaxLevels(names: string[]): Promise<Map<string, number>> {

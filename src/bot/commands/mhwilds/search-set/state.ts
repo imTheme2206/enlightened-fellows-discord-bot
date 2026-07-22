@@ -1,5 +1,12 @@
 import type { SearchHistory } from '../../../../infra/db/schema'
 
+/**
+ * Pure types + constants for the search-set session shape. Storage, TTL
+ * expiry, and workflow transitions (history restoration, skill-limit
+ * enforcement) live in `session-store.ts`, kept separate so this module has
+ * no timers or Map state to reason about.
+ */
+
 export const MAX_SKILLS = 10
 export const SESSION_TTL_MS = 10 * 60 * 1000
 export const RESULTS_PER_PAGE = 5
@@ -53,26 +60,4 @@ export interface SearchState {
   historyEntries?: SearchHistory[]
 }
 
-const sessions = new Map<string, SearchState>()
-
-export function getSession(userId: string): SearchState {
-  return (
-    sessions.get(userId) ?? {
-      gogmaSkills: { groupSkill: '', setSkill: '' },
-      skills: [],
-      setSkills: [],
-      groupSkills: [],
-      rank: 'high',
-      step: 'main',
-      pendingSkills: null,
-      pendingSetSkill: null,
-      weaponSkillPage: 0,
-      slotPages: {},
-    }
-  )
-}
-
-export function saveSession(userId: string, state: SearchState): void {
-  sessions.set(userId, state)
-  setTimeout(() => sessions.delete(userId), SESSION_TTL_MS)
-}
+export { getSession, saveSession } from './session-store'

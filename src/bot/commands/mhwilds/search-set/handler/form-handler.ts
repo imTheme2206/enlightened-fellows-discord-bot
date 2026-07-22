@@ -1,5 +1,6 @@
 import { MessageComponentInteraction, ModalSubmitInteraction } from 'discord.js'
-import { MAX_SKILLS, PendingSkill, SavedSearch, saveSession, SearchState, SetSkillEntry } from '../state'
+import { saveSession, SearchState, SetSkillEntry } from '../state'
+import { buildPendingSkills, restoreFromHistory } from '../session-store'
 import { buildComponents } from '../components/form'
 import { buildLevelModal, buildSetRankModal } from '../components/modal'
 import { buildEmbed } from '../components/ui'
@@ -45,8 +46,7 @@ export const handleSlotPick = async (state: SearchState, interaction: MessageCom
     return
   }
 
-  const remaining = MAX_SKILLS - state.skills.length
-  const pending: PendingSkill[] = values.slice(0, remaining).map((name) => ({ name, slotSize }))
+  const pending = buildPendingSkills(state, values, slotSize)
 
   saveSession(interaction.user.id, { ...state, pendingSkills: pending })
   const maxLevels = await getSkillMaxLevels(pending.map((p) => p.name))
@@ -57,15 +57,6 @@ function parseSetSkillValue(value: string): SetSkillEntry {
   const sep = value.lastIndexOf('|')
   if (sep === -1) return { name: value, rank: 1 }
   return { name: value.slice(0, sep), rank: parseInt(value.slice(sep + 1), 10) || 1 }
-}
-
-function normalizeSetSkills(raw: unknown): SetSkillEntry[] {
-  if (!Array.isArray(raw)) return []
-  return raw.map((item) => {
-    if (typeof item === 'string') return { name: item, rank: 1 }
-    if (item && typeof item.name === 'string') return { name: item.name, rank: Number(item.rank) || 1 }
-    return { name: String(item), rank: 1 }
-  })
 }
 
 export const handleSetPick = async (state: SearchState, interaction: MessageComponentInteraction): Promise<void> => {
@@ -154,20 +145,7 @@ export const handleHistoryPick = async (state: SearchState, interaction: Message
     })
     return
   }
-  const saved = entry.data as SavedSearch
-  await updateSession(interaction, {
-    ...state,
-    skills: saved.skills,
-    setSkills: normalizeSetSkills(saved.setSkills),
-    groupSkills: saved.groupSkills,
-    gogmaSkills: {
-      setSkill: saved.gogmaSetSkill,
-      groupSkill: saved.gogmaGroupSkill,
-    },
-    rank: saved.rank,
-    step: 'main',
-    historyEntries: undefined,
-  })
+  await updateSession(interaction, restoreFromHistory(state, entry))
 }
 
 export const handleRemovePick = async (state: SearchState, interaction: MessageComponentInteraction): Promise<void> => {
