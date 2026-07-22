@@ -3,7 +3,7 @@ import { OrphanedTalismanSkillError, ScrapeConflictError } from "../../mh-wilds-
 import { SeedDataSchema, transformSeedData } from "../../mh-wilds-catalog/ingestion/transform"
 import logger from "../../../infra/logger"
 import { JobLogService } from "../../job-logs/service"
-import { initSearchIndex } from "../service"
+import { refresh } from "../runtime"
 import type {
   MhdbArmorPiece,
   MhdbArmorSet,
@@ -236,7 +236,7 @@ export async function runScraper(
     await JobLogService.log(jobName, "SUCCESS", JSON.stringify({ inserted: result }))
 
     try {
-      await initSearchIndex()
+      await refresh()
       logger.info("[scraperService] Search index rebuilt successfully")
     } catch (indexErr) {
       logger.warn("[scraperService] Failed to rebuild search index (non-fatal):", { indexErr })
