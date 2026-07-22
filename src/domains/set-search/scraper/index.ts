@@ -1,17 +1,6 @@
-import { randomUUID } from "crypto"
-import { eq, inArray } from "drizzle-orm"
-import { db } from "../../../infra/db/client"
-import {
-  armor,
-  armorBonus,
-  armorSkill,
-  bonus,
-  bonusThreshold,
-  customTalisman,
-  decoration,
-  decorationSkill,
-  skill,
-} from "../../../infra/db/schema"
+import { CatalogIngestionService } from "../../mh-wilds-catalog/ingestion/service"
+import { OrphanedTalismanSkillError, ScrapeConflictError } from "../../mh-wilds-catalog/ingestion/errors"
+import { SeedDataSchema, transformSeedData } from "../../mh-wilds-catalog/ingestion/transform"
 import logger from "../../../infra/logger"
 import { JobLogService } from "../../job-logs/service"
 import { initSearchIndex } from "../service"
@@ -21,25 +10,11 @@ import type {
   MhdbCharmGroup,
   MhdbDecoration,
   MhdbSkill,
-} from "./mhdb-types"
-import { reconcileCatalog, type Conflict, type ExistingCatalog } from "./reconcile"
-import { SeedDataSchema, transformSeedData } from "./transform"
+} from "../../mh-wilds-catalog/ingestion/mhdb-types"
 
-/** Raised when a scrape's values conflict with an existing catalog identity. */
-export class ScrapeConflictError extends Error {
-  constructor(readonly conflicts: Conflict[]) {
-    super(`Scrape rejected: ${conflicts.length} conflict(s) with existing catalog identities`)
-    this.name = "ScrapeConflictError"
-  }
-}
-
-/** Raised when a custom talisman references a skill absent from the catalog. */
-export class OrphanedTalismanSkillError extends Error {
-  constructor(readonly skillIds: string[]) {
-    super(`Custom talisman(s) reference ${skillIds.length} skill id(s) not in the catalog; manual repair required`)
-    this.name = "OrphanedTalismanSkillError"
-  }
-}
+// Re-exported so existing callers (db-init, any future operator tooling) can
+// keep importing these errors from the scraper entry point.
+export { OrphanedTalismanSkillError, ScrapeConflictError }
 
 const BASE_URL = "https://wilds.mhdb.io/en"
 
@@ -64,6 +39,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/**
+ * Set-search-agnostic fetch + transform of the upstream wilds.mhdb.io feed.
+ * Ownership: this stays in `set-search/scraper` because it is the only module
+ * that speaks the MHDB wire format; persistence and reconciliation belong to
+ * the MH Wilds Catalog domain (ADR-0009) and are delegated to
+ * `CatalogIngestionService`.
+ */
 async function fetchSeedData() {
   const [armorList, skillList, armorSetList, charmList, decorationList] =
     await Promise.all([
@@ -226,89 +208,11 @@ export interface ScraperResult {
 }
 
 /**
- * ADR-0007 step 1: every Custom Talisman skill reference must resolve to a
- * catalog skill before a scrape proceeds. In the stable model skill UUIDs never
- * change, so this can only fail if the catalog is already corrupt — in which
- * case we refuse to scrape until an operator repairs the orphaned references.
+ * Public scraper entry point (called by `db-init.ts`). Fetches + transforms
+ * the upstream feed (set-search-agnostic), delegates reconciliation and
+ * insert-only persistence to the MH Wilds Catalog domain, then triggers the
+ * set-search index rebuild.
  */
-async function assertCustomTalismanIntegrity(): Promise<void> {
-  const talismans = await db.select({ skills: customTalisman.skills }).from(customTalisman)
-  const referenced = [...new Set(talismans.flatMap((t) => t.skills.map((s) => s.skillId)))]
-  if (referenced.length === 0) return
-
-  const found = await db.select({ id: skill.id }).from(skill).where(inArray(skill.id, referenced))
-  const foundIds = new Set(found.map((r) => r.id))
-  const orphans = referenced.filter((id) => !foundIds.has(id))
-  if (orphans.length > 0) throw new OrphanedTalismanSkillError(orphans)
-}
-
-/** Loads the full catalog keyed by name, plus name→UUID maps for FK resolution. */
-async function loadExistingCatalog(): Promise<{
-  catalog: ExistingCatalog
-  ids: {
-    skill: Map<string, string>
-    bonus: Map<string, string>
-    armor: Map<string, string>
-    decoration: Map<string, string>
-  }
-}> {
-  const skillRows = await db.select().from(skill)
-  const bonusRows = await db.select().from(bonus)
-  const armorRows = await db.select().from(armor)
-  const decoRows = await db.select().from(decoration)
-
-  const bonusThresholdRows = await db
-    .select({ bonusName: bonus.name, piecesRequired: bonusThreshold.piecesRequired, effectName: bonusThreshold.effectName, level: bonusThreshold.level })
-    .from(bonusThreshold)
-    .innerJoin(bonus, eq(bonusThreshold.bonusId, bonus.id))
-  const armorSkillRows = await db
-    .select({ armorName: armor.name, skillName: skill.name, level: armorSkill.level })
-    .from(armorSkill)
-    .innerJoin(armor, eq(armorSkill.armorId, armor.id))
-    .innerJoin(skill, eq(armorSkill.skillId, skill.id))
-  const armorBonusRows = await db
-    .select({ armorName: armor.name, bonusName: bonus.name })
-    .from(armorBonus)
-    .innerJoin(armor, eq(armorBonus.armorId, armor.id))
-    .innerJoin(bonus, eq(armorBonus.bonusId, bonus.id))
-  const decorationSkillRows = await db
-    .select({ decorationName: decoration.name, skillName: skill.name, level: decorationSkill.level })
-    .from(decorationSkill)
-    .innerJoin(decoration, eq(decorationSkill.decorationId, decoration.id))
-    .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
-
-  return {
-    catalog: {
-      skills: skillRows.map((s) => ({ name: s.name, cleanName: s.cleanName, type: s.type, maxLevel: s.maxLevel, icon: s.icon })),
-      bonuses: bonusRows.map((b) => ({ name: b.name, cleanName: b.cleanName, kind: b.kind, icon: b.icon })),
-      bonusThresholds: bonusThresholdRows,
-      armor: armorRows.map((a) => ({
-        name: a.name,
-        type: a.type,
-        rank: a.rank,
-        rarity: a.rarity,
-        defense: a.defense,
-        fireRes: a.fireRes,
-        waterRes: a.waterRes,
-        thunderRes: a.thunderRes,
-        iceRes: a.iceRes,
-        dragonRes: a.dragonRes,
-        slots: a.slots as number[],
-      })),
-      armorSkills: armorSkillRows,
-      armorBonuses: armorBonusRows,
-      decorations: decoRows.map((d) => ({ name: d.name, type: d.type, slotSize: d.slotSize })),
-      decorationSkills: decorationSkillRows,
-    },
-    ids: {
-      skill: new Map(skillRows.map((s) => [s.name, s.id])),
-      bonus: new Map(bonusRows.map((b) => [b.name, b.id])),
-      armor: new Map(armorRows.map((a) => [a.name, a.id])),
-      decoration: new Map(decoRows.map((d) => [d.name, d.id])),
-    },
-  }
-}
-
 export async function runScraper(
   options: { source?: "cron" | "manual" | "boot" } = {},
 ): Promise<ScraperResult> {
@@ -320,90 +224,16 @@ export async function runScraper(
   let result: ScraperResult = { armorCount: 0, skillCount: 0, decoCount: 0 }
 
   try {
-    await assertCustomTalismanIntegrity()
-
     const seedData = await fetchSeedData()
     const transformed = transformSeedData(seedData)
 
-    const { catalog, ids } = await loadExistingCatalog()
-    const plan = reconcileCatalog(catalog, transformed)
-
-    // ADR-0007 step 5: any conflict with an existing identity rejects the whole
-    // scrape — nothing is inserted, and it is logged for operator review.
-    if (plan.conflicts.length > 0) throw new ScrapeConflictError(plan.conflicts)
-
-    // Insert-only: assign new UUIDs to new identities; existing identities keep
-    // theirs. FK maps merge existing + newly-inserted names so children resolve.
-    await db.transaction(async (tx) => {
-      const skillId = new Map(ids.skill)
-      for (const s of plan.skills) skillId.set(s.name, randomUUID())
-      if (plan.skills.length)
-        await tx.insert(skill).values(
-          plan.skills.map((s) => ({ id: skillId.get(s.name)!, name: s.name, cleanName: s.cleanName, type: s.type, maxLevel: s.maxLevel, icon: s.icon ?? null })),
-        )
-
-      const bonusId = new Map(ids.bonus)
-      for (const b of plan.bonuses) bonusId.set(b.name, randomUUID())
-      if (plan.bonuses.length)
-        await tx.insert(bonus).values(
-          plan.bonuses.map((b) => ({ id: bonusId.get(b.name)!, name: b.name, cleanName: b.cleanName, kind: b.kind, icon: b.icon ?? null })),
-        )
-      if (plan.bonusThresholds.length)
-        await tx.insert(bonusThreshold).values(
-          plan.bonusThresholds.map((t) => ({ bonusId: bonusId.get(t.bonusName)!, piecesRequired: t.piecesRequired, effectName: t.effectName, level: t.level })),
-        )
-
-      const armorId = new Map(ids.armor)
-      for (const a of plan.armor) armorId.set(a.name, randomUUID())
-      if (plan.armor.length)
-        await tx.insert(armor).values(
-          plan.armor.map((a) => ({
-            id: armorId.get(a.name)!,
-            name: a.name,
-            type: a.type,
-            rank: a.rank,
-            rarity: a.rarity,
-            defense: a.defense,
-            fireRes: a.fireRes,
-            waterRes: a.waterRes,
-            thunderRes: a.thunderRes,
-            iceRes: a.iceRes,
-            dragonRes: a.dragonRes,
-            slots: a.slots,
-          })),
-        )
-      if (plan.armorRegularSkills.length)
-        await tx.insert(armorSkill).values(
-          plan.armorRegularSkills.map((l) => ({ armorId: armorId.get(l.armorName)!, skillId: skillId.get(l.skillName)!, level: l.level })),
-        )
-      // Dedupe defensively — a piece may list a bonus more than once.
-      const seenArmorBonus = new Set<string>()
-      const armorBonusRows = plan.armorBonuses.flatMap((l) => {
-        const key = `${l.armorName} ${l.bonusName}`
-        if (seenArmorBonus.has(key)) return []
-        seenArmorBonus.add(key)
-        return [{ armorId: armorId.get(l.armorName)!, bonusId: bonusId.get(l.bonusName)! }]
-      })
-      if (armorBonusRows.length) await tx.insert(armorBonus).values(armorBonusRows)
-
-      const decoId = new Map(ids.decoration)
-      for (const d of plan.decorations) decoId.set(d.name, randomUUID())
-      if (plan.decorations.length)
-        await tx.insert(decoration).values(
-          plan.decorations.map((d) => ({ id: decoId.get(d.name)!, name: d.name, type: d.type, slotSize: d.slotSize })),
-        )
-      if (plan.decorationSkills.length)
-        await tx.insert(decorationSkill).values(
-          plan.decorationSkills.map((l) => ({ decorationId: decoId.get(l.decorationName)!, skillId: skillId.get(l.skillName)!, level: l.level })),
-        )
-    })
-
-    result = { armorCount: plan.armor.length, skillCount: plan.skills.length, decoCount: plan.decorations.length }
+    const ingestResult = await CatalogIngestionService.reconcileAndPersist(transformed)
+    result = { armorCount: ingestResult.armorCount, skillCount: ingestResult.skillCount, decoCount: ingestResult.decoCount }
 
     logger.info(
-      `[scraperService] Success (insert-only): +${plan.skills.length} skills, +${plan.bonuses.length} bonuses, +${plan.armor.length} armor, +${plan.decorations.length} decorations; unchanged ${plan.unchanged.skills} skills / ${plan.unchanged.bonuses} bonuses / ${plan.unchanged.armor} armor / ${plan.unchanged.decorations} decorations`,
+      `[scraperService] Success (insert-only): +${ingestResult.skillCount} skills, +${ingestResult.bonusCount} bonuses, +${ingestResult.armorCount} armor, +${ingestResult.decoCount} decorations`,
     )
-    await JobLogService.log(jobName, "SUCCESS", JSON.stringify({ inserted: result, unchanged: plan.unchanged }))
+    await JobLogService.log(jobName, "SUCCESS", JSON.stringify({ inserted: result }))
 
     try {
       await initSearchIndex()

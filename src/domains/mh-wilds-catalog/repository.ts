@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
 import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill } from '../../infra/db/schema'
+import type { CatalogIndexProjection } from './projection'
 import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
 
 /**
@@ -94,6 +95,62 @@ export abstract class CatalogRepository {
         kind: b.kind as 'set' | 'group',
         thresholds: (thresholdsByBonus.get(b.id) ?? []).sort((a, c) => a.piecesRequired - c.piecesRequired),
       })),
+    }
+  }
+
+  /**
+   * The fully-joined dataset consumers build an in-memory index from (today,
+   * only `set-search/build-index.ts`). Keeps Drizzle joins and table types
+   * inside the catalog domain — callers receive plain catalog-shaped rows.
+   */
+  static async findIndexProjection(): Promise<CatalogIndexProjection> {
+    const skillRows = await db.select({ name: skill.name, maxLevel: skill.maxLevel }).from(skill)
+    const bonusThresholdRows = await db
+      .select({
+        bonusName: bonus.name,
+        kind: bonus.kind,
+        piecesRequired: bonusThreshold.piecesRequired,
+        effectName: bonusThreshold.effectName,
+        level: bonusThreshold.level,
+      })
+      .from(bonusThreshold)
+      .innerJoin(bonus, eq(bonusThreshold.bonusId, bonus.id))
+    const decorationGrantRows = await db
+      .select({ decorationName: decoration.name, slotSize: decoration.slotSize, skillName: skill.name, level: decorationSkill.level })
+      .from(decorationSkill)
+      .innerJoin(decoration, eq(decorationSkill.decorationId, decoration.id))
+      .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
+    const armorRows = await db.select().from(armor)
+    const armorSkillRows = await db
+      .select({ armorName: armor.name, skillName: skill.name, level: armorSkill.level })
+      .from(armorSkill)
+      .innerJoin(armor, eq(armorSkill.armorId, armor.id))
+      .innerJoin(skill, eq(armorSkill.skillId, skill.id))
+    const armorBonusRows = await db
+      .select({ armorName: armor.name, bonusName: bonus.name, kind: bonus.kind })
+      .from(armorBonus)
+      .innerJoin(armor, eq(armorBonus.armorId, armor.id))
+      .innerJoin(bonus, eq(armorBonus.bonusId, bonus.id))
+
+    return {
+      skills: skillRows,
+      bonusThresholds: bonusThresholdRows.map((r) => ({ ...r, kind: r.kind as 'set' | 'group' })),
+      decorationGrants: decorationGrantRows,
+      armor: armorRows.map((a) => ({
+        name: a.name,
+        type: a.type,
+        rank: a.rank,
+        rarity: a.rarity,
+        defense: a.defense,
+        fireRes: a.fireRes,
+        waterRes: a.waterRes,
+        thunderRes: a.thunderRes,
+        iceRes: a.iceRes,
+        dragonRes: a.dragonRes,
+        slots: a.slots as number[],
+      })),
+      armorSkills: armorSkillRows,
+      armorBonuses: armorBonusRows.map((r) => ({ ...r, kind: r.kind as 'set' | 'group' })),
     }
   }
 }

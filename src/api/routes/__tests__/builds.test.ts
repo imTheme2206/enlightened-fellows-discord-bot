@@ -37,7 +37,17 @@ const build: BuildResponse = {
   updatedAt: '2026-07-22T00:00:00.000Z',
   composition: emptySnapshot,
 }
-const summary: BuildSummary = (({ composition: _c, ...rest }) => rest)(build)
+const summary: BuildSummary = {
+  id: build.id,
+  name: build.name,
+  description: build.description,
+  isShared: build.isShared,
+  sharedAt: build.sharedAt,
+  revision: build.revision,
+  isStale: build.isStale,
+  createdAt: build.createdAt,
+  updatedAt: build.updatedAt,
+}
 
 const AUTH = 'Bearer good'
 const UUID = '11111111-1111-4111-8111-111111111111'

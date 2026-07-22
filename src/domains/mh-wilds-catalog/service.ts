@@ -1,3 +1,4 @@
+import type { CatalogIndexProjection } from './projection'
 import { CatalogRepository } from './repository'
 import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
 
@@ -17,5 +18,13 @@ export abstract class CatalogService {
 
   static getSkills(): Promise<SkillCatalogResponse> {
     return CatalogRepository.findSkillsAndBonuses()
+  }
+
+  /**
+   * Projection for consumers that build their own in-memory index (currently
+   * only Set Search) rather than the nested API DTOs above.
+   */
+  static getIndexProjection(): Promise<CatalogIndexProjection> {
+    return CatalogRepository.findIndexProjection()
   }
 }
