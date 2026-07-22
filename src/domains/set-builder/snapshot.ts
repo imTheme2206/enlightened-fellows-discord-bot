@@ -13,8 +13,11 @@ import type {
  * Builds the trusted `schemaVersion: 1` composition snapshot from backend-owned
  * catalog + owner data (design doc §Save validation and snapshot construction).
  * It never trusts caller-supplied stats — every value is copied from the
- * `CatalogView`. Callers MUST run `validateSaveComposition` first; this function
- * assumes references resolve and treats a miss as an internal invariant break.
+ * `CatalogView`. Internal implementation detail of `canonicalizeSaveComposition`
+ * (canonicalize.ts), the single save-time seam — callers there run
+ * `validateSaveComposition` first, so this function assumes references resolve
+ * and treats a miss as an internal invariant break. Not called directly outside
+ * this domain.
  *
  * The result is self-contained: `skillDefinitions` (name → maxLevel) and
  * `bonusDefinitions` (name → kind + thresholds) collect every Skill/Bonus

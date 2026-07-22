@@ -4,8 +4,10 @@ import type { CompositionRequest, SaveBuildRequest } from "./schema"
 
 /**
  * Pure structural/reference validation of a Save composition against a
- * backend-owned `CatalogView` (design doc §Save validation). It enforces every
- * rule that does not need a DB round-trip:
+ * backend-owned `CatalogView` (design doc §Save validation). Internal
+ * implementation detail of `canonicalizeSaveComposition` (canonicalize.ts), the
+ * single save-time seam; not called directly outside this domain. It enforces
+ * every rule that does not need a DB round-trip:
  *
  *   - each referenced catalog item exists (catalog reads only return active items);
  *   - each armor id matches its fixed body position;

@@ -5,6 +5,7 @@ import { CatalogService } from "../mh-wilds-catalog/service"
 import type { SkillCatalogResponse } from "../mh-wilds-catalog/schema"
 import { TalismanRepository } from "../talismans/repository"
 import { buildCatalogView, type CatalogView } from "./catalog-view"
+import { canonicalizeSaveComposition } from "./canonicalize"
 import { SetBuilderError } from "./errors"
 import { SetBuilderRepository, type SharedCursor } from "./repository"
 import {
@@ -17,9 +18,7 @@ import {
   type PatchBuildRequest,
   type SaveBuildRequest,
 } from "./schema"
-import { buildSnapshot } from "./snapshot"
 import { deriveStaleness, type StalenessCatalog } from "./staleness"
-import { validateSaveComposition } from "./validation"
 
 /** Postgres unique_violation. */
 const UNIQUE_VIOLATION = "23505"
@@ -46,8 +45,7 @@ export abstract class SetBuilderService {
     if (prior) return this.resolveIdempotent(prior, payloadHash)
 
     const view = await this.loadView(userId, request.composition)
-    validateSaveComposition(request, view)
-    const snapshot = buildSnapshot(request, view)
+    const snapshot = canonicalizeSaveComposition(request, view)
 
     await this.assertWithinSaveLimit(userId)
     if (request.isShared) await this.assertWithinShareLimit(userId, 0)
@@ -116,8 +114,7 @@ export abstract class SetBuilderService {
     )
 
     const view = await this.loadView(userId, request.composition)
-    validateSaveComposition(request, view)
-    const snapshot = buildSnapshot(request, view)
+    const snapshot = canonicalizeSaveComposition(request, view)
 
     const sharing = await this.resolveSharing(
       userId,
