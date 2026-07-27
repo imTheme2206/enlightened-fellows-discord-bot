@@ -1,119 +1,8 @@
-import dayjs from 'dayjs'
-import {
-  AttachmentBuilder,
-  ChatInputCommandInteraction,
-  InteractionEditReplyOptions,
-  InteractionReplyOptions,
-  Message,
-  SlashCommandBuilder,
-} from 'discord.js'
-import fs from 'fs'
-import { EventQuestItem, MHWIldsEventResponse, parseMHWildsEvents } from '@imthmn/mh-wilds-event-scraper'
-import path from 'path'
+import { ChatInputCommandInteraction, InteractionEditReplyOptions, InteractionReplyOptions, Message, SlashCommandBuilder } from 'discord.js'
 import logger from '../../../infra/logger'
-import {
-  AttachmentRef,
-  DEFAULT_PAGINATION_TIMEOUT_MS,
-  EmbedPaginationEntry,
-  buildPaginationComponents,
-  paginateEmbedEntries,
-  registerEmbedPaginationCollector,
-} from '../../utils/embed-pagination'
-import { resolveMonsterIcon } from '../../utils/resolve-monster-icon'
-import { craftEventEmbed } from '../../utils/wilds-event-embed'
+import { DEFAULT_PAGINATION_TIMEOUT_MS, buildPaginationComponents, registerEmbedPaginationCollector } from '../../utils/embed-pagination'
+import { EVENTS_PAGINATION_BUTTON_IDS, EventType, loadAndPrepareEvents } from '../../utils/mhwilds-event-delivery'
 import { Command } from '../_types'
-
-// Explicit icon reference type to ensure consistent typing across maps and arrays
-type IconRef = AttachmentRef
-type EventType = 'permanent' | 'limited' | 'all'
-const monsterIcons: Record<string, IconRef> = {}
-const questTypeIcons: Record<string, IconRef> = {}
-const PAGE_SIZE = 5
-const EVENTS_PAGINATION_BUTTON_IDS = {
-  prev: 'events_prev',
-  next: 'events_next',
-} as const
-
-const filterEvent = (events: EventQuestItem[], eventType: EventType) => {
-  if (eventType === 'all') {
-    return events
-  }
-  const filterIsPermanent = eventType === 'permanent'
-  if (filterIsPermanent) {
-    return events.filter((event) => event.isPermanent === filterIsPermanent)
-  }
-
-  const currentDate = dayjs()
-
-  const uniqueEvents = new Map<string, EventQuestItem>()
-
-  events.forEach((event) => {
-    if (!uniqueEvents.has(event.questName)) {
-      uniqueEvents.set(event.questName, event)
-    }
-  })
-
-  const uniqueEventsArray = Array.from(uniqueEvents.values())
-
-  return uniqueEventsArray.filter((event) => {
-    if (event.isPermanent || !event.startAt || !event.endAt) {
-      return false
-    }
-
-    const start = dayjs(event.startAt)
-    const end = dayjs(event.endAt)
-
-    // Guard against missing/malformed dates: dayjs(undefined) resolves to "now",
-    // which would otherwise let endless events leak through as currently ongoing.
-    if (!start.isValid() || !end.isValid()) {
-      return false
-    }
-
-    return start.isBefore(currentDate) && end.isAfter(currentDate)
-  })
-}
-
-const buildEventEntries = (events: EventQuestItem[]): EmbedPaginationEntry[] =>
-  events.map((event) => {
-    const monsterFileName = resolveMonsterIcon(event.targetMonster)
-    const questTypeFileName = `${event.questType}.png`
-
-    const attachments: IconRef[] = []
-    const monsterIcon = monsterIcons[monsterFileName]
-    const questIcon = questTypeIcons[questTypeFileName]
-
-    if (monsterIcon) {
-      attachments.push(monsterIcon)
-    }
-
-    if (questIcon) {
-      attachments.push(questIcon)
-    }
-
-    const { embed } = craftEventEmbed(event)
-
-    return {
-      embed: embed[0],
-      attachments,
-    }
-  })
-
-const preloadIcons = () => {
-  logger.info('Preloading icons...')
-  const monsterDir = 'assets/icons/large'
-  fs.readdirSync(monsterDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(monsterDir, filename))
-    monsterIcons[filename] = { file, key: `attachment://${filename}` }
-  })
-
-  const questDir = 'assets/icons/quest'
-  fs.readdirSync(questDir).forEach((filename) => {
-    const file = new AttachmentBuilder(path.join(questDir, filename))
-    questTypeIcons[filename] = { file, key: `attachment://${filename}` }
-  })
-}
-
-preloadIcons()
 
 export const data = new SlashCommandBuilder()
   .setName('events')
@@ -126,6 +15,11 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   )
 
+/**
+ * Thin adapter: defer → retrieve/filter/prepare via `mhwilds-event-delivery`
+ * → reply/paginate. Fetching, filtering, timing, dedup, and rendering all
+ * live in that deep module; this command only handles interaction transport.
+ */
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const eventType: EventType = (interaction.options.getString('type', true) as EventType) || 'all'
 
@@ -164,32 +58,24 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       hasDeferred = true
     }
 
-    const MHWildsEvents: MHWIldsEventResponse = await parseMHWildsEvents(
-      'https://info.monsterhunter.com/wilds/event-quest/en-us/schedule?utc=7'
-    )
+    const { feedEmpty, paginated } = await loadAndPrepareEvents(eventType)
 
-    if (MHWildsEvents.eventQuests.length === 0) {
+    if (feedEmpty) {
       await respond('No events found.')
       return
     }
-
-    const selectedEvents = filterEvent(MHWildsEvents.eventQuests, eventType)
-    const eventEntries = buildEventEntries(selectedEvents)
-    const paginatedEvents = paginateEmbedEntries(eventEntries, PAGE_SIZE)
-
-    if (paginatedEvents.pages.length === 0) {
+    if (paginated.pages.length === 0) {
       await respond('No events found for the selected type.')
       return
     }
 
-    const totalPages = paginatedEvents.pages.length
+    const totalPages = paginated.pages.length
     const currentPage = 0
-
-    const initialFiles = paginatedEvents.attachmentsByPage[currentPage]
+    const initialFiles = paginated.attachmentsByPage[currentPage]
 
     const replyPayload: InteractionReplyOptions = {
       content: eventType === 'permanent' ? 'Permanent Events' : `Here are the ongoing events`,
-      embeds: paginatedEvents.pages[currentPage].map((entry) => entry.embed),
+      embeds: paginated.pages[currentPage].map((entry) => entry.embed),
       files: initialFiles,
       components: buildPaginationComponents(currentPage, totalPages, EVENTS_PAGINATION_BUTTON_IDS),
     }
@@ -211,7 +97,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return
     }
 
-    registerEmbedPaginationCollector(message, paginatedEvents, {
+    registerEmbedPaginationCollector(message, paginated, {
       commandUserId,
       timeoutMs: DEFAULT_PAGINATION_TIMEOUT_MS,
       buttonIds: EVENTS_PAGINATION_BUTTON_IDS,
