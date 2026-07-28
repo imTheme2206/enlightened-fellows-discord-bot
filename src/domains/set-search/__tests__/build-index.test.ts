@@ -100,6 +100,21 @@ describe('shapeIndexFromProjection', () => {
     expect(index.byType.chest).toEqual([])
   })
 
+  it('builds the index from transcended slots, not base slots', () => {
+    const projection = sampleProjection()
+    // A rarity-6 piece whose base slots [2, 1] transcend to [3, 2].
+    projection.armor[0].rarity = 6
+    projection.armor[0].slots = [2, 1]
+    const piece = shapeIndexFromProjection(projection).allArmor[0]
+    expect(piece.slots).toEqual([3, 2])
+  })
+
+  it('leaves rarity 7/8 slots unchanged in the index', () => {
+    // sampleProjection's Gore Helm is rarity 8 with base slots [3, 1].
+    const piece = shapeIndexFromProjection(sampleProjection()).allArmor[0]
+    expect(piece.slots).toEqual([3, 1])
+  })
+
   it('armor/decoration rows referencing an unknown parent are dropped without throwing', () => {
     const projection = sampleProjection()
     projection.armorSkills.push({ armorName: 'Nonexistent Piece', skillName: 'Attack Boost', level: 1 })

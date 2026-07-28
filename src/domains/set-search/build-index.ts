@@ -1,5 +1,6 @@
 import type { CatalogIndexProjection } from '../mh-wilds-catalog/projection'
 import { CatalogService } from '../mh-wilds-catalog/service'
+import { transcendSlots } from '../mh-wilds-catalog/transcend'
 import type { ArmorPiece, ArmorType, DecorationItem, GroupSkillMeta, SetSearchIndex, SetSkillMeta, SkillMeta } from './types'
 
 /**
@@ -63,7 +64,9 @@ export function shapeIndexFromProjection(projection: CatalogIndexProjection): Se
       rank: row.rank.toLowerCase() as 'low' | 'high' | 'master',
       rarity: row.rarity,
       defense: row.defense,
-      slots: row.slots,
+      // Endgame builds always assume a transcended piece; base slots stay canonical
+      // in the DB, but the search index is built from the transcended values.
+      slots: transcendSlots(row.slots, row.rarity),
       resists: [row.fireRes, row.waterRes, row.thunderRes, row.iceRes, row.dragonRes],
       skills: {},
       setSkills: [],
