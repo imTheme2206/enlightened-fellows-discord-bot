@@ -3,6 +3,7 @@ import { db } from '../../infra/db/client'
 import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill } from '../../infra/db/schema'
 import type { CatalogIndexProjection } from './projection'
 import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
+import { transcendSlots } from './transcend'
 
 /**
  * All catalog reads live here (ADR-0009): armor, decorations, ordinary skills,
@@ -44,7 +45,11 @@ export abstract class CatalogRepository {
       rarity: a.rarity,
       defense: a.defense,
       resistances: { fire: a.fireRes, water: a.waterRes, thunder: a.thunderRes, ice: a.iceRes, dragon: a.dragonRes },
-      slots: a.slots as number[],
+      // Endgame builds always assume a transcended piece: the /armors catalog reports
+      // transcended slots (base stays canonical in the DB). Mirrors the set-search index,
+      // which transcends at build-index.ts. NOTE: getIndexProjection() must keep base
+      // slots — build-index transcends there, so transcending here too would double-apply.
+      slots: transcendSlots(a.slots as number[], a.rarity),
       skills: skillsByArmor.get(a.id) ?? [],
       bonuses: bonusesByArmor.get(a.id) ?? [],
     }))
@@ -74,7 +79,10 @@ export abstract class CatalogRepository {
   }
 
   static async findSkillsAndBonuses(): Promise<SkillCatalogResponse> {
-    const skillRows = await db.select({ id: skill.id, name: skill.name, kind: skill.type, maxLevel: skill.maxLevel }).from(skill).orderBy(asc(skill.name))
+    const skillRows = await db
+      .select({ id: skill.id, name: skill.name, kind: skill.type, maxLevel: skill.maxLevel, icon: skill.icon })
+      .from(skill)
+      .orderBy(asc(skill.name))
     const bonusRows = await db.select().from(bonus).orderBy(asc(bonus.name))
     const thresholdRows = await db
       .select({ bonusId: bonusThreshold.bonusId, piecesRequired: bonusThreshold.piecesRequired, effectName: bonusThreshold.effectName, level: bonusThreshold.level })
@@ -88,11 +96,12 @@ export abstract class CatalogRepository {
     }
 
     return {
-      skills: skillRows.map((s) => ({ id: s.id, name: s.name, kind: s.kind as 'armor' | 'weapon', maxLevel: s.maxLevel })),
+      skills: skillRows.map((s) => ({ id: s.id, name: s.name, kind: s.kind as 'armor' | 'weapon', maxLevel: s.maxLevel, icon: s.icon })),
       bonuses: bonusRows.map((b) => ({
         id: b.id,
         name: b.name,
         kind: b.kind as 'set' | 'group',
+        icon: b.icon,
         thresholds: (thresholdsByBonus.get(b.id) ?? []).sort((a, c) => a.piecesRequired - c.piecesRequired),
       })),
     }
