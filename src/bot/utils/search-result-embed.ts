@@ -79,5 +79,10 @@ export const buildSearchResultEmbed = (result: SearchResult, index: number, tota
       inline: true,
     })
   })
+
+  // Decoration slots throughout assume each armor piece has been transcended
+  // (Armor Transcendence, HR100+); un-transcended pieces will have fewer/smaller slots.
+  embed.setFooter({ text: 'Slots assume Armor Transcendence' })
+
   return embed
 }

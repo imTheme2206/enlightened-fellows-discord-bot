@@ -14,8 +14,10 @@ export function armorCombo(pieces: PieceEntry[]): ArmorComboResult {
     }
   }
 
+  // Talisman decoration slots count too — real scraped talismans always have
+  // `slots: []`, but custom talismans may carry armor-type deco slots.
   const slots: number[] = []
-  for (const [, piece] of armorBodyPieces) {
+  for (const [, piece] of allPieces) {
     slots.push(...piece.slots)
   }
 

@@ -3,7 +3,8 @@ import cron from 'node-cron'
 import { CRON_JOB } from '../../infra/config'
 import logger from '../../infra/logger'
 import { mhEventsChannels } from '../../domains/channels/service'
-import { execute as eventsExecute } from '../commands/mhwilds/events'
+import { buildPaginationComponents } from '../utils/embed-pagination'
+import { EVENTS_PAGINATION_BUTTON_IDS, loadAndPrepareEvents } from '../utils/mhwilds-event-delivery'
 
 export function startEventsJob(client: Client): void {
   try {
@@ -34,6 +35,18 @@ export function startEventsJob(client: Client): void {
 
           logger.info(`Sending to ${channelIds.length} channel(s): ${channelIds.join(', ')}`)
 
+          // Retrieve/filter/prepare once and reuse it for every channel — the
+          // events-job broadcasts the same limited-events snapshot everywhere
+          // rather than re-fetching per channel.
+          const { feedEmpty, paginated } = await loadAndPrepareEvents('limited')
+          if (feedEmpty || paginated.pages.length === 0) {
+            logger.info('No limited events to broadcast — skipping job')
+            return
+          }
+
+          const totalPages = paginated.pages.length
+          const components = buildPaginationComponents(0, totalPages, EVENTS_PAGINATION_BUTTON_IDS)
+
           for (const channelId of channelIds) {
             try {
               const channel = client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find((c) => c != null) as
@@ -46,26 +59,13 @@ export function startEventsJob(client: Client): void {
               }
 
               logger.info(`Channel found: ${channel.name} (${channel.id})`)
-
-              const fakeInteraction = {
-                options: {
-                  getString: (name: string) => {
-                    if (name === 'type') return 'limited'
-                    return null
-                  },
-                },
-                reply: (opts: unknown) => {
-                  logger.info(`Sending message to ${channel.name}`)
-                  return channel.send(opts as Parameters<typeof channel.send>[0])
-                },
-                editReply: (opts: unknown) => {
-                  logger.info(`Editing message in ${channel.name}`)
-                  return channel.send(opts as Parameters<typeof channel.send>[0])
-                },
-              } as Parameters<typeof eventsExecute>[0]
-
-              await eventsExecute(fakeInteraction)
-              logger.info(`Successfully executed events command in ${channel.name}`)
+              await channel.send({
+                content: 'Here are the ongoing events',
+                embeds: paginated.pages[0].map((entry) => entry.embed),
+                files: paginated.attachmentsByPage[0],
+                components,
+              })
+              logger.info(`Successfully sent events to ${channel.name}`)
             } catch (err) {
               logger.error(`Failed to send events to channel ${channelId}:`, { err })
             }

@@ -39,13 +39,11 @@ export function computeMaxPotential(gear: GearPool, skillNames: string[]): Recor
       let maxPoints = 0
       for (const piece of Object.values(pool)) {
         let points = piece.skills[skillName] ?? 0
-        if (slotType !== 'talisman') {
-          for (const deco of Object.values(decos)) {
-            const decoSkillLevel = deco.skills[skillName]
-            if (decoSkillLevel) {
-              points += decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length
-              break
-            }
+        for (const deco of Object.values(decos)) {
+          const decoSkillLevel = deco.skills[skillName]
+          if (decoSkillLevel) {
+            points += decoSkillLevel * piece.slots.filter((s) => s >= deco.slotSize).length
+            break
           }
         }
         maxPoints = Math.max(points, maxPoints)

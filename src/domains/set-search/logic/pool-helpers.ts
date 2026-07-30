@@ -146,12 +146,10 @@ export const skillRelevanceScore = (piece: ArmorPiece, skills: Record<string, nu
   let score = 0
   for (const skillName of Object.keys(skills)) {
     score += piece.skills[skillName] ?? 0
-    if (piece.type !== 'talisman') {
-      for (const deco of Object.values(decos)) {
-        if (deco.skills[skillName]) {
-          score += deco.skills[skillName] * piece.slots.filter((s) => s >= deco.slotSize).length
-          break
-        }
+    for (const deco of Object.values(decos)) {
+      if (deco.skills[skillName]) {
+        score += deco.skills[skillName] * piece.slots.filter((s) => s >= deco.slotSize).length
+        break
       }
     }
   }

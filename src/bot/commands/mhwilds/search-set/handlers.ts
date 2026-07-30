@@ -21,6 +21,7 @@ import { getSkillMaxLevels } from '../../../../domains/set-search/repository'
 import type { EmbedPaginationEntry } from '../../../utils/embed-pagination'
 import { DEFAULT_PAGINATION_TIMEOUT_MS, paginateEmbedEntries, registerEmbedPaginationCollector } from '../../../utils/embed-pagination'
 import { buildSearchResultEmbed } from '../../../utils/search-result-embed'
+import { hasSelections } from './session-store'
 import type { SavedSearch, SearchState } from './state'
 import { RESULTS_PER_PAGE, getSession, saveSession } from './state'
 
@@ -35,7 +36,7 @@ async function runSearch(interaction: MessageComponentInteraction, state: Search
 
   let results
   try {
-    results = searchSets(searchInput)
+    results = await searchSets(searchInput, interaction.user.id)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error during search.'
     await interaction.editReply({
@@ -97,7 +98,7 @@ export async function handleComponent(interaction: MessageComponentInteraction):
   // "Modify Search" lives on the non-ephemeral results message — open a fresh ephemeral UI
   if (interaction.customId === 'search-set:btn-modify') {
     const state = getSession(interaction.user.id)
-    if (!state.skills.length && !state.setSkills.length && !state.groupSkills.length) {
+    if (!hasSelections(state)) {
       await interaction.reply({
         content: 'Session expired — run /search-set again.',
         flags: ['Ephemeral'],

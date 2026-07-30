@@ -31,7 +31,10 @@ async function main(): Promise<void> {
 
   await startServer()
 
-  // await initSearchIndex()
+  // Set-search index readiness is lazy (domains/set-search/runtime.ts):
+  // startServer() (HTTP) can accept a search before the Discord `ready`
+  // event's un-awaited seedOnBoot() finishes, and the first search call
+  // simply builds the index on demand rather than throwing.
   await loadEvents(client)
 
   await client.login(config.DISCORD_TOKEN)

@@ -2,17 +2,30 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder }
 import type { SearchState } from '../state'
 import { MAX_SKILLS } from '../state'
 import { loadArmorSkills, loadGroupSkillOptions, loadSetSkillOptions } from '../../../../../domains/set-search/repository'
+import type { GroupSkillData, SetSkillData } from '../../../../../domains/set-search/repository'
 import { cancelRow } from './ui'
 
 export type AnyRow = ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>
 
+/** Discord select-menu option shape. Mapping from domain data lives here — the domain layer stays presentation-free. */
+type SelectOption = { label: string; description?: string; value: string }
+
+function toSetSkillOption(s: SetSkillData): SelectOption {
+  return { label: s.name, description: s.effectName ? `→ ${s.effectName}` : s.name, value: s.name }
+}
+
+function toGroupSkillOption(g: GroupSkillData): SelectOption {
+  return { label: g.name, description: g.effectName ? `→ ${g.effectName}` : g.name, value: g.name }
+}
+
+function toSkillOption(s: { name: string }): SelectOption {
+  return { label: s.name, value: s.name }
+}
+
 async function buildWeaponSkillComponents(state: SearchState): Promise<AnyRow[]> {
-  const [setData, groupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
-  const setOptions = setData.map((s) => ({
-    label: s.name,
-    description: s.effectName ? `→ ${s.effectName}` : s.name,
-    value: s.name,
-  }))
+  const [setData, groupData] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+  const setOptions = setData.map(toSetSkillOption)
+  const groupOptions = groupData.map(toGroupSkillOption)
   const hasGogma = !!(state.gogmaSkills.setSkill || state.gogmaSkills.groupSkill)
 
   return [
@@ -48,16 +61,10 @@ async function buildSetSkillComponents(state: SearchState): Promise<AnyRow[]> {
   const addedSetNames = new Set(state.setSkills.map((s) => s.name))
   const addedGroupSkills = new Set(state.groupSkills)
 
-  const [allSetData, allGroupOptions] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
+  const [allSetData, allGroupData] = await Promise.all([loadSetSkillOptions(), loadGroupSkillOptions()])
 
-  const setOptions = allSetData
-    .filter((s) => !addedSetNames.has(s.name))
-    .map((s) => ({
-      label: s.name,
-      description: s.effectName ? `→ ${s.effectName}` : s.name,
-      value: s.name,
-    }))
-  const groupOptions = allGroupOptions.filter((o) => !addedGroupSkills.has(o.value))
+  const setOptions = allSetData.filter((s) => !addedSetNames.has(s.name)).map(toSetSkillOption)
+  const groupOptions = allGroupData.filter((g) => !addedGroupSkills.has(g.name)).map(toGroupSkillOption)
 
   if (setOptions.length) {
     rows.push(
@@ -148,7 +155,7 @@ async function buildMainComponents(state: SearchState): Promise<AnyRow[]> {
 
   const [slot1, slot2, slot3] = await Promise.all([loadArmorSkills(1), loadArmorSkills(2), loadArmorSkills(3)])
 
-  const slotOneOptions = slot1.filter((s) => !addedSkills.has(s.value))
+  const slotOneOptions = slot1.filter((s) => !addedSkills.has(s.name)).map(toSkillOption)
   const displaySlotOneOptions = slotOneOptions.length ? slotOneOptions : [{ label: 'All slot 1 skills added', value: '__none__' }]
 
   rows.push(
@@ -163,7 +170,7 @@ async function buildMainComponents(state: SearchState): Promise<AnyRow[]> {
     )
   )
 
-  const slotTwoThreeOptions = [...slot2, ...slot3].filter((s) => !addedSkills.has(s.value))
+  const slotTwoThreeOptions = [...slot2, ...slot3].filter((s) => !addedSkills.has(s.name)).map(toSkillOption)
   const displaySlotTwoThreeOptions = slotTwoThreeOptions.length ? slotTwoThreeOptions : [{ label: 'All slot 2/3 skills added', value: '__none__' }]
 
   rows.push(

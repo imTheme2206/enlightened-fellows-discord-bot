@@ -1,24 +1,20 @@
-import { randomUUID } from "crypto"
-import { db } from "../../../infra/db/client"
-import {
-  armor,
-  armorGroupSkill,
-  armorSetSkill,
-  armorSkill,
-  decoration,
-  skill,
-} from "../../../infra/db/schema"
+import { CatalogIngestionService } from "../../mh-wilds-catalog/ingestion/service"
+import { OrphanedTalismanSkillError, ScrapeConflictError } from "../../mh-wilds-catalog/ingestion/errors"
+import { SeedDataSchema, transformSeedData } from "../../mh-wilds-catalog/ingestion/transform"
 import logger from "../../../infra/logger"
 import { JobLogService } from "../../job-logs/service"
-import { initSearchIndex } from "../service"
+import { refresh } from "../runtime"
 import type {
   MhdbArmorPiece,
   MhdbArmorSet,
   MhdbCharmGroup,
   MhdbDecoration,
   MhdbSkill,
-} from "./mhdb-types"
-import { SeedDataSchema, transformSeedData } from "./transform"
+} from "../../mh-wilds-catalog/ingestion/mhdb-types"
+
+// Re-exported so existing callers (db-init, any future operator tooling) can
+// keep importing these errors from the scraper entry point.
+export { OrphanedTalismanSkillError, ScrapeConflictError }
 
 const BASE_URL = "https://wilds.mhdb.io/en"
 
@@ -43,6 +39,13 @@ async function fetchJson<T>(url: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/**
+ * Set-search-agnostic fetch + transform of the upstream wilds.mhdb.io feed.
+ * Ownership: this stays in `set-search/scraper` because it is the only module
+ * that speaks the MHDB wire format; persistence and reconciliation belong to
+ * the MH Wilds Catalog domain (ADR-0009) and are delegated to
+ * `CatalogIngestionService`.
+ */
 async function fetchSeedData() {
   const [armorList, skillList, armorSetList, charmList, decorationList] =
     await Promise.all([
@@ -198,11 +201,18 @@ async function fetchSeedData() {
 }
 
 export interface ScraperResult {
+  /** Counts of genuinely new identities inserted this run (0 on a no-op scrape). */
   armorCount: number
   skillCount: number
   decoCount: number
 }
 
+/**
+ * Public scraper entry point (called by `db-init.ts`). Fetches + transforms
+ * the upstream feed (set-search-agnostic), delegates reconciliation and
+ * insert-only persistence to the MH Wilds Catalog domain, then triggers the
+ * set-search index rebuild.
+ */
 export async function runScraper(
   options: { source?: "cron" | "manual" | "boot" } = {},
 ): Promise<ScraperResult> {
@@ -215,154 +225,21 @@ export async function runScraper(
 
   try {
     const seedData = await fetchSeedData()
-    const {
-      skills,
-      armor: armorPieces,
-      armorRegularSkills,
-      decorations,
-    } = transformSeedData(seedData)
+    const transformed = transformSeedData(seedData)
 
-    await db.transaction(async (tx) => {
-      await tx.delete(armorGroupSkill)
-      await tx.delete(armorSetSkill)
-      await tx.delete(armorSkill)
-      await tx.delete(decoration)
-      await tx.delete(armor)
-      await tx.delete(skill)
-
-      const skillIdMap = new Map<string, string>()
-      for (const s of skills) {
-        const id = randomUUID()
-        skillIdMap.set(s.name, id)
-      }
-
-      await tx.insert(skill).values(
-        skills.map((s) => ({
-          id: skillIdMap.get(s.name)!,
-          name: s.name,
-          cleanName: s.cleanName,
-          type: s.type,
-          maxLevel: s.maxLevel,
-          isSetSkill: s.isSetSkill,
-          isGroupSkill: s.isGroupSkill,
-          requiredPieces: s.requiredPieces ?? null,
-          effectName: s.effectName ?? null,
-          icon: s.icon ?? null,
-        })),
-      )
-
-      const armorIdMap = new Map<string, string>()
-      for (const piece of armorPieces) {
-        const id = randomUUID()
-        armorIdMap.set(piece.name, id)
-      }
-
-      await tx.insert(armor).values(
-        armorPieces.map((piece) => ({
-          id: armorIdMap.get(piece.name)!,
-          name: piece.name,
-          type: piece.type,
-          rank: piece.rank,
-          rarity: piece.rarity,
-          defense: piece.defense,
-          fireRes: piece.fireRes,
-          waterRes: piece.waterRes,
-          thunderRes: piece.thunderRes,
-          iceRes: piece.iceRes,
-          dragonRes: piece.dragonRes,
-          slots: piece.slots,
-        })),
-      )
-
-      const armorSkillRows = armorRegularSkills.flatMap((link) => {
-        const armorId = armorIdMap.get(link.armorName)
-        const skillId = skillIdMap.get(link.skillName)
-        if (!armorId || !skillId) {
-          logger.warn(
-            `[scraperService] Skipping ArmorSkill: armor=${link.armorName} skill=${link.skillName} (not found)`,
-          )
-          return []
-        }
-        return [{ armorId, skillId, level: link.level }]
-      })
-      if (armorSkillRows.length)
-        await tx.insert(armorSkill).values(armorSkillRows)
-
-      const setSkillRows = armorPieces.flatMap((piece) => {
-        const armorId = armorIdMap.get(piece.name)
-        if (!armorId) return []
-        return piece.setSkillNames.flatMap((setName) => {
-          const skillId = skillIdMap.get(setName)
-          if (!skillId) {
-            logger.warn(
-              `[scraperService] Skipping ArmorSetSkill: armor=${piece.name} set=${setName} (not found)`,
-            )
-            return []
-          }
-          return [{ armorId, skillId }]
-        })
-      })
-      if (setSkillRows.length)
-        await tx.insert(armorSetSkill).values(setSkillRows)
-
-      const groupSkillRows = armorPieces.flatMap((piece) => {
-        const armorId = armorIdMap.get(piece.name)
-        if (!armorId) return []
-        return piece.groupSkillNames.flatMap((groupName) => {
-          const skillId = skillIdMap.get(groupName)
-          if (!skillId) {
-            logger.warn(
-              `[scraperService] Skipping ArmorGroupSkill: armor=${piece.name} group=${groupName} (not found)`,
-            )
-            return []
-          }
-          return [{ armorId, skillId }]
-        })
-      })
-      if (groupSkillRows.length)
-        await tx.insert(armorGroupSkill).values(groupSkillRows)
-
-      const decoRows = decorations.flatMap((deco) => {
-        const skillId = skillIdMap.get(deco.skillName)
-        if (!skillId) {
-          logger.warn(
-            `[scraperService] Skipping Decoration: ${deco.name} (skill=${deco.skillName} not found)`,
-          )
-          return []
-        }
-        return [
-          {
-            id: randomUUID(),
-            name: deco.name,
-            type: deco.type,
-            slotSize: deco.slotSize,
-            skillId,
-            skillLevel: deco.skillLevel,
-          },
-        ]
-      })
-      if (decoRows.length) await tx.insert(decoration).values(decoRows)
-    })
-
-    result = {
-      armorCount: armorPieces.length,
-      skillCount: skills.length,
-      decoCount: decorations.length,
-    }
+    const ingestResult = await CatalogIngestionService.reconcileAndPersist(transformed)
+    result = { armorCount: ingestResult.armorCount, skillCount: ingestResult.skillCount, decoCount: ingestResult.decoCount }
 
     logger.info(
-      `[scraperService] Success: ${result.armorCount} armor, ${result.skillCount} skills, ${result.decoCount} decorations`,
+      `[scraperService] Success (insert-only): +${ingestResult.skillCount} skills, +${ingestResult.bonusCount} bonuses, +${ingestResult.armorCount} armor, +${ingestResult.decoCount} decorations`,
     )
-    await JobLogService.log(jobName, "SUCCESS", JSON.stringify(result))
+    await JobLogService.log(jobName, "SUCCESS", JSON.stringify({ inserted: result }))
 
     try {
-      await initSearchIndex()
+      await refresh()
       logger.info("[scraperService] Search index rebuilt successfully")
     } catch (indexErr) {
-      logger.warn(
-        "[scraperService] Failed to rebuild search index (non-fatal):",
-        { indexErr },
-      )
+      logger.warn("[scraperService] Failed to rebuild search index (non-fatal):", { indexErr })
     }
 
     return result
@@ -370,7 +247,14 @@ export async function runScraper(
     const message = err instanceof Error ? err.message : String(err)
     logger.error(`[scraperService] Failed: ${message}`, { err })
     try {
-      await JobLogService.log(jobName, "FAILED", message)
+      // Structured operator-review payload for conflicts (ADR-0007) / orphans.
+      const detail =
+        err instanceof ScrapeConflictError
+          ? JSON.stringify({ conflicts: err.conflicts.slice(0, 50), total: err.conflicts.length })
+          : err instanceof OrphanedTalismanSkillError
+            ? JSON.stringify({ orphanedSkillIds: err.skillIds })
+            : message
+      await JobLogService.log(jobName, "FAILED", detail)
     } catch {
       // ignore logging failure
     }

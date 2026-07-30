@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, notInArray } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
-import { decoration, skill } from '../../infra/db/schema'
+import { bonus, bonusThreshold, decoration, decorationSkill, skill } from '../../infra/db/schema'
 
 const EXCLUDE_SLOT_1_SKILLS = [
   'Survival Expert',
@@ -29,9 +29,13 @@ const EXCLUDE_SLOT_1_SKILLS = [
   'Paralysis Resistance',
 ]
 
-type SkillOption = {
-  label: string
-  value: string
+/** A regular skill grantable by a decoration, domain-shaped (no Discord label/value). */
+export type WeaponSkillOption = {
+  name: string
+}
+
+export type ArmorSkillOption = {
+  name: string
 }
 
 export type SetSkillData = {
@@ -40,56 +44,75 @@ export type SetSkillData = {
   maxLevel: number
 }
 
-type GroupSkillOption = {
-  label: string
-  description: string
-  value: string
+/** A Group Bonus option, domain-shaped (no Discord label/description/value). */
+export type GroupSkillData = {
+  name: string
+  effectName: string | null
 }
 
-export const loadWeaponSkills: () => Promise<SkillOption[]> = async () => {
+export const loadWeaponSkills: () => Promise<WeaponSkillOption[]> = async () => {
   const rows = await db
     .selectDistinct({ name: skill.name })
     .from(decoration)
-    .innerJoin(skill, eq(decoration.skillId, skill.id))
+    .innerJoin(decorationSkill, eq(decorationSkill.decorationId, decoration.id))
+    .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
     .where(eq(decoration.type, 'weapon'))
     .orderBy(asc(skill.name))
 
-  return rows.map((r) => ({ label: r.name, value: r.name }))
+  return rows.map((r) => ({ name: r.name }))
 }
 
-export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<SkillOption[]> {
+export async function loadArmorSkills(slot: 1 | 2 | 3): Promise<ArmorSkillOption[]> {
   const rows = await db
     .selectDistinct({ name: skill.name })
     .from(decoration)
-    .innerJoin(skill, eq(decoration.skillId, skill.id))
+    .innerJoin(decorationSkill, eq(decorationSkill.decorationId, decoration.id))
+    .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
     .where(and(eq(decoration.type, 'armor'), eq(decoration.slotSize, slot), notInArray(skill.name, EXCLUDE_SLOT_1_SKILLS)))
     .orderBy(asc(skill.name))
 
-  return rows.map((r) => ({ label: r.name, value: r.name }))
+  return rows.map((r) => ({ name: r.name }))
 }
 
+/**
+ * Set Bonus options for the search UI. `effectName` is the granted effect and
+ * `maxLevel` is the number of activation tiers (highest threshold `level`),
+ * both folded from the bonus's ordered `bonusThreshold` rows (ADR-0011).
+ */
 export async function loadSetSkillOptions(): Promise<SetSkillData[]> {
   const rows = await db
-    .select({ name: skill.name, effectName: skill.effectName, maxLevel: skill.maxLevel })
-    .from(skill)
-    .where(eq(skill.isSetSkill, true))
-    .orderBy(asc(skill.name))
+    .select({ name: bonus.name, effectName: bonusThreshold.effectName, level: bonusThreshold.level })
+    .from(bonus)
+    .leftJoin(bonusThreshold, eq(bonusThreshold.bonusId, bonus.id))
+    .where(eq(bonus.kind, 'set'))
+    .orderBy(asc(bonus.name))
 
-  return rows.map((r) => ({ name: r.name, effectName: r.effectName, maxLevel: r.maxLevel }))
+  const byName = new Map<string, SetSkillData>()
+  for (const r of rows) {
+    const existing = byName.get(r.name)
+    if (!existing) {
+      byName.set(r.name, { name: r.name, effectName: r.effectName ?? null, maxLevel: r.level ?? 1 })
+    } else {
+      if (r.level && r.level > existing.maxLevel) existing.maxLevel = r.level
+      if (!existing.effectName && r.effectName) existing.effectName = r.effectName
+    }
+  }
+  return Array.from(byName.values())
 }
 
-export async function loadGroupSkillOptions(): Promise<GroupSkillOption[]> {
+export async function loadGroupSkillOptions(): Promise<GroupSkillData[]> {
   const rows = await db
-    .select({ name: skill.name, effectName: skill.effectName })
-    .from(skill)
-    .where(eq(skill.isGroupSkill, true))
-    .orderBy(asc(skill.name))
+    .select({ name: bonus.name, effectName: bonusThreshold.effectName })
+    .from(bonus)
+    .leftJoin(bonusThreshold, eq(bonusThreshold.bonusId, bonus.id))
+    .where(eq(bonus.kind, 'group'))
+    .orderBy(asc(bonus.name))
 
-  return rows.map((r) => ({
-    label: r.name,
-    description: r.effectName ? `→ ${r.effectName}` : r.name,
-    value: r.name,
-  }))
+  const byName = new Map<string, string | null>()
+  for (const r of rows) {
+    if (!byName.has(r.name)) byName.set(r.name, r.effectName ?? null)
+  }
+  return Array.from(byName.entries()).map(([name, effectName]) => ({ name, effectName }))
 }
 
 export async function getSkillMaxLevels(names: string[]): Promise<Map<string, number>> {

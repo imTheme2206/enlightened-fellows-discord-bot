@@ -3,7 +3,7 @@ import logger from '../../infra/logger'
 import { db } from '../../infra/db/client'
 import { armor } from '../../infra/db/schema'
 import { runScraper } from '../../domains/set-search/scraper'
-import { initSearchIndex } from '../../domains/set-search/service'
+import { refresh } from '../../domains/set-search/runtime'
 
 export async function seedOnBoot(): Promise<void> {
   const [{ value }] = await db.select({ value: count() }).from(armor)
@@ -13,6 +13,6 @@ export async function seedOnBoot(): Promise<void> {
     logger.info('[dbInit] Database is empty — seeding...')
     await runScraper({ source: 'boot' })
   } else {
-    await initSearchIndex()
+    await refresh()
   }
 }
