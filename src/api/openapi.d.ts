@@ -95,6 +95,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/armors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsArmors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mh-wilds/decorations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsDecorations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mh-wilds/search": {
         parameters: {
             query?: never;
@@ -111,16 +143,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/mh-wilds/armors": {
+    "/api/mh-wilds/builds/shared": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getApiMh-wildsArmors"];
+        get: operations["getApiMh-wildsBuildsShared"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mh-wilds/builds/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsBuildsById"];
+        put: operations["putApiMh-wildsBuildsById"];
+        post?: never;
+        delete: operations["deleteApiMh-wildsBuildsById"];
+        options?: never;
+        head?: never;
+        patch: operations["patchApiMh-wildsBuildsById"];
+        trace?: never;
+    };
+    "/api/mh-wilds/builds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsBuilds"];
+        put?: never;
+        post: operations["postApiMh-wildsBuilds"];
         delete?: never;
         options?: never;
         head?: never;
@@ -248,9 +312,48 @@ export interface operations {
     };
     "getApiMh-wildsSkills": {
         parameters: {
-            query?: {
-                type?: "armor" | "weapon";
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        skills: {
+                            id: string;
+                            name: string;
+                            /** @enum {string} */
+                            kind: "armor" | "weapon";
+                            maxLevel: number;
+                            icon: string | null;
+                        }[];
+                        bonuses: {
+                            id: string;
+                            name: string;
+                            /** @enum {string} */
+                            kind: "set" | "group";
+                            icon: string | null;
+                            thresholds: {
+                                piecesRequired: number;
+                                effectName: string;
+                                level: number;
+                            }[];
+                        }[];
+                    };
+                };
             };
+        };
+    };
+    "getApiMh-wildsArmors": {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -266,10 +369,61 @@ export interface operations {
                     "application/json": {
                         id: string;
                         name: string;
-                        cleanName: string;
-                        type: string;
-                        maxLevel: number;
-                        icon: string | null;
+                        /** @enum {string} */
+                        type: "head" | "chest" | "arms" | "waist" | "legs" | "talisman";
+                        rank: string;
+                        rarity: number;
+                        defense: number;
+                        resistances: {
+                            fire: number;
+                            water: number;
+                            thunder: number;
+                            ice: number;
+                            dragon: number;
+                        };
+                        slots: number[];
+                        skills: {
+                            skillId: string;
+                            name: string;
+                            level: number;
+                        }[];
+                        bonuses: {
+                            bonusId: string;
+                            name: string;
+                            /** @enum {string} */
+                            kind: "set" | "group";
+                        }[];
+                    }[];
+                };
+            };
+        };
+    };
+    "getApiMh-wildsDecorations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        /** @enum {string} */
+                        type: "armor" | "weapon";
+                        slotSize: number;
+                        skills: {
+                            skillId: string;
+                            name: string;
+                            level: number;
+                        }[];
                     }[];
                 };
             };
@@ -393,12 +547,1100 @@ export interface operations {
             };
         };
     };
-    "getApiMh-wildsArmors": {
+    "getApiMh-wildsBuildsShared": {
         parameters: {
             query?: {
-                type?: "head" | "chest" | "arms" | "waist" | "legs" | "talisman";
-                name?: string;
+                limit?: number;
+                cursor?: string;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            id: string;
+                            name: string;
+                            description: string | null;
+                            isShared: boolean;
+                            sharedAt: string | null;
+                            revision: number;
+                            isStale: boolean;
+                            createdAt: string;
+                            updatedAt: string;
+                            owner: {
+                                displayName: string | null;
+                                avatarUrl: string | null;
+                            } | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    "getApiMh-wildsBuildsById": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        description: string | null;
+                        isShared: boolean;
+                        sharedAt: string | null;
+                        revision: number;
+                        isStale: boolean;
+                        createdAt: string;
+                        updatedAt: string;
+                        composition: {
+                            /** @constant */
+                            schemaVersion: 1;
+                            positions: {
+                                head: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                chest: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                arms: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                waist: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                legs: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                talisman: {
+                                    /** @enum {string} */
+                                    source: "custom" | "scraped";
+                                    talismanId: string;
+                                    name: string;
+                                    slots: {
+                                        /** @enum {string} */
+                                        type: "weapon" | "armor";
+                                        size: number;
+                                    }[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                            };
+                            skillDefinitions: {
+                                [key: string]: number;
+                            };
+                            bonusDefinitions: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    kind: "set" | "group";
+                                    thresholds: {
+                                        piecesRequired: number;
+                                        effectName: string;
+                                        level: number;
+                                    }[];
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "putApiMh-wildsBuildsById": {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+                "application/x-www-form-urlencoded": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+                "multipart/form-data": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        description: string | null;
+                        isShared: boolean;
+                        sharedAt: string | null;
+                        revision: number;
+                        isStale: boolean;
+                        createdAt: string;
+                        updatedAt: string;
+                        composition: {
+                            /** @constant */
+                            schemaVersion: 1;
+                            positions: {
+                                head: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                chest: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                arms: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                waist: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                legs: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                talisman: {
+                                    /** @enum {string} */
+                                    source: "custom" | "scraped";
+                                    talismanId: string;
+                                    name: string;
+                                    slots: {
+                                        /** @enum {string} */
+                                        type: "weapon" | "armor";
+                                        size: number;
+                                    }[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                            };
+                            skillDefinitions: {
+                                [key: string]: number;
+                            };
+                            bonusDefinitions: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    kind: "set" | "group";
+                                    thresholds: {
+                                        piecesRequired: number;
+                                        effectName: string;
+                                        level: number;
+                                    }[];
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "deleteApiMh-wildsBuildsById": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: never;
+    };
+    "patchApiMh-wildsBuildsById": {
+        parameters: {
+            query: {
+                revision: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string | null;
+                    isShared?: boolean;
+                };
+                "application/x-www-form-urlencoded": {
+                    name?: string;
+                    description?: string | null;
+                    isShared?: boolean;
+                };
+                "multipart/form-data": {
+                    name?: string;
+                    description?: string | null;
+                    isShared?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        description: string | null;
+                        isShared: boolean;
+                        sharedAt: string | null;
+                        revision: number;
+                        isStale: boolean;
+                        createdAt: string;
+                        updatedAt: string;
+                        composition: {
+                            /** @constant */
+                            schemaVersion: 1;
+                            positions: {
+                                head: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                chest: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                arms: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                waist: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                legs: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                talisman: {
+                                    /** @enum {string} */
+                                    source: "custom" | "scraped";
+                                    talismanId: string;
+                                    name: string;
+                                    slots: {
+                                        /** @enum {string} */
+                                        type: "weapon" | "armor";
+                                        size: number;
+                                    }[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                            };
+                            skillDefinitions: {
+                                [key: string]: number;
+                            };
+                            bonusDefinitions: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    kind: "set" | "group";
+                                    thresholds: {
+                                        piecesRequired: number;
+                                        effectName: string;
+                                        level: number;
+                                    }[];
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "getApiMh-wildsBuilds": {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -414,19 +1656,473 @@ export interface operations {
                     "application/json": {
                         id: string;
                         name: string;
-                        type: string;
-                        rank: string;
-                        rarity: number;
-                        defense: number;
-                        fireRes: number;
-                        waterRes: number;
-                        thunderRes: number;
-                        iceRes: number;
-                        dragonRes: number;
-                        slots: (string | number | boolean | null) | {
-                            [key: string]: unknown;
-                        } | unknown[];
+                        description: string | null;
+                        isShared: boolean;
+                        sharedAt: string | null;
+                        revision: number;
+                        isStale: boolean;
+                        createdAt: string;
+                        updatedAt: string;
+                        owner: {
+                            displayName: string | null;
+                            avatarUrl: string | null;
+                        } | null;
                     }[];
+                };
+            };
+        };
+    };
+    "postApiMh-wildsBuilds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+                "application/x-www-form-urlencoded": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+                "multipart/form-data": {
+                    name: string;
+                    description?: string | null;
+                    /** @default false */
+                    isShared?: boolean;
+                    composition: {
+                        head: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        chest: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        arms: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        waist: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        legs: {
+                            armorId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                        talisman: {
+                            /** @enum {string} */
+                            source: "custom" | "scraped";
+                            talismanId: string;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
+                        } | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        description: string | null;
+                        isShared: boolean;
+                        sharedAt: string | null;
+                        revision: number;
+                        isStale: boolean;
+                        createdAt: string;
+                        updatedAt: string;
+                        composition: {
+                            /** @constant */
+                            schemaVersion: 1;
+                            positions: {
+                                head: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                chest: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                arms: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                waist: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                legs: {
+                                    armorId: string;
+                                    name: string;
+                                    /** @enum {string} */
+                                    type: "head" | "chest" | "arms" | "waist" | "legs";
+                                    rank: string;
+                                    rarity: number;
+                                    defense: number;
+                                    resistances: {
+                                        fire: number;
+                                        water: number;
+                                        thunder: number;
+                                        ice: number;
+                                        dragon: number;
+                                    };
+                                    slots: number[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                                talisman: {
+                                    /** @enum {string} */
+                                    source: "custom" | "scraped";
+                                    talismanId: string;
+                                    name: string;
+                                    slots: {
+                                        /** @enum {string} */
+                                        type: "weapon" | "armor";
+                                        size: number;
+                                    }[];
+                                    skills: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    bonuses: {
+                                        bonusId: string;
+                                        name: string;
+                                        /** @enum {string} */
+                                        kind: "set" | "group";
+                                    }[];
+                                    decorations: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
+                                } | null;
+                            };
+                            skillDefinitions: {
+                                [key: string]: number;
+                            };
+                            bonusDefinitions: {
+                                [key: string]: {
+                                    /** @enum {string} */
+                                    kind: "set" | "group";
+                                    thresholds: {
+                                        piecesRequired: number;
+                                        effectName: string;
+                                        level: number;
+                                    }[];
+                                };
+                            };
+                        };
+                    };
                 };
             };
         };

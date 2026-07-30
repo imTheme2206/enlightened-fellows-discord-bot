@@ -13,7 +13,7 @@ import {
   sharedListQuerySchema,
 } from "../../domains/set-builder/schema"
 import { SetBuilderService } from "../../domains/set-builder/service"
-import { verifyDiscordId } from "../middleware/user-auth-guard"
+import { verifyIdentity } from "../middleware/user-auth-guard"
 
 /**
  * `/api/mh-wilds/builds` — Set Builder Saved Build API (design doc §HTTP surface).
@@ -81,21 +81,25 @@ export const buildsPublicRoutes = new Elysia({ tags: ["mh-wilds"] })
 export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
   .onError(({ error, code, set }) => domainErrorResponse(error, code, set))
   .resolve(async ({ request, status }) => {
-    const discordId = await verifyDiscordId(
-      request.headers.get("authorization"),
-    )
-    if (!discordId)
+    const identity = await verifyIdentity(request.headers.get("authorization"))
+    if (!identity)
       return status(401, {
         error: { code: "UNAUTHORIZED", message: "Authentication is required." },
       })
-    return { discordId }
+    return {
+      discordId: identity.discordId,
+      owner: {
+        displayName: identity.displayName,
+        avatarUrl: identity.avatarUrl,
+      },
+    }
   })
   .get("/builds", ({ discordId }) => SetBuilderService.listOwned(discordId), {
     response: z.array(buildSummarySchema),
   })
   .post(
     "/builds",
-    ({ discordId, body, request }) => {
+    ({ discordId, owner, body, request }) => {
       const idempotencyKey = request.headers.get(IDEMPOTENCY_HEADER)
       if (
         !idempotencyKey ||
@@ -103,14 +107,20 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
       ) {
         throw new SetBuilderError("IDEMPOTENCY_KEY_REQUIRED")
       }
-      return SetBuilderService.create(discordId, body, idempotencyKey)
+      return SetBuilderService.create(discordId, body, idempotencyKey, owner)
     },
     { body: saveBuildRequestSchema, response: { 200: buildResponseSchema } },
   )
   .put(
     "/builds/:id",
-    ({ discordId, params, body, query }) =>
-      SetBuilderService.replace(discordId, params.id, body, query.revision),
+    ({ discordId, owner, params, body, query }) =>
+      SetBuilderService.replace(
+        discordId,
+        params.id,
+        body,
+        query.revision,
+        owner,
+      ),
     {
       params: buildParamsSchema,
       query: revisionQuerySchema,
@@ -120,12 +130,13 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
   )
   .patch(
     "/builds/:id",
-    ({ discordId, params, body, query }) =>
+    ({ discordId, owner, params, body, query }) =>
       SetBuilderService.updateMetadata(
         discordId,
         params.id,
         body,
         query.revision,
+        owner,
       ),
     {
       params: buildParamsSchema,

@@ -165,6 +165,24 @@ export type SnapshotDecoration = z.infer<typeof snapshotDecorationSchema>
 
 // ── Build response ───────────────────────────────────────────────────────────
 
+/**
+ * The build owner's Discord identity, denormalized at save time. Attached to
+ * listing summaries only (never the anonymous UUID read). Both fields are
+ * best-effort: an older row or a token missing the OAuth claims yields nulls.
+ */
+export const buildOwnerSchema = z.object({
+  displayName: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+})
+export type BuildOwner = z.infer<typeof buildOwnerSchema>
+
+/**
+ * The owner identity an owner-write carries, to denormalize onto the row. The
+ * caller supplies the two display fields; `userId` remains a separate argument
+ * since it also scopes ownership.
+ */
+export type BuildOwnerInput = BuildOwner
+
 /** Full Build — identical for owners and anonymous UUID readers; no owner identity. */
 export const buildResponseSchema = z.object({
   id: z.string(),
@@ -180,10 +198,14 @@ export const buildResponseSchema = z.object({
 })
 export type BuildResponse = z.infer<typeof buildResponseSchema>
 
-/** List summaries omit the composition; only UUID detail returns the full snapshot. */
-export const buildSummarySchema = buildResponseSchema.omit({
-  composition: true,
-})
+/**
+ * List summaries omit the composition; only UUID detail returns the full
+ * snapshot. Unlike the detail read, a summary carries the `owner` so the Shared
+ * Build gallery (and the owner's own list) can attribute each build.
+ */
+export const buildSummarySchema = buildResponseSchema
+  .omit({ composition: true })
+  .extend({ owner: buildOwnerSchema.nullable() })
 export type BuildSummary = z.infer<typeof buildSummarySchema>
 
 /** Cursor-paginated Shared Build listing; `nextCursor` is null on the last page. */

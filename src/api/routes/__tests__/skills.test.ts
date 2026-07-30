@@ -11,12 +11,14 @@ vi.mock('../../../domains/mh-wilds-catalog/service', () => ({
 const { skillsRoutes } = await import('../skills')
 
 const sample: SkillCatalogResponse = {
-  skills: [{ id: 'skl_1', name: 'Attack Boost', kind: 'armor', maxLevel: 5 }],
+  skills: [{ id: 'skl_1', name: 'Attack Boost', kind: 'armor', maxLevel: 5, icon: 'offense' }],
   bonuses: [
     {
       id: 'bns_1',
       name: "Gore's Tyranny",
       kind: 'set',
+      // MHDB omits icons for some bonuses — null must survive the contract.
+      icon: null,
       thresholds: [
         { piecesRequired: 2, effectName: 'Antivirus', level: 1 },
         { piecesRequired: 4, effectName: 'Antivirus', level: 2 },

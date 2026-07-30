@@ -58,6 +58,8 @@ export const skillCatalogEntrySchema = z.object({
   name: z.string(),
   kind: z.enum(['armor', 'weapon']),
   maxLevel: z.number(),
+  /** Raw MHDB icon category, e.g. 'offense'. Null when MHDB omitted it. */
+  icon: z.string().nullable(),
 })
 
 export const bonusThresholdSchema = z.object({
@@ -70,6 +72,8 @@ export const bonusCatalogEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
   kind: z.enum(['set', 'group']),
+  /** Raw MHDB icon category, e.g. 'offense'. Null when MHDB omitted it. */
+  icon: z.string().nullable(),
   thresholds: z.array(bonusThresholdSchema),
 })
 

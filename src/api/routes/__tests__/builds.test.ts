@@ -11,10 +11,11 @@ const service = {
   updateMetadata: vi.fn(),
   remove: vi.fn(),
 }
-const verifyDiscordId = vi.fn<(h: string | null) => Promise<string | null>>()
+type Identity = { discordId: string; displayName: string | null; avatarUrl: string | null }
+const verifyIdentity = vi.fn<(h: string | null) => Promise<Identity | null>>()
 
 vi.mock('../../../domains/set-builder/service', () => ({ SetBuilderService: service }))
-vi.mock('../../middleware/user-auth-guard', () => ({ verifyDiscordId: (h: string | null) => verifyDiscordId(h) }))
+vi.mock('../../middleware/user-auth-guard', () => ({ verifyIdentity: (h: string | null) => verifyIdentity(h) }))
 
 // Imported after the mocks so the routes pick up the mocked service + guard.
 const { buildsPublicRoutes, buildsOwnerRoutes } = await import('../builds')
@@ -47,7 +48,11 @@ const summary: BuildSummary = {
   isStale: build.isStale,
   createdAt: build.createdAt,
   updatedAt: build.updatedAt,
+  owner: { displayName: 'Ada', avatarUrl: 'https://cdn.discordapp.com/avatars/1/h.png' },
 }
+
+const IDENTITY: Identity = { discordId: 'user-1', displayName: 'Ada', avatarUrl: 'https://cdn.discordapp.com/avatars/1/h.png' }
+const OWNER = { displayName: IDENTITY.displayName, avatarUrl: IDENTITY.avatarUrl }
 
 const AUTH = 'Bearer good'
 const UUID = '11111111-1111-4111-8111-111111111111'
@@ -63,7 +68,7 @@ const validSave = { name: 'X', isShared: false, composition: emptySnapshot.posit
 
 beforeEach(() => {
   vi.clearAllMocks()
-  verifyDiscordId.mockResolvedValue(null)
+  verifyIdentity.mockResolvedValue(null)
 })
 
 describe('public build reads', () => {
@@ -110,7 +115,7 @@ describe('owner routes require a JWT', () => {
   })
 
   it('GET /builds returns owner summaries with a valid token', async () => {
-    verifyDiscordId.mockResolvedValue('user-1')
+    verifyIdentity.mockResolvedValue(IDENTITY)
     service.listOwned.mockResolvedValue([summary])
     const res = await ownerReq('/builds', { headers: { authorization: AUTH } })
     expect(res.status).toBe(200)
@@ -119,7 +124,7 @@ describe('owner routes require a JWT', () => {
 })
 
 describe('POST /builds', () => {
-  beforeEach(() => verifyDiscordId.mockResolvedValue('user-1'))
+  beforeEach(() => verifyIdentity.mockResolvedValue(IDENTITY))
 
   it('rejects a missing Idempotency-Key with 400', async () => {
     const res = await ownerReq('/builds', jsonInit('POST', validSave, { authorization: AUTH }))
@@ -136,7 +141,7 @@ describe('POST /builds', () => {
     service.create.mockResolvedValue(build)
     const res = await ownerReq('/builds', jsonInit('POST', validSave, { authorization: AUTH, 'idempotency-key': UUID }))
     expect(res.status).toBe(200)
-    expect(service.create).toHaveBeenCalledWith('user-1', expect.objectContaining({ name: 'X' }), UUID)
+    expect(service.create).toHaveBeenCalledWith('user-1', expect.objectContaining({ name: 'X' }), UUID, OWNER)
   })
 
   it('maps a malformed body to 400', async () => {
@@ -152,13 +157,13 @@ describe('POST /builds', () => {
 })
 
 describe('owner mutations', () => {
-  beforeEach(() => verifyDiscordId.mockResolvedValue('user-1'))
+  beforeEach(() => verifyIdentity.mockResolvedValue(IDENTITY))
 
   it('PUT forwards the ?revision to the service', async () => {
     service.replace.mockResolvedValue({ ...build, revision: 3 })
     const res = await ownerReq('/builds/b1?revision=2', jsonInit('PUT', validSave, { authorization: AUTH }))
     expect(res.status).toBe(200)
-    expect(service.replace).toHaveBeenCalledWith('user-1', 'b1', expect.any(Object), 2)
+    expect(service.replace).toHaveBeenCalledWith('user-1', 'b1', expect.any(Object), 2, OWNER)
   })
 
   it('PATCH forwards metadata + revision and maps REVISION_CONFLICT to 409', async () => {

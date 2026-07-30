@@ -211,6 +211,12 @@ export const customTalisman = pgTable(
  * different content. Indexes cover owner ordering (`updated_at DESC, id`) and the
  * shared listing cursor (`is_shared, shared_at DESC, id`). See the design doc
  * §Persistence.
+ *
+ * `owner_display_name` / `owner_avatar_url` denormalize the owner's Discord
+ * identity (username + CDN avatar URL) captured from the Supabase JWT on each
+ * owner write, so the Shared Build gallery can attribute a build without a live
+ * Discord lookup. They are nullable: legacy rows and any token missing the
+ * claims leave them null (ADR-0003).
  */
 export const savedBuild = pgTable(
   "saved_build",
@@ -218,6 +224,8 @@ export const savedBuild = pgTable(
     id: text("id").primaryKey(),
     // Discord snowflake — intentionally text, not a FK to auth.users (see ADR-0003).
     userId: text("user_id").notNull(),
+    ownerDisplayName: text("owner_display_name"),
+    ownerAvatarUrl: text("owner_avatar_url"),
     name: text("name").notNull(),
     description: text("description"),
     isShared: boolean("is_shared").notNull().default(false),

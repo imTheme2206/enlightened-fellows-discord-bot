@@ -110,6 +110,8 @@ export abstract class SetBuilderRepository {
       description: string | null
       isShared: boolean
       sharedAt: Date | null
+      ownerDisplayName: string | null
+      ownerAvatarUrl: string | null
       composition: unknown
     },
   ): Promise<SavedBuild | undefined> {
@@ -131,6 +133,8 @@ export abstract class SetBuilderRepository {
       description: string | null
       isShared: boolean
       sharedAt: Date | null
+      ownerDisplayName: string | null
+      ownerAvatarUrl: string | null
     },
   ): Promise<SavedBuild | undefined> {
     const [row] = await db

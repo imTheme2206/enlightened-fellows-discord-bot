@@ -11,6 +11,7 @@ import { SetBuilderRepository, type SharedCursor } from "./repository"
 import {
   MAX_SAVED_BUILDS_PER_USER,
   MAX_SHARED_BUILDS_PER_USER,
+  type BuildOwnerInput,
   type BuildResponse,
   type BuildSnapshot,
   type BuildSummary,
@@ -35,6 +36,7 @@ export abstract class SetBuilderService {
     userId: string,
     request: SaveBuildRequest,
     idempotencyKey: string,
+    owner: BuildOwnerInput,
   ): Promise<BuildResponse> {
     const payloadHash = hashPayload(request)
 
@@ -55,6 +57,8 @@ export abstract class SetBuilderService {
       const inserted = await SetBuilderRepository.insert({
         id: randomUUID(),
         userId,
+        ownerDisplayName: owner.displayName,
+        ownerAvatarUrl: owner.avatarUrl,
         name: request.name,
         description: request.description ?? null,
         isShared: request.isShared,
@@ -89,7 +93,7 @@ export abstract class SetBuilderService {
   static async listOwned(userId: string): Promise<BuildSummary[]> {
     const rows = await SetBuilderRepository.findByOwner(userId)
     const responses = await this.withStaleness(rows)
-    return responses.map(toSummary)
+    return responses.map((r, i) => toSummary(r, rows[i]))
   }
 
   static async listShared(
@@ -98,7 +102,7 @@ export abstract class SetBuilderService {
   ): Promise<BuildSummary[]> {
     const rows = await SetBuilderRepository.findShared(limit, cursor)
     const responses = await this.withStaleness(rows)
-    return responses.map(toSummary)
+    return responses.map((r, i) => toSummary(r, rows[i]))
   }
 
   static async replace(
@@ -106,6 +110,7 @@ export abstract class SetBuilderService {
     id: string,
     request: SaveBuildRequest,
     expectedRevision: number,
+    owner: BuildOwnerInput,
   ): Promise<BuildResponse> {
     const existing = await this.loadOwnedAtRevision(
       userId,
@@ -131,6 +136,8 @@ export abstract class SetBuilderService {
         description: request.description ?? null,
         isShared: sharing.isShared,
         sharedAt: sharing.sharedAt,
+        ownerDisplayName: owner.displayName,
+        ownerAvatarUrl: owner.avatarUrl,
         composition: snapshot,
       },
     )
@@ -144,6 +151,7 @@ export abstract class SetBuilderService {
     id: string,
     patch: PatchBuildRequest,
     expectedRevision: number,
+    owner: BuildOwnerInput,
   ): Promise<BuildResponse> {
     const existing = await this.loadOwnedAtRevision(
       userId,
@@ -166,6 +174,8 @@ export abstract class SetBuilderService {
             : existing.description,
         isShared: sharing.isShared,
         sharedAt: sharing.sharedAt,
+        ownerDisplayName: owner.displayName,
+        ownerAvatarUrl: owner.avatarUrl,
       },
     )
     if (!updated) await this.throwMutationFailure(userId, id, expectedRevision)
@@ -388,7 +398,7 @@ function toResponse(row: SavedBuild, isStale: boolean): BuildResponse {
   }
 }
 
-function toSummary(response: BuildResponse): BuildSummary {
+function toSummary(response: BuildResponse, row: SavedBuild): BuildSummary {
   return {
     id: response.id,
     name: response.name,
@@ -399,5 +409,9 @@ function toSummary(response: BuildResponse): BuildSummary {
     isStale: response.isStale,
     createdAt: response.createdAt,
     updatedAt: response.updatedAt,
+    owner:
+      row.ownerDisplayName !== null || row.ownerAvatarUrl !== null
+        ? { displayName: row.ownerDisplayName, avatarUrl: row.ownerAvatarUrl }
+        : null,
   }
 }

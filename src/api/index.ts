@@ -12,8 +12,10 @@ export async function startServer(): Promise<void> {
       const origin = request.headers.get('origin')
       set.headers['access-control-allow-origin'] =
         corsOrigin === '*' ? '*' : (origin ?? corsOrigin)
-      set.headers['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-      set.headers['access-control-allow-headers'] = 'Content-Type, Authorization'
+      set.headers['access-control-allow-methods'] =
+        'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+      set.headers['access-control-allow-headers'] =
+        'Content-Type, Authorization, Idempotency-Key'
     })
     .options('/*', ({ set }) => {
       set.status = 204
