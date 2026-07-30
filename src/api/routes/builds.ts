@@ -6,6 +6,7 @@ import {
   buildParamsSchema,
   buildResponseSchema,
   buildSummarySchema,
+  importBuildRequestSchema,
   patchBuildRequestSchema,
   revisionQuerySchema,
   saveBuildRequestSchema,
@@ -110,6 +111,25 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
       return SetBuilderService.create(discordId, body, idempotencyKey, owner)
     },
     { body: saveBuildRequestSchema, response: { 200: buildResponseSchema } },
+  )
+  .post(
+    "/builds/import",
+    ({ discordId, owner, body, request }) => {
+      const idempotencyKey = request.headers.get(IDEMPOTENCY_HEADER)
+      if (
+        !idempotencyKey ||
+        !z.string().uuid().safeParse(idempotencyKey).success
+      ) {
+        throw new SetBuilderError("IDEMPOTENCY_KEY_REQUIRED")
+      }
+      return SetBuilderService.importFromOptimizer(
+        discordId,
+        body,
+        owner,
+        idempotencyKey,
+      )
+    },
+    { body: importBuildRequestSchema, response: { 200: buildResponseSchema } },
   )
   .put(
     "/builds/:id",

@@ -232,4 +232,80 @@ describe("validateSaveComposition", () => {
       "DECORATION_SLOT_TYPE_MISMATCH",
     )
   })
+
+  // ── weapon bonus contribution ───────────────────────────────────────────────
+
+  it("accepts a weapon contributing both a Set and a Group Bonus", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+    })
+    expect(() => validateSaveComposition(request, view)).not.toThrow()
+  })
+
+  it("accepts a weapon contributing only a Set Bonus", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-set", groupBonusId: null },
+    })
+    expect(() => validateSaveComposition(request, view)).not.toThrow()
+  })
+
+  it("accepts a weapon contributing only a Group Bonus", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: null, groupBonusId: "bn-group" },
+    })
+    expect(() => validateSaveComposition(request, view)).not.toThrow()
+  })
+
+  it("accepts a null weapon (no contribution)", () => {
+    const view = makeView()
+    const request = makeRequest({ weapon: null })
+    expect(() => validateSaveComposition(request, view)).not.toThrow()
+  })
+
+  it("rejects an unknown weapon set-bonus reference", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "nope", groupBonusId: null },
+    })
+    expectCode(
+      () => validateSaveComposition(request, view),
+      "WEAPON_BONUS_NOT_FOUND",
+    )
+  })
+
+  it("rejects an unknown weapon group-bonus reference", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: null, groupBonusId: "nope" },
+    })
+    expectCode(
+      () => validateSaveComposition(request, view),
+      "WEAPON_BONUS_NOT_FOUND",
+    )
+  })
+
+  it("rejects a Group Bonus id supplied as the weapon's set-bonus slot", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-group", groupBonusId: null },
+    })
+    expectCode(
+      () => validateSaveComposition(request, view),
+      "WEAPON_BONUS_KIND_MISMATCH",
+    )
+  })
+
+  it("rejects a Set Bonus id supplied as the weapon's group-bonus slot", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: null, groupBonusId: "bn-set" },
+    })
+    expectCode(
+      () => validateSaveComposition(request, view),
+      "WEAPON_BONUS_KIND_MISMATCH",
+    )
+  })
 })

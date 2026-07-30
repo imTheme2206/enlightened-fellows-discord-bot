@@ -7,6 +7,7 @@ import { TalismanRepository } from "../talismans/repository"
 import { buildCatalogView, type CatalogView } from "./catalog-view"
 import { canonicalizeSaveComposition } from "./canonicalize"
 import { SetBuilderError } from "./errors"
+import { buildImportComposition } from "./import"
 import { SetBuilderRepository, type SharedCursor } from "./repository"
 import {
   MAX_SAVED_BUILDS_PER_USER,
@@ -16,6 +17,7 @@ import {
   type BuildSnapshot,
   type BuildSummary,
   type CompositionRequest,
+  type ImportBuildRequest,
   type PatchBuildRequest,
   type SaveBuildRequest,
 } from "./schema"
@@ -81,6 +83,44 @@ export abstract class SetBuilderService {
       }
       throw err
     }
+  }
+
+  /**
+   * Imports a Set Search optimizer result as a new saved Build (design doc
+   * §Import). Resolves the result's armor/decoration *names* and the weapon's
+   * bonus *names* against the live catalog (plus the owner's custom talismans)
+   * into the same `CompositionRequest` a manual Save would submit, then
+   * delegates to `create()` — so idempotency, per-owner limits, canonicalization,
+   * and snapshot construction all run exactly once, in one place.
+   */
+  static async importFromOptimizer(
+    userId: string,
+    body: ImportBuildRequest,
+    owner: BuildOwnerInput,
+    idempotencyKey: string,
+  ): Promise<BuildResponse> {
+    const [armors, decorations, skills, ownerCustomTalismans] =
+      await Promise.all([
+        CatalogService.getArmors(),
+        CatalogService.getDecorations(),
+        CatalogService.getSkills(),
+        TalismanRepository.findByUser(userId),
+      ])
+
+    const composition = buildImportComposition(
+      body,
+      { armors, decorations, bonuses: skills.bonuses },
+      ownerCustomTalismans,
+    )
+
+    const request: SaveBuildRequest = {
+      name: body.name,
+      description: body.description ?? null,
+      isShared: body.isShared,
+      composition,
+    }
+
+    return this.create(userId, request, idempotencyKey, owner)
   }
 
   static async get(id: string): Promise<BuildResponse> {

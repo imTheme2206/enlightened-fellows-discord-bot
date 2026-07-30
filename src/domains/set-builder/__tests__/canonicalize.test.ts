@@ -50,6 +50,7 @@ describe("canonicalizeSaveComposition", () => {
       waist: null,
       legs: null,
       talisman: null,
+      weapon: null,
     })
   })
 
@@ -159,6 +160,55 @@ describe("canonicalizeSaveComposition", () => {
     expect(head.defense).toBe(40)
     expect(head.name).toBe("Test Helm")
     expect(head.skills).toEqual([{ skillId: "sk-attack", name: "Attack Boost", level: 2 }])
+  })
+
+  // ── weapon bonus contribution ───────────────────────────────────────────────
+
+  it("canonicalizes a weapon's Set + Group Bonus contribution into the snapshot and bonusDefinitions", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+    })
+
+    const snapshot = canonicalizeSaveComposition(request, view)
+
+    expect(() => buildSnapshotSchema.parse(snapshot)).not.toThrow()
+    expect(snapshot.positions.weapon).toEqual({
+      setBonus: { bonusId: "bn-set", name: "Example Set", kind: "set" },
+      groupBonus: { bonusId: "bn-group", name: "Example Group", kind: "group" },
+    })
+    expect(snapshot.bonusDefinitions["Example Set"].kind).toBe("set")
+    expect(snapshot.bonusDefinitions["Example Group"].kind).toBe("group")
+  })
+
+  it("a weapon contributing a Group Bonus in the Set slot -> WEAPON_BONUS_KIND_MISMATCH, no snapshot constructed", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-group", groupBonusId: null },
+    })
+    expectCode(
+      () => canonicalizeSaveComposition(request, view),
+      "WEAPON_BONUS_KIND_MISMATCH",
+    )
+  })
+
+  it("an unknown weapon bonus reference -> WEAPON_BONUS_NOT_FOUND", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "nope", groupBonusId: null },
+    })
+    expectCode(
+      () => canonicalizeSaveComposition(request, view),
+      "WEAPON_BONUS_NOT_FOUND",
+    )
+  })
+
+  it("a null weapon canonicalizes with a null weapon position and contributes nothing", () => {
+    const view = makeView()
+    const request = makeRequest({ weapon: null })
+    const snapshot = canonicalizeSaveComposition(request, view)
+    expect(snapshot.positions.weapon).toBeNull()
+    expect(snapshot.bonusDefinitions).toEqual({})
   })
 
   it("validation runs before snapshot construction: an invalid composition never reaches buildSnapshot", () => {

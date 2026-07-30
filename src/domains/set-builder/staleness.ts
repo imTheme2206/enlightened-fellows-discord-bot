@@ -5,8 +5,10 @@ import type {
 import type {
   BuildSnapshot,
   SnapshotArmorPiece,
+  SnapshotBonus,
   SnapshotDecoration,
   SnapshotTalisman,
+  SnapshotWeapon,
 } from "./schema"
 
 /**
@@ -132,6 +134,27 @@ function isTalismanStale(
   return talisman.decorations.some((d) => isDecorationStale(d, catalog))
 }
 
+function isWeaponBonusStale(
+  bonus: SnapshotBonus | null,
+  catalog: StalenessCatalog,
+): boolean {
+  if (!bonus) return false
+  const current = catalog.bonusesByName.get(bonus.name)
+  // Deeper drift (kind/thresholds) is re-checked generically below via
+  // `bonusDefinitions`; here we only need "does it still exist by name".
+  return !current
+}
+
+function isWeaponStale(
+  weapon: SnapshotWeapon,
+  catalog: StalenessCatalog,
+): boolean {
+  return (
+    isWeaponBonusStale(weapon.setBonus, catalog) ||
+    isWeaponBonusStale(weapon.groupBonus, catalog)
+  )
+}
+
 // ── entry point ────────────────────────────────────────────────────────────────
 
 export function deriveStaleness(
@@ -146,6 +169,7 @@ export function deriveStaleness(
   }
   if (positions.talisman && isTalismanStale(positions.talisman, catalog))
     return true
+  if (positions.weapon && isWeaponStale(positions.weapon, catalog)) return true
 
   for (const [name, maxLevel] of Object.entries(skillDefinitions)) {
     if (catalog.skillMaxByName.get(name) !== maxLevel) return true

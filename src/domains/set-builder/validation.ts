@@ -14,7 +14,8 @@ import type { CompositionRequest, SaveBuildRequest } from "./schema"
  *   - a custom talisman was resolved for the authenticated owner;
  *   - each decoration targets one existing slot index at most once;
  *   - decoration armor/weapon type matches the slot type;
- *   - the slot is at least the decoration's required size.
+ *   - the slot is at least the decoration's required size;
+ *   - a weapon's Set/Group Bonus references resolve and match their slot's kind.
  *
  * Per-user save/share limits and idempotency are enforced in the service layer,
  * which needs live counts. Missing pieces and empty slots are valid; duplicate
@@ -81,6 +82,53 @@ function validateDecorations(
   }
 }
 
+/**
+ * A weapon's bonus references are resolved against the shared bonus catalog, each
+ * independently, and each must resolve to the kind matching its slot: `setBonusId`
+ * to a Set Bonus, `groupBonusId` to a Group Bonus. A weapon has no slots or
+ * decorations of its own to validate.
+ */
+function validateWeapon(
+  weapon: CompositionRequest["weapon"],
+  view: CatalogView,
+): void {
+  if (!weapon) return
+
+  if (weapon.setBonusId !== null) {
+    const bonus = view.bonusesById.get(weapon.setBonusId)
+    if (!bonus) {
+      throw new SetBuilderError("WEAPON_BONUS_NOT_FOUND", {
+        slot: "set",
+        bonusId: weapon.setBonusId,
+      })
+    }
+    if (bonus.kind !== "set") {
+      throw new SetBuilderError("WEAPON_BONUS_KIND_MISMATCH", {
+        slot: "set",
+        bonusId: weapon.setBonusId,
+        actualKind: bonus.kind,
+      })
+    }
+  }
+
+  if (weapon.groupBonusId !== null) {
+    const bonus = view.bonusesById.get(weapon.groupBonusId)
+    if (!bonus) {
+      throw new SetBuilderError("WEAPON_BONUS_NOT_FOUND", {
+        slot: "group",
+        bonusId: weapon.groupBonusId,
+      })
+    }
+    if (bonus.kind !== "group") {
+      throw new SetBuilderError("WEAPON_BONUS_KIND_MISMATCH", {
+        slot: "group",
+        bonusId: weapon.groupBonusId,
+        actualKind: bonus.kind,
+      })
+    }
+  }
+}
+
 export function validateSaveComposition(
   request: SaveBuildRequest,
   view: CatalogView,
@@ -108,6 +156,8 @@ export function validateSaveComposition(
     const slots: Slot[] = armor.slots.map((size) => ({ type: "armor", size }))
     validateDecorations(position, selection.decorations, slots, view)
   }
+
+  validateWeapon(composition.weapon, view)
 
   const talisman = composition.talisman
   if (!talisman) return

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { bonusThresholdSchema } from "../mh-wilds-catalog/schema"
+import { searchResultSchema } from "../set-search/schema"
 
 /**
  * Set Builder wire contracts (design doc §Save request / §Build representation).
@@ -35,7 +36,19 @@ const talismanSelectionSchema = z.object({
   decorations: z.array(decorationAssignmentSchema).default([]),
 })
 
-/** All six position keys are required; `null` denotes an empty position. */
+/**
+ * A weapon contributes only a Set Bonus and/or Group Bonus reference — no weapon
+ * item, decoration slots, base stats, or (armor-type) skills — mirroring what the
+ * Set Search optimizer's "gogma weapon" contribution already does (CONTEXT.md;
+ * `search-set/state.ts` `gogmaSkills`). Each bonus reference is independently
+ * optional; the whole weapon key is nullable to denote no weapon contribution.
+ */
+const weaponSelectionSchema = z.object({
+  setBonusId: z.string().min(1).nullable(),
+  groupBonusId: z.string().min(1).nullable(),
+})
+
+/** All seven position keys are required; `null` denotes an empty position. */
 const compositionRequestSchema = z.object({
   head: armorSelectionSchema.nullable(),
   chest: armorSelectionSchema.nullable(),
@@ -43,6 +56,7 @@ const compositionRequestSchema = z.object({
   waist: armorSelectionSchema.nullable(),
   legs: armorSelectionSchema.nullable(),
   talisman: talismanSelectionSchema.nullable(),
+  weapon: weaponSelectionSchema.nullable(),
 })
 export type CompositionRequest = z.infer<typeof compositionRequestSchema>
 
@@ -75,6 +89,27 @@ export const patchBuildRequestSchema = z
   })
   .partial()
 export type PatchBuildRequest = z.infer<typeof patchBuildRequestSchema>
+
+/**
+ * `POST /builds/import` — imports one Set Search optimizer result into a saved
+ * Build. `result` reuses `searchResultSchema` (`set-search/schema.ts`) as-is: it
+ * is already the shared, versionless API contract for a search result (ADR-0001),
+ * so referencing it here is the same kind of cross-domain boundary as the
+ * catalog's shared DTOs rather than a new coupling. `weapon` carries the
+ * optimizer's "gogma weapon" Set/Group Bonus contribution by *name* (the result
+ * has no ids); the service resolves each against the bonus catalog.
+ */
+export const importBuildRequestSchema = z.object({
+  result: searchResultSchema,
+  weapon: z.object({
+    setBonus: z.string().nullable(),
+    groupBonus: z.string().nullable(),
+  }),
+  name: z.string().trim().min(1).max(MAX_BUILD_NAME_LENGTH),
+  description: z.string().max(MAX_BUILD_DESCRIPTION_LENGTH).nullish(),
+  isShared: z.boolean().default(false),
+})
+export type ImportBuildRequest = z.infer<typeof importBuildRequestSchema>
 
 // ── Snapshot (backend-constructed `composition`) ─────────────────────────────
 
@@ -137,6 +172,16 @@ const snapshotTalismanSchema = z.object({
   decorations: z.array(snapshotDecorationSchema),
 })
 
+/**
+ * The weapon's resolved bonus contribution, mirroring the request 1:1: each of
+ * the two bonus slots is independently nullable. Unlike other positions, a
+ * weapon has no id/name of its own — it is nothing but this pair of bonuses.
+ */
+const snapshotWeaponSchema = z.object({
+  setBonus: snapshotBonusSchema.nullable(),
+  groupBonus: snapshotBonusSchema.nullable(),
+})
+
 export const buildSnapshotSchema = z.object({
   schemaVersion: z.literal(1),
   positions: z.object({
@@ -146,6 +191,7 @@ export const buildSnapshotSchema = z.object({
     waist: snapshotArmorPieceSchema.nullable(),
     legs: snapshotArmorPieceSchema.nullable(),
     talisman: snapshotTalismanSchema.nullable(),
+    weapon: snapshotWeaponSchema.nullable(),
   }),
   /** Every referenced Skill: name → its maximum level, for effective-level capping. */
   skillDefinitions: z.record(z.string(), z.number()),
@@ -161,7 +207,9 @@ export const buildSnapshotSchema = z.object({
 export type BuildSnapshot = z.infer<typeof buildSnapshotSchema>
 export type SnapshotArmorPiece = z.infer<typeof snapshotArmorPieceSchema>
 export type SnapshotTalisman = z.infer<typeof snapshotTalismanSchema>
+export type SnapshotWeapon = z.infer<typeof snapshotWeaponSchema>
 export type SnapshotDecoration = z.infer<typeof snapshotDecorationSchema>
+export type SnapshotBonus = z.infer<typeof snapshotBonusSchema>
 
 // ── Build response ───────────────────────────────────────────────────────────
 

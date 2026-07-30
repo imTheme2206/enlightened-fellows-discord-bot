@@ -82,6 +82,41 @@ describe("deriveStaleness", () => {
     expect(deriveStaleness(sampleSnapshot(), catalog)).toBe(true)
   })
 
+  it("is not stale when a weapon's bonuses still exist in the catalog", () => {
+    const snapshot = buildSnapshot(
+      makeRequest({
+        weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+      }),
+      makeView(),
+    )
+    expect(deriveStaleness(snapshot, freshCatalog())).toBe(false)
+  })
+
+  it("is stale when a weapon's referenced bonus is retired from the catalog", () => {
+    const snapshot = buildSnapshot(
+      makeRequest({
+        weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+      }),
+      makeView(),
+    )
+    const catalog = freshCatalog()
+    catalog.bonusesByName.delete("Example Group")
+    expect(deriveStaleness(snapshot, catalog)).toBe(true)
+  })
+
+  it("is stale when a weapon's referenced bonus threshold changes", () => {
+    const snapshot = buildSnapshot(
+      makeRequest({ weapon: { setBonusId: "bn-set", groupBonusId: null } }),
+      makeView(),
+    )
+    const catalog = freshCatalog()
+    catalog.bonusesByName.set("Example Set", {
+      kind: "set",
+      thresholds: [{ piecesRequired: 3, effectName: "Changed", level: 1 }],
+    })
+    expect(deriveStaleness(snapshot, catalog)).toBe(true)
+  })
+
   it("is stale when a scraped talisman is retired", () => {
     const snapshot = buildSnapshot(
       makeRequest({

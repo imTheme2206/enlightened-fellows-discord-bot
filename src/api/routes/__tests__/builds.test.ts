@@ -4,6 +4,7 @@ import type { BuildResponse, BuildSummary } from '../../../domains/set-builder/s
 
 const service = {
   create: vi.fn(),
+  importFromOptimizer: vi.fn(),
   get: vi.fn(),
   listOwned: vi.fn(),
   listShared: vi.fn(),
@@ -22,7 +23,7 @@ const { buildsPublicRoutes, buildsOwnerRoutes } = await import('../builds')
 
 const emptySnapshot = {
   schemaVersion: 1 as const,
-  positions: { head: null, chest: null, arms: null, waist: null, legs: null, talisman: null },
+  positions: { head: null, chest: null, arms: null, waist: null, legs: null, talisman: null, weapon: null },
   skillDefinitions: {},
   bonusDefinitions: {},
 }
@@ -65,6 +66,24 @@ const jsonInit = (method: string, body: unknown, headers: Record<string, string>
   body: JSON.stringify(body),
 })
 const validSave = { name: 'X', isShared: false, composition: emptySnapshot.positions }
+
+const validImport = {
+  result: {
+    armorNames: ['', '', '', '', '', ''],
+    rarities: [0, 0, 0, 0, 0, 0],
+    skills: {},
+    setSkills: {},
+    groupSkills: {},
+    decoNames: [],
+    freeSlots: [],
+    slots: [],
+    defense: 0,
+    elementalDefenses: { fire: 0, water: 0, thunder: 0, ice: 0, dragon: 0 },
+  },
+  weapon: { setBonus: null, groupBonus: null },
+  name: 'Imported',
+  isShared: false,
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -153,6 +172,39 @@ describe('POST /builds', () => {
     service.create.mockRejectedValue(new SetBuilderError('IDEMPOTENCY_KEY_REUSED'))
     const res = await ownerReq('/builds', jsonInit('POST', validSave, { authorization: AUTH, 'idempotency-key': UUID }))
     expect(res.status).toBe(409)
+  })
+})
+
+describe('POST /builds/import', () => {
+  beforeEach(() => verifyIdentity.mockResolvedValue(IDENTITY))
+
+  it('is 401 without a valid token', async () => {
+    verifyIdentity.mockResolvedValue(null)
+    const res = await ownerReq('/builds/import', jsonInit('POST', validImport, { 'idempotency-key': UUID }))
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a missing Idempotency-Key with 400', async () => {
+    const res = await ownerReq('/builds/import', jsonInit('POST', validImport, { authorization: AUTH }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.code).toBe('IDEMPOTENCY_KEY_REQUIRED')
+  })
+
+  it('forwards to SetBuilderService.importFromOptimizer with the decoded body, owner, and key', async () => {
+    service.importFromOptimizer.mockResolvedValue(build)
+    const res = await ownerReq('/builds/import', jsonInit('POST', validImport, { authorization: AUTH, 'idempotency-key': UUID }))
+    expect(res.status).toBe(200)
+    expect(service.importFromOptimizer).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ name: 'Imported' }),
+      OWNER,
+      UUID,
+    )
+  })
+
+  it('maps a malformed body to 400', async () => {
+    const res = await ownerReq('/builds/import', jsonInit('POST', { name: 'X' }, { authorization: AUTH, 'idempotency-key': UUID }))
+    expect(res.status).toBe(400)
   })
 })
 

@@ -89,6 +89,12 @@ export const SKILLS: SkillCatalogResponse = {
         { piecesRequired: 4, effectName: "Set Effect II", level: 2 },
       ],
     },
+    {
+      id: "bn-group",
+      name: "Example Group",
+      kind: "group",
+      thresholds: [{ piecesRequired: 2, effectName: "Group Effect I", level: 1 }],
+    },
   ],
 }
 
@@ -126,6 +132,7 @@ const EMPTY_COMPOSITION: CompositionRequest = {
   waist: null,
   legs: null,
   talisman: null,
+  weapon: null,
 }
 
 export function makeRequest(

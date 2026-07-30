@@ -7,6 +7,7 @@ import type {
   SnapshotArmorPiece,
   SnapshotDecoration,
   SnapshotTalisman,
+  SnapshotWeapon,
 } from "./schema"
 
 /**
@@ -21,8 +22,9 @@ import type {
  *
  * The result is self-contained: `skillDefinitions` (name → maxLevel) and
  * `bonusDefinitions` (name → kind + thresholds) collect every Skill/Bonus
- * referenced anywhere in the build, so a web/bot calculator never has to consult
- * the live catalog (ADR-0005, ADR-0010).
+ * referenced anywhere in the build — including the weapon's Set/Group Bonus
+ * contribution — so a web/bot calculator never has to consult the live catalog
+ * (ADR-0005, ADR-0010).
  */
 
 const BODY_POSITIONS = ["head", "chest", "arms", "waist", "legs"] as const
@@ -75,6 +77,7 @@ export function buildSnapshot(
     waist: null as SnapshotArmorPiece | null,
     legs: null as SnapshotArmorPiece | null,
     talisman: null as SnapshotTalisman | null,
+    weapon: null as SnapshotWeapon | null,
   }
 
   for (const position of BODY_POSITIONS) {
@@ -162,6 +165,35 @@ export function buildSnapshot(
         decorations: talisman.decorations.map(snapshotDecoration),
       }
     }
+  }
+
+  const weapon = composition.weapon
+  if (weapon) {
+    let setBonus: SnapshotWeapon["setBonus"] = null
+    if (weapon.setBonusId !== null) {
+      const b = view.bonusesById.get(weapon.setBonusId)
+      if (!b)
+        throw new SetBuilderError("WEAPON_BONUS_NOT_FOUND", {
+          slot: "set",
+          bonusId: weapon.setBonusId,
+        })
+      recordBonus(b.id)
+      setBonus = { bonusId: b.id, name: b.name, kind: b.kind }
+    }
+
+    let groupBonus: SnapshotWeapon["groupBonus"] = null
+    if (weapon.groupBonusId !== null) {
+      const b = view.bonusesById.get(weapon.groupBonusId)
+      if (!b)
+        throw new SetBuilderError("WEAPON_BONUS_NOT_FOUND", {
+          slot: "group",
+          bonusId: weapon.groupBonusId,
+        })
+      recordBonus(b.id)
+      groupBonus = { bonusId: b.id, name: b.name, kind: b.kind }
+    }
+
+    positions.weapon = { setBonus, groupBonus }
   }
 
   return { schemaVersion: 1, positions, skillDefinitions, bonusDefinitions }

@@ -34,6 +34,7 @@ describe("buildSnapshot", () => {
       waist: null,
       legs: null,
       talisman: null,
+      weapon: null,
     })
     expect(snapshot.skillDefinitions).toEqual({})
     expect(snapshot.bonusDefinitions).toEqual({})
@@ -125,6 +126,56 @@ describe("buildSnapshot", () => {
       bonuses: [],
       decorations: [],
     })
+  })
+
+  // ── weapon bonus contribution ───────────────────────────────────────────────
+
+  it("snapshots a weapon's Set and Group Bonus contribution, embedding both thresholds", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+    })
+
+    const { positions, bonusDefinitions } = buildSnapshot(request, view)
+
+    expect(positions.weapon).toEqual({
+      setBonus: { bonusId: "bn-set", name: "Example Set", kind: "set" },
+      groupBonus: { bonusId: "bn-group", name: "Example Group", kind: "group" },
+    })
+    expect(bonusDefinitions["Example Set"]).toEqual({
+      kind: "set",
+      thresholds: [
+        { piecesRequired: 2, effectName: "Set Effect I", level: 1 },
+        { piecesRequired: 4, effectName: "Set Effect II", level: 2 },
+      ],
+    })
+    expect(bonusDefinitions["Example Group"]).toEqual({
+      kind: "group",
+      thresholds: [
+        { piecesRequired: 2, effectName: "Group Effect I", level: 1 },
+      ],
+    })
+  })
+
+  it("snapshots a weapon contributing only a Set Bonus, leaving the group slot null", () => {
+    const view = makeView()
+    const request = makeRequest({
+      weapon: { setBonusId: "bn-set", groupBonusId: null },
+    })
+
+    const weapon = buildSnapshot(request, view).positions.weapon!
+
+    expect(weapon.setBonus).toEqual({
+      bonusId: "bn-set",
+      name: "Example Set",
+      kind: "set",
+    })
+    expect(weapon.groupBonus).toBeNull()
+  })
+
+  it("leaves the weapon position null when the composition carries no weapon", () => {
+    const snapshot = buildSnapshot(makeRequest({ weapon: null }), makeView())
+    expect(snapshot.positions.weapon).toBeNull()
   })
 
   it("snapshots a scraped talisman as slotless with its skills", () => {
