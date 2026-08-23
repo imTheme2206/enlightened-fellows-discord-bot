@@ -74,16 +74,17 @@ export const DECORATIONS: DecorationCatalogItem[] = [
 
 export const SKILLS: SkillCatalogResponse = {
   skills: [
-    { id: "sk-attack", name: "Attack Boost", kind: "armor", maxLevel: 5 },
-    { id: "sk-guard", name: "Guard", kind: "armor", maxLevel: 5 },
-    { id: "sk-crit", name: "Critical Eye", kind: "armor", maxLevel: 5 },
-    { id: "sk-tali", name: "Handicraft", kind: "armor", maxLevel: 5 },
+    { id: "sk-attack", name: "Attack Boost", kind: "armor", maxLevel: 5, icon: null },
+    { id: "sk-guard", name: "Guard", kind: "armor", maxLevel: 5, icon: null },
+    { id: "sk-crit", name: "Critical Eye", kind: "armor", maxLevel: 5, icon: null },
+    { id: "sk-tali", name: "Handicraft", kind: "armor", maxLevel: 5, icon: null },
   ],
   bonuses: [
     {
       id: "bn-set",
       name: "Example Set",
       kind: "set",
+      icon: null,
       thresholds: [
         { piecesRequired: 2, effectName: "Set Effect I", level: 1 },
         { piecesRequired: 4, effectName: "Set Effect II", level: 2 },
@@ -93,6 +94,7 @@ export const SKILLS: SkillCatalogResponse = {
       id: "bn-group",
       name: "Example Group",
       kind: "group",
+      icon: null,
       thresholds: [{ piecesRequired: 2, effectName: "Group Effect I", level: 1 }],
     },
   ],
