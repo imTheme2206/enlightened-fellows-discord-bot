@@ -5,9 +5,9 @@ export const genshinCodesRoutes = new Elysia({ tags: ['genshin'] })
   .get('/genshin-codes', () => GenshinCodeService.getAll(100))
   .post(
     '/genshin-codes',
+    { body: t.Object({ code: t.String(), rewards: t.Optional(t.String()) }) },
     async ({ body }) => {
       await GenshinCodeService.save(body.code, false, false, body.rewards ?? undefined)
       return { ok: true }
-    },
-    { body: t.Object({ code: t.String(), rewards: t.Optional(t.String()) }) }
+    }
   )

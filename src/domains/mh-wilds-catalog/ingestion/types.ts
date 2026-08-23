@@ -51,4 +51,6 @@ export interface SeedData {
   setMap: Record<string, string> // setName → skillName
   armorSkills: string[] // array of armor skill names
   weaponSkills?: string[] // array of weapon skill names (subset of `skills`)
+  // Raw MHDB icon category keyed by clean skill/set/group name, e.g. {"Attack Boost": "offense"}.
+  skillIcons?: Record<string, string>
 }

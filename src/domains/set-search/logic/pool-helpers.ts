@@ -43,6 +43,9 @@ export function emptyGearPiece(type: SlotType, rank: string): Record<string, Arm
       defense: 0,
       resists: [0, 0, 0, 0, 0],
       rank: rank as 'low' | 'high' | 'master',
+      // Placeholder has no real rarity; 0 matches the `piece.rarity ?? 0`
+      // fallback the combo scorer already applies to this piece.
+      rarity: 0,
       setSkills: [],
     },
   }

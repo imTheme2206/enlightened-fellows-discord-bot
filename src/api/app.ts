@@ -1,4 +1,3 @@
-import openapi from "@elysia/openapi"
 import { Elysia } from "elysia"
 import { authGuard } from "./middleware/auth-guard"
 import { armorsRoutes } from "./routes/armors"
@@ -14,23 +13,16 @@ import { talismansRoutes } from "./routes/talismans"
 
 export function createApp() {
   return (
+    // NOTE: the @elysia/openapi plugin is temporarily removed. Its 2.0.0-beta.1
+    // build is broken upstream (emits an unresolvable relative typebox import)
+    // and 2.0.0-exp.1 sits on a different pre-release track to elysia itself.
+    // Re-add once Elysia 2.0 and the plugin reach a matching stable release.
+    // The per-route `tags` metadata below is retained for that future wiring.
     new Elysia()
-      .use(
-        openapi({
-          documentation: {
-            info: { title: "Enlightened Fellows API", version: "1.0.0" },
-            tags: [
-              { name: "mh-wilds", description: "Monster Hunter Wilds" },
-              { name: "genshin", description: "Genshin Impact" },
-              { name: "admin", description: "Admin / internal" },
-            ],
-          },
-        }),
-      )
       .get("/api/health", () => ({ ok: true }))
       .group("/api", (app) =>
         app
-          .onBeforeHandle(authGuard)
+          .beforeHandle(authGuard)
           .use(jobLogsRoutes)
           .use(genshinCodesRoutes)
           .use(channelsRoutes)

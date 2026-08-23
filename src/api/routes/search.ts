@@ -21,7 +21,7 @@ import { verifyDiscordId } from '../middleware/user-auth-guard'
 export const searchRoutes = new Elysia({ tags: ['mh-wilds'] })
   .use(
     rateLimit({
-      scoping: 'scoped',
+      scoping: 'plugin',
       duration: 60_000,
       max: 10,
       generator: (request, server) =>
@@ -33,12 +33,12 @@ export const searchRoutes = new Elysia({ tags: ['mh-wilds'] })
   )
   .post(
     '/search',
-    async ({ body, request }) => {
-      const discordId = await verifyDiscordId(request.headers.get('authorization'))
-      return searchSets(body, discordId ?? undefined)
-    },
     {
       body: searchRequestSchema,
       response: searchResponseSchema,
+    },
+    async ({ body, request }) => {
+      const discordId = await verifyDiscordId(request.headers.get('authorization'))
+      return searchSets(body, discordId ?? undefined)
     }
   )

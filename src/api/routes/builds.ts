@@ -1,4 +1,4 @@
-import { Elysia } from "elysia"
+import { Elysia, ValidationError } from "elysia"
 import { z } from "zod"
 import { SetBuilderError } from "../../domains/set-builder/errors"
 import type { SharedCursor } from "../../domains/set-builder/repository"
@@ -31,19 +31,22 @@ import { verifyIdentity } from "../middleware/user-auth-guard"
 
 /**
  * Maps thrown domain/validation errors onto the documented HTTP envelope. Called
- * from an inlined `onError` arrow so Elysia infers the context; this helper takes
+ * from an inlined `.error()` arrow so Elysia infers the context; this helper takes
  * the destructured primitives to stay reusable across both route instances.
+ *
+ * Elysia 2.0 dropped the `code` discriminator from the error context, so schema
+ * rejections are now identified by the exported `ValidationError` class instead
+ * of the old `code === 'VALIDATION'` string.
  */
 function domainErrorResponse(
   error: unknown,
-  code: string | number,
   set: { status?: number | string },
 ) {
   if (error instanceof SetBuilderError) {
     set.status = error.status
     return error.toResponse()
   }
-  if (code === "VALIDATION") {
+  if (error instanceof ValidationError) {
     set.status = 400
     return {
       error: { code: "BAD_REQUEST", message: "The request is malformed." },
@@ -58,9 +61,10 @@ const IDEMPOTENCY_HEADER = "idempotency-key"
 // ── public: anonymous UUID reads + shared listing ────────────────────────────
 
 export const buildsPublicRoutes = new Elysia({ tags: ["mh-wilds"] })
-  .onError(({ error, code, set }) => domainErrorResponse(error, code, set))
+  .error(({ error, set }) => domainErrorResponse(error, set))
   .get(
     "/builds/shared",
+    { query: sharedListQuerySchema, response: sharedBuildListResponseSchema },
     async ({ query }) => {
       const cursor = query.cursor ? decodeCursor(query.cursor) : undefined
       const items = await SetBuilderService.listShared(query.limit, cursor)
@@ -70,18 +74,21 @@ export const buildsPublicRoutes = new Elysia({ tags: ["mh-wilds"] })
           : null
       return { items, nextCursor }
     },
-    { query: sharedListQuerySchema, response: sharedBuildListResponseSchema },
   )
-  .get("/builds/:id", ({ params }) => SetBuilderService.get(params.id), {
-    params: buildParamsSchema,
-    response: buildResponseSchema,
-  })
+  .get(
+    "/builds/:id",
+    {
+      params: buildParamsSchema,
+      response: buildResponseSchema,
+    },
+    ({ params }) => SetBuilderService.get(params.id),
+  )
 
 // ── owner: JWT-gated create / list / mutate ──────────────────────────────────
 
 export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
-  .onError(({ error, code, set }) => domainErrorResponse(error, code, set))
-  .resolve(async ({ request, status }) => {
+  .error(({ error, set }) => domainErrorResponse(error, set))
+  .derive(async ({ request, status }) => {
     const identity = await verifyIdentity(request.headers.get("authorization"))
     if (!identity)
       return status(401, {
@@ -95,11 +102,14 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
       },
     }
   })
-  .get("/builds", ({ discordId }) => SetBuilderService.listOwned(discordId), {
-    response: z.array(buildSummarySchema),
-  })
+  .get(
+    "/builds",
+    { response: z.array(buildSummarySchema) },
+    ({ discordId }) => SetBuilderService.listOwned(discordId),
+  )
   .post(
     "/builds",
+    { body: saveBuildRequestSchema, response: { 200: buildResponseSchema } },
     ({ discordId, owner, body, request }) => {
       const idempotencyKey = request.headers.get(IDEMPOTENCY_HEADER)
       if (
@@ -110,10 +120,10 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
       }
       return SetBuilderService.create(discordId, body, idempotencyKey, owner)
     },
-    { body: saveBuildRequestSchema, response: { 200: buildResponseSchema } },
   )
   .post(
     "/builds/import",
+    { body: importBuildRequestSchema, response: { 200: buildResponseSchema } },
     ({ discordId, owner, body, request }) => {
       const idempotencyKey = request.headers.get(IDEMPOTENCY_HEADER)
       if (
@@ -129,10 +139,15 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
         idempotencyKey,
       )
     },
-    { body: importBuildRequestSchema, response: { 200: buildResponseSchema } },
   )
   .put(
     "/builds/:id",
+    {
+      params: buildParamsSchema,
+      query: revisionQuerySchema,
+      body: saveBuildRequestSchema,
+      response: { 200: buildResponseSchema },
+    },
     ({ discordId, owner, params, body, query }) =>
       SetBuilderService.replace(
         discordId,
@@ -141,15 +156,15 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
         query.revision,
         owner,
       ),
-    {
-      params: buildParamsSchema,
-      query: revisionQuerySchema,
-      body: saveBuildRequestSchema,
-      response: { 200: buildResponseSchema },
-    },
   )
   .patch(
     "/builds/:id",
+    {
+      params: buildParamsSchema,
+      query: revisionQuerySchema,
+      body: patchBuildRequestSchema,
+      response: { 200: buildResponseSchema },
+    },
     ({ discordId, owner, params, body, query }) =>
       SetBuilderService.updateMetadata(
         discordId,
@@ -158,20 +173,14 @@ export const buildsOwnerRoutes = new Elysia({ tags: ["mh-wilds"] })
         query.revision,
         owner,
       ),
-    {
-      params: buildParamsSchema,
-      query: revisionQuerySchema,
-      body: patchBuildRequestSchema,
-      response: { 200: buildResponseSchema },
-    },
   )
   .delete(
     "/builds/:id",
+    { params: buildParamsSchema },
     async ({ discordId, params }) => {
       await SetBuilderService.remove(discordId, params.id)
       return { ok: true }
     },
-    { params: buildParamsSchema },
   )
 
 // ── cursor codec ─────────────────────────────────────────────────────────────

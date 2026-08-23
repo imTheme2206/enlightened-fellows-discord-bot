@@ -10,6 +10,8 @@ import { CatalogService } from '../../domains/mh-wilds-catalog/service'
  * `slots` are reported **transcended** (Armor Transcendence, HR100+) since this
  * catalog feeds endgame build tooling; base slots remain canonical in the DB.
  */
-export const armorsRoutes = new Elysia({ tags: ['mh-wilds'] }).get('/armors', () => CatalogService.getArmors(), {
-  response: armorCatalogResponseSchema,
-})
+export const armorsRoutes = new Elysia({ tags: ['mh-wilds'] }).get(
+  '/armors',
+  { response: armorCatalogResponseSchema },
+  () => CatalogService.getArmors()
+)

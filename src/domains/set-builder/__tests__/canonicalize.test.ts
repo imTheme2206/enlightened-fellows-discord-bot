@@ -144,9 +144,10 @@ describe("canonicalizeSaveComposition", () => {
         ...request.composition,
         head: {
           ...request.composition.head!,
-          // @ts-expect-error -- deliberately not part of ArmorSelection; canonicalize must ignore it if present
+          // Deliberately not part of ArmorSelection; canonicalize must ignore
+          // these if present. (Spreading widens the literal, so no
+          // excess-property error fires here and no ts-expect-error is needed.)
           defense: 99999,
-          // @ts-expect-error -- deliberately not part of ArmorSelection
           name: "Attacker-Supplied Name",
         },
       },
