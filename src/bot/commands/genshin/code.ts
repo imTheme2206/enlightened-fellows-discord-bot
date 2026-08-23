@@ -1,8 +1,7 @@
-import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder, TextChannel } from 'discord.js'
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js'
 import logger from '../../../infra/logger'
-import { genshinCodeChannels } from '../../../domains/channels/service'
 import { GenshinCodeService } from '../../../domains/genshin-codes/service'
-import { isDefined } from '../../../shared/utils/is-defined'
+import { alertUnalertedCodes } from '../../jobs/genshin-code-job'
 import { Command } from '../_types'
 
 enum CodeFields {
@@ -17,25 +16,17 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const code = interaction.options.getString(CodeFields.CODE, true)
 
-  await GenshinCodeService.save(code, true)
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
-  const content = GenshinCodeService.buildRedeemUrl(code)
+  try {
+    await GenshinCodeService.save(code, false)
+    await alertUnalertedCodes(interaction.client)
 
-  const channels = await genshinCodeChannels.getAll()
-  for (const { channelId } of channels) {
-    const channel = interaction.client.guilds.cache.map((g) => g.channels.cache.get(channelId)).find(isDefined) as TextChannel | undefined
-    if (!channel) {
-      logger.warn(`gi-code: channel ${channelId} not in cache`)
-      continue
-    }
-    try {
-      await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
-    } catch (err) {
-      logger.error(`gi-code: failed to send to ${channelId}`, { err })
-    }
+    await interaction.editReply({ content: `Code \`${code}\` queued for broadcast.` })
+  } catch (err) {
+    logger.error(`gi-code: failed to queue code ${code}`, { err })
+    await interaction.editReply({ content: `Failed to queue code \`${code}\` for broadcast.` })
   }
-
-  await interaction.reply({ content })
 }
 
 export default { data, execute } satisfies Command

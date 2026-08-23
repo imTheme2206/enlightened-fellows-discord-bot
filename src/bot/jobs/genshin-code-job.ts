@@ -1,17 +1,32 @@
-import { Client, MessageFlags, TextChannel } from "discord.js"
+import { Client, EmbedBuilder, TextChannel } from "discord.js"
 import { genshinCodeChannels } from "../../domains/channels/service"
 import { GenshinCodeService } from "../../domains/genshin-codes/service"
 import type { GenshinCode } from "../../infra/db/schema"
 import logger from "../../infra/logger"
 
-const redeemUrl = "https://genshin.hoyoverse.com/en/gift?code="
+const GENSHIN_EMBED_COLOR = 0x4e9de0
+
+function buildCodesEmbed(codes: GenshinCode[]): EmbedBuilder {
+  const description = codes
+    .map((c) => {
+      const link = GenshinCodeService.buildRedeemUrl(c.code)
+      return c.rewards ? `**${c.code}** — [Redeem](${link})\n${c.rewards}` : `**${c.code}** — [Redeem](${link})`
+    })
+    .join("\n\n")
+
+  return new EmbedBuilder()
+    .setTitle("New Genshin Impact Codes")
+    .setDescription(description)
+    .setColor(GENSHIN_EMBED_COLOR)
+    .setTimestamp()
+}
 
 export async function sendCodesToChannel(
   channel: TextChannel,
   codes: GenshinCode[],
 ): Promise<void> {
-  const content = codes.map((c) => `${redeemUrl}${c.code}`).join("\n")
-  await channel.send({ content, flags: MessageFlags.SuppressEmbeds })
+  const embed = buildCodesEmbed(codes)
+  await channel.send({ embeds: [embed] })
   logger.info(
     `Genshin code job: alerted ${codes.length} code(s) to ${channel.id}`,
   )

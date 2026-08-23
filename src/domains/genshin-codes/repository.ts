@@ -1,11 +1,20 @@
 import { randomUUID } from 'crypto'
-import { asc, desc, inArray } from 'drizzle-orm'
+import { asc, desc, inArray, sql } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
 import { genshinCode, type GenshinCode } from '../../infra/db/schema'
 
 export abstract class GenshinCodeRepository {
   static async insert(code: string, rewards: string | null, isAlerted: boolean, isExpired: boolean): Promise<void> {
-    await db.insert(genshinCode).values({ id: randomUUID(), code, rewards, isAlerted, isExpired }).onConflictDoNothing()
+    await db
+      .insert(genshinCode)
+      .values({ id: randomUUID(), code, rewards, isAlerted, isExpired })
+      .onConflictDoUpdate({
+        target: genshinCode.code,
+        set: {
+          rewards: sql`coalesce(excluded.rewards, ${genshinCode.rewards})`,
+          isExpired: sql`excluded.is_expired`,
+        },
+      })
   }
 
   static async findUnalerted(): Promise<GenshinCode[]> {
