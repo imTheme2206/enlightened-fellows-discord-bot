@@ -7,6 +7,8 @@ import { CatalogService } from '../../domains/mh-wilds-catalog/service'
  * decoration lists every skill it grants (decorations are multi-grant, ADR-0011).
  * Returned in full; not paginated.
  */
-export const decorationsRoutes = new Elysia({ tags: ['mh-wilds'] }).get('/decorations', () => CatalogService.getDecorations(), {
-  response: decorationCatalogResponseSchema,
-})
+export const decorationsRoutes = new Elysia({ tags: ['mh-wilds'] }).get(
+  '/decorations',
+  { response: decorationCatalogResponseSchema },
+  () => CatalogService.getDecorations()
+)

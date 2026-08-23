@@ -1,4 +1,3 @@
-import { node } from '@elysiajs/node'
 import { Elysia } from 'elysia'
 import { config } from '../infra/config'
 import logger from '../infra/logger'
@@ -7,8 +6,10 @@ import { createApp } from './app'
 const corsOrigin = config.CORS_ORIGIN ?? '*'
 
 export async function startServer(): Promise<void> {
-  const app = new Elysia({ adapter: node() })
-    .onRequest(({ set, request }) => {
+  // Elysia 2.x defaults to the Bun adapter; the process now runs under Bun,
+  // so no explicit adapter is needed (@elysiajs/node has no 2.x release).
+  const app = new Elysia()
+    .request(({ set, request }) => {
       const origin = request.headers.get('origin')
       set.headers['access-control-allow-origin'] =
         corsOrigin === '*' ? '*' : (origin ?? corsOrigin)
