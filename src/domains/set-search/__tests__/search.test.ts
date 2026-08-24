@@ -1,5 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { DEFENSE_BAND } from '../logic/constants'
+import { computeMaxPotential, getBestArmor } from '../logic/candidate-pool'
+import { rollCombosDfs, rollTopCombosDfs } from '../logic/dfs'
+import { reorder } from '../logic/reorder'
 import { search } from '../logic/search'
 import type { SearchInput, SearchResult } from '../types'
 import { deserializeIndex, type SerializedIndex } from './fixtures/index-serde'
@@ -10,6 +13,18 @@ import searchIndexFixture from './fixtures/search-index.json'
 const index = deserializeIndex(searchIndexFixture as unknown as SerializedIndex)
 
 describe('set-search', () => {
+  it('keeps only the correctly ranked top results for a broad minimal-skill search', () => {
+    const skills = { Agitator: 1 }
+    const gear = getBestArmor(skills, {}, {}, [], [], index.byType, index.decorations, 'high')
+    const maxPotential = computeMaxPotential(gear, Object.keys(skills))
+    const skillMaxMap = Object.fromEntries(Array.from(index.skills, ([name, meta]) => [name, meta.maxLevel]))
+
+    const exhaustive = reorder(rollCombosDfs(gear, skills, {}, {}, {}, {}, maxPotential), skillMaxMap).slice(0, 200)
+    const bounded = rollTopCombosDfs(gear, skills, {}, {}, {}, {}, maxPotential, skillMaxMap, 200)
+
+    expect(bounded).toEqual(exhaustive)
+  }, 15_000)
+
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 
   describe("Gore Magala's Tyranny + Lord's Soul weapon build", () => {
@@ -93,6 +108,17 @@ describe('set-search', () => {
       }
     })
 
+    it('normalizes armor and weapon bonus piece counts together', () => {
+      const armorByName = new Map(index.allArmor.map((piece) => [piece.name, piece]))
+      for (const result of results) {
+        const body = result.armorNames.slice(0, 5).map((name) => armorByName.get(name))
+        const gorePieces = body.filter((piece) => piece?.setSkills.includes("Gore Magala's Tyranny")).length + 1
+        const lordPieces = body.filter((piece) => piece?.groupSkills.includes("Lord's Soul")).length + 1
+        expect(result.setSkills["Gore Magala's Tyranny"]).toBe(Math.floor(gorePieces / 2))
+        expect(result.groupSkills["Lord's Soul"]).toBe(Math.floor(lordPieces / 3))
+      }
+    })
+
     it('no skill in any result exceeds its maximum level', () => {
       expect(results.length).toBeGreaterThan(0)
       for (const result of results) {
@@ -121,11 +147,7 @@ describe('set-search', () => {
       expect(results.length).toBeGreaterThan(0)
       const maxDefense = Math.max(...results.map((r) => r.defense))
       const topTier = results.filter((r) => r.defense >= maxDefense - DEFENSE_BAND)
-      const slotRank = (r: SearchResult): [number, number, number] => [
-        r.freeSlots.filter((s) => s === 3).length,
-        r.freeSlots.filter((s) => s === 2).length,
-        r.freeSlots.length,
-      ]
+      const slotRank = (r: SearchResult): [number, number, number] => [r.freeSlots.filter((s) => s === 3).length, r.freeSlots.filter((s) => s === 2).length, r.freeSlots.length]
       for (let i = 1; i < topTier.length; i++) {
         const [prev3, prev2, prevN] = slotRank(topTier[i - 1])
         const [cur3, cur2, curN] = slotRank(topTier[i])
@@ -194,18 +216,7 @@ describe('set-search', () => {
       },
       {
         armor: ['Udra Mirehelm Gamma', 'Dahaad Shardmail Gamma', 'Rey Sandbraces Gamma', 'Numinous Overlay Beta', 'Gore Greaves Beta', 'Exploiter Charm III'],
-        decos: [
-          'Earplugs Jewel 2',
-          'Gobbler Jewel 1',
-          'Gobbler Jewel 1',
-          'Mighty Jewel 2',
-          'Mighty Jewel 2',
-          'Mighty Jewel 2',
-          'Sane Jewel 1',
-          'Sane Jewel 1',
-          'Tenderizer Jewel 3',
-          'Tenderizer Jewel 3',
-        ],
+        decos: ['Earplugs Jewel 2', 'Gobbler Jewel 1', 'Gobbler Jewel 1', 'Mighty Jewel 2', 'Mighty Jewel 2', 'Mighty Jewel 2', 'Sane Jewel 1', 'Sane Jewel 1', 'Tenderizer Jewel 3', 'Tenderizer Jewel 3'],
         skills: {
           'Weakness Exploit': 5,
           Agitator: 4,
@@ -221,17 +232,7 @@ describe('set-search', () => {
       },
       {
         armor: ['Udra Mirehelm Gamma', 'Dahaad Shardmail Gamma', 'Gogmazios Vambraces Alpha', 'Duna Wildcoil Gamma', 'Gore Greaves Beta', 'Exploiter Charm III'],
-        decos: [
-          'Challenger Jewel 3',
-          'Earplugs Jewel 2',
-          'Gobbler Jewel 1',
-          'Gobbler Jewel 1',
-          'Mighty Jewel 2',
-          'Sane Jewel 1',
-          'Sane Jewel 1',
-          'Tenderizer Jewel 3',
-          'Tenderizer Jewel 3',
-        ],
+        decos: ['Challenger Jewel 3', 'Earplugs Jewel 2', 'Gobbler Jewel 1', 'Gobbler Jewel 1', 'Mighty Jewel 2', 'Sane Jewel 1', 'Sane Jewel 1', 'Tenderizer Jewel 3', 'Tenderizer Jewel 3'],
         skills: {
           'Weakness Exploit': 5,
           Agitator: 4,
@@ -246,19 +247,16 @@ describe('set-search', () => {
       },
     ]
 
-    it.each(groundTruthSets.map((set, i) => [i + 1, set] as const))(
-      'pinning ground-truth set #%i reproduces the reference solution exactly',
-      (_n, groundTruth) => {
-        const pinned = search({ ...input, mandatoryArmor: groundTruth.armor }, index)
-        expect(pinned.length).toBeGreaterThan(0)
+    it.each(groundTruthSets.map((set, i) => [i + 1, set] as const))('pinning ground-truth set #%i reproduces the reference solution exactly', (_n, groundTruth) => {
+      const pinned = search({ ...input, mandatoryArmor: groundTruth.armor }, index)
+      expect(pinned.length).toBeGreaterThan(0)
 
-        const top = pinned[0]
-        expect([...top.armorNames].sort()).toEqual([...groundTruth.armor].sort())
-        expect([...top.decoNames].sort()).toEqual([...groundTruth.decos].sort())
-        expect(top.skills).toEqual(groundTruth.skills)
-        expect(top.setSkills["Gore Magala's Tyranny"]).toBeGreaterThanOrEqual(1)
-        expect(top.groupSkills["Lord's Soul"]).toBeGreaterThanOrEqual(1)
-      }
-    )
+      const top = pinned[0]
+      expect([...top.armorNames].sort()).toEqual([...groundTruth.armor].sort())
+      expect([...top.decoNames].sort()).toEqual([...groundTruth.decos].sort())
+      expect(top.skills).toEqual(groundTruth.skills)
+      expect(top.setSkills["Gore Magala's Tyranny"]).toBeGreaterThanOrEqual(1)
+      expect(top.groupSkills["Lord's Soul"]).toBeGreaterThanOrEqual(1)
+    })
   })
 })

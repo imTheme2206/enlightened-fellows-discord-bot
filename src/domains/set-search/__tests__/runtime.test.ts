@@ -4,15 +4,31 @@ import type { SetSearchIndex } from '../types'
 // build-index and custom-talismans are the only DB-touching dependencies of
 // runtime.ts; mocking them keeps this suite hermetic (no Discord, no DB).
 const buildIndexFromDb = vi.fn()
-vi.mock('../build-index', () => ({ buildIndexFromDb: () => buildIndexFromDb() }))
+vi.mock('../build-index', () => ({
+  buildIndexFromDb: () => buildIndexFromDb(),
+}))
 
 const loadCustomTalismans = vi.fn()
-vi.mock('../custom-talismans', () => ({ loadCustomTalismans: (...args: unknown[]) => loadCustomTalismans(...args) }))
+vi.mock('../custom-talismans', () => ({
+  loadCustomTalismans: (...args: unknown[]) => loadCustomTalismans(...args),
+}))
+
+const runSearchInWorker = vi.fn()
+vi.mock('../search-worker-client', () => ({
+  runSearchInWorker: (...args: unknown[]) => runSearchInWorker(...args),
+}))
 
 function emptyIndex(version: string): SetSearchIndex {
   return {
     version,
-    byType: { head: [], chest: [], arms: [], waist: [], legs: [], talisman: [] },
+    byType: {
+      head: [],
+      chest: [],
+      arms: [],
+      waist: [],
+      legs: [],
+      talisman: [],
+    },
     allArmor: [],
     decorations: [],
     setSkills: new Map(),
@@ -29,6 +45,8 @@ describe('set-search runtime', () => {
     buildIndexFromDb.mockReset()
     loadCustomTalismans.mockReset()
     loadCustomTalismans.mockResolvedValue([])
+    runSearchInWorker.mockReset()
+    runSearchInWorker.mockResolvedValue([])
     runtime = await import('../runtime')
   })
 
@@ -49,7 +67,7 @@ describe('set-search runtime', () => {
     buildIndexFromDb.mockReturnValue(
       new Promise<SetSearchIndex>((resolve) => {
         resolveBuild = resolve
-      })
+      }),
     )
 
     const first = runtime.searchSets({ skills: {} })
@@ -91,7 +109,7 @@ describe('set-search runtime', () => {
     buildIndexFromDb.mockReturnValueOnce(
       new Promise<SetSearchIndex>((resolve) => {
         resolveRefresh = resolve
-      })
+      }),
     )
     const refreshPromise = runtime.refresh()
 
@@ -119,7 +137,12 @@ describe('set-search runtime', () => {
 
   it('getSkillMaxLevel / getSetSkillNames reflect the current index', async () => {
     const index = emptyIndex('v1')
-    index.setSkills.set("Gore's Tyranny", { name: "Gore's Tyranny", skillName: 'Antivirus', piecesRequired: 2, bonusLevels: [2, 4] })
+    index.setSkills.set("Gore's Tyranny", {
+      name: "Gore's Tyranny",
+      skillName: 'Antivirus',
+      piecesRequired: 2,
+      bonusLevels: [2, 4],
+    })
     buildIndexFromDb.mockResolvedValueOnce(index)
     await runtime.refresh()
 
@@ -133,10 +156,22 @@ describe('set-search runtime', () => {
     await runtime.refresh()
 
     loadCustomTalismans.mockResolvedValueOnce([
-      { name: 'My Talisman', type: 'talisman', skills: {}, groupSkills: [], setSkills: [], slots: [], defense: 0, resists: [0, 0, 0, 0, 0], rank: 'high', rarity: 0 },
+      {
+        name: 'My Talisman',
+        type: 'talisman',
+        skills: {},
+        groupSkills: [],
+        setSkills: [],
+        slots: [],
+        defense: 0,
+        resists: [0, 0, 0, 0, 0],
+        rank: 'high',
+        rarity: 0,
+      },
     ])
     await runtime.searchSets({ skills: {} }, 'user-1')
 
     expect(loadCustomTalismans).toHaveBeenCalledWith('user-1', 'high')
+    expect(runSearchInWorker).toHaveBeenCalledWith(expect.anything(), expect.anything(), [expect.objectContaining({ name: 'My Talisman' })])
   })
 })

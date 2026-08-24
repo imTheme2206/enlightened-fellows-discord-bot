@@ -6,7 +6,13 @@ const { combine, timestamp, colorize, simple, json, errors } = winston.format
 const serializeErrors = winston.format((info) => {
   for (const [key, val] of Object.entries(info)) {
     if (val instanceof Error) {
-      ;(info as Record<string, unknown>)[key] = { ...val }
+      ;(info as Record<string, unknown>)[key] = {
+        ...val,
+        name: val.name,
+        message: val.message,
+        stack: val.stack,
+        cause: val.cause,
+      }
     }
   }
   return info

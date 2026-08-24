@@ -1,7 +1,7 @@
 import logger from '../../infra/logger'
 import { buildIndexFromDb } from './build-index'
 import { loadCustomTalismans } from './custom-talismans'
-import { search } from './logic'
+import { runSearchInWorker } from './search-worker-client'
 import type { SearchInput, SearchResult, SetSearchIndex } from './types'
 
 /**
@@ -71,16 +71,10 @@ export async function refresh(): Promise<void> {
  */
 export async function searchSets(input: SearchInput, userId?: string): Promise<SearchResult[]> {
   const index = await whenReady()
-  if (!userId) return search(input, index)
+  if (!userId) return runSearchInWorker(input, index)
 
   const customTalismans = await loadCustomTalismans(userId, input.rank ?? 'high')
-  if (customTalismans.length === 0) return search(input, index)
-
-  const withCustomTalismans: SetSearchIndex = {
-    ...index,
-    byType: { ...index.byType, talisman: [...index.byType.talisman, ...customTalismans] },
-  }
-  return search(input, withCustomTalismans)
+  return runSearchInWorker(input, index, customTalismans)
 }
 
 /** Returns all known regular skill names, or empty array if index not ready. */

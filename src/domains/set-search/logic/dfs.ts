@@ -3,18 +3,20 @@ import type { SearchResult } from '../types'
 import type { GearPool, PieceEntry } from './constants'
 import { ARMOR_SLOT_TYPES, LIMIT } from './constants'
 import { armorCombo, testCombo } from './combo'
+import { comparePreparedResults, prepareResult } from './reorder'
 
-export function rollCombosDfs(
+function walkCombosDfs(
   gear: GearPool,
   desiredSkills: Record<string, number>,
   setSkills: Record<string, number>,
   groupSkills: Record<string, number>,
   initialSetCounts: Record<string, number> = {},
   initialGroupCounts: Record<string, number> = {},
-  maxPotential: Record<string, Record<string, number>> = {}
-): SearchResult[] {
-  const results: SearchResult[] = []
+  maxPotential: Record<string, Record<string, number>>,
+  onResult: (result: SearchResult, originalIndex: number) => void,
+): void {
   let visited = 0
+  let matched = 0
 
   // Pre-compute entry arrays once — avoids Object.entries() allocation on every DFS node
   const slotEntries: Record<string, [string, ArmorPiece][]> = {}
@@ -63,13 +65,7 @@ export function rollCombosDfs(
   // Updated on enter/backtrack so canFulfill checks are O(remaining_slots).
   const assignedPoints: Record<string, number> = {}
 
-  function dfs(
-    index: number,
-    currentArmor: Record<string, PieceEntry>,
-    usedNames: Set<string>,
-    setCounts: Record<string, number>,
-    groupCounts: Record<string, number>
-  ): void {
+  function dfs(index: number, currentArmor: Record<string, PieceEntry>, usedNames: Set<string>, setCounts: Record<string, number>, groupCounts: Record<string, number>): void {
     if (++visited > LIMIT) return
 
     if (index === ARMOR_SLOT_TYPES.length) {
@@ -77,8 +73,8 @@ export function rollCombosDfs(
       const fullSet = armorCombo(pieces)
       const result = testCombo(fullSet, decos, desiredSkills)
       if (result) {
-        result._originalIndex = results.length
-        results.push(result)
+        result._originalIndex = matched
+        onResult(result, matched++)
       }
       return
     }
@@ -192,5 +188,63 @@ export function rollCombosDfs(
   }
 
   dfs(0, {}, new Set(), { ...initialSetCounts }, { ...initialGroupCounts })
+}
+
+export function rollCombosDfs(
+  gear: GearPool,
+  desiredSkills: Record<string, number>,
+  setSkills: Record<string, number>,
+  groupSkills: Record<string, number>,
+  initialSetCounts: Record<string, number> = {},
+  initialGroupCounts: Record<string, number> = {},
+  maxPotential: Record<string, Record<string, number>> = {},
+): SearchResult[] {
+  const results: SearchResult[] = []
+  walkCombosDfs(gear, desiredSkills, setSkills, groupSkills, initialSetCounts, initialGroupCounts, maxPotential, (result) => results.push(result))
   return results
+}
+
+/**
+ * Exact bounded alternative to exhaustive collection. The first traversal
+ * discovers the global maximum defense required by the ranking's defense
+ * band; the second retains only the best `limit` prepared results.
+ */
+export function rollTopCombosDfs(
+  gear: GearPool,
+  desiredSkills: Record<string, number>,
+  setSkills: Record<string, number>,
+  groupSkills: Record<string, number>,
+  initialSetCounts: Record<string, number> = {},
+  initialGroupCounts: Record<string, number> = {},
+  maxPotential: Record<string, Record<string, number>> = {},
+  skillMaxMap: Record<string, number> = {},
+  limit = 200,
+  acceptResult: (result: SearchResult) => boolean = () => true,
+  beforePrepare: (result: SearchResult) => void = () => {},
+): SearchResult[] {
+  let maxDefense = 0
+  walkCombosDfs(gear, desiredSkills, setSkills, groupSkills, initialSetCounts, initialGroupCounts, maxPotential, (result) => {
+    if (!acceptResult(result)) return
+    maxDefense = Math.max(maxDefense, result.defense)
+  })
+
+  const top: SearchResult[] = []
+  walkCombosDfs(gear, desiredSkills, setSkills, groupSkills, initialSetCounts, initialGroupCounts, maxPotential, (result) => {
+    if (!acceptResult(result)) return
+    beforePrepare(result)
+    prepareResult(result, skillMaxMap)
+    if (top.length === limit && comparePreparedResults(result, top[top.length - 1], maxDefense) >= 0) return
+
+    let low = 0
+    let high = top.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if (comparePreparedResults(result, top[middle], maxDefense) < 0) high = middle
+      else low = middle + 1
+    }
+    top.splice(low, 0, result)
+    if (top.length > limit) top.pop()
+  })
+
+  return top
 }

@@ -5,11 +5,11 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "start": "bun dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsup src/index.ts --format esm --minify",
+    "build": "tsup src/index.ts src/domains/set-search/search-worker.ts --format esm --minify",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --check src",
