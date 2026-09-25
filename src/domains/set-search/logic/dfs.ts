@@ -1,7 +1,7 @@
 import type { ArmorPiece } from '../types'
 import type { SearchResult } from '../types'
 import type { GearPool, PieceEntry } from './constants'
-import { ARMOR_SLOT_TYPES, LIMIT } from './constants'
+import { ARMOR_SLOT_TYPES, DEFENSE_BAND, LIMIT, SEARCH_TIME_BUDGET_MS } from './constants'
 import { armorCombo, testCombo } from './combo'
 import { comparePreparedResults, prepareResult } from './reorder'
 
@@ -14,9 +14,15 @@ function walkCombosDfs(
   initialGroupCounts: Record<string, number> = {},
   maxPotential: Record<string, Record<string, number>>,
   onResult: (result: SearchResult, originalIndex: number) => void,
+  deadline = Infinity,
 ): void {
   let visited = 0
   let matched = 0
+  // LIMIT counts only nodes that survive pruning, so it does not bound wall
+  // time — heavily-pruned searches burn most of their time on rejected
+  // children. The deadline (checked every 1024 child iterations) does.
+  let iterations = 0
+  let outOfTime = false
 
   // Pre-compute entry arrays once — avoids Object.entries() allocation on every DFS node
   const slotEntries: Record<string, [string, ArmorPiece][]> = {}
@@ -28,14 +34,13 @@ function walkCombosDfs(
   const groupSkillKeys = Object.keys(groupSkills)
   const desiredSkillEntries = Object.entries(desiredSkills)
 
-  // Pre-compute each piece's contribution to desired skills (innate + best deco fit).
-  // Maintained incrementally during DFS so the feasibility check is O(remaining_slots)
-  // rather than O(depth × skills) from re-iterating currentArmor every time.
-  const pieceContrib: Record<string, Record<string, number>> = {}
+  // Pre-compute each piece's contribution to desired skills (innate + best deco fit),
+  // indexed like desiredSkillEntries. Maintained incrementally during DFS so the
+  // feasibility check is O(skills) rather than re-iterating currentArmor every time.
+  const pieceContrib: Record<string, number[]> = {}
   for (const slot of ARMOR_SLOT_TYPES) {
     for (const [name, piece] of slotEntries[slot]) {
-      const contrib: Record<string, number> = {}
-      for (const [skillName] of desiredSkillEntries) {
+      pieceContrib[name] = desiredSkillEntries.map(([skillName]) => {
         let pts = piece.skills[skillName] ?? 0
         for (const deco of Object.values(decos)) {
           const decoLevel = deco.skills[skillName]
@@ -44,10 +49,16 @@ function walkCombosDfs(
             break
           }
         }
-        if (pts > 0) contrib[skillName] = pts
-      }
-      pieceContrib[name] = contrib
+        return pts
+      })
     }
+  }
+  // potentialSuffix[i][s]: best-case contribution to skill s from slot types [i..end).
+  const potentialSuffix: number[][] = Array.from({ length: ARMOR_SLOT_TYPES.length + 1 }, () => new Array<number>(desiredSkillEntries.length).fill(0))
+  for (let i = ARMOR_SLOT_TYPES.length - 1; i >= 0; i--) {
+    desiredSkillEntries.forEach(([skillName], s) => {
+      potentialSuffix[i][s] = potentialSuffix[i + 1][s] + (maxPotential[ARMOR_SLOT_TYPES[i]]?.[skillName] ?? 0)
+    })
   }
 
   // Precompute which slot indices carry at least one piece for each required set/group skill.
@@ -61,12 +72,93 @@ function walkCombosDfs(
     groupSlotMask[gk] = ARMOR_SLOT_TYPES.map((slot) => slotEntries[slot].some(([, p]) => p.groupSkills.includes(gk)))
   }
 
-  // Tracks cumulative skill points already covered by placed armor pieces.
-  // Updated on enter/backtrack so canFulfill checks are O(remaining_slots).
-  const assignedPoints: Record<string, number> = {}
+  // Tracks cumulative skill points (indexed like desiredSkillEntries) already
+  // covered by placed armor pieces. Updated on enter/backtrack.
+  const assignedPoints = new Array<number>(desiredSkillEntries.length).fill(0)
+
+  // Joint deco-slot capacity bound. The per-skill prune above assumes every
+  // slot can hold every skill's deco at once, so with many deco-dependent
+  // skills it barely prunes. Here the decos each skill still needs (after the
+  // best-case innate points) must jointly fit the slots: for every size k, the
+  // decos requiring a slot >= k cannot outnumber the slots >= k (Hall's
+  // condition for nested slot sizes). Remaining slots use a per-slot upper
+  // bound (most innate points, most slots >= k — possibly from different
+  // pieces), so the check is admissible and never drops a fulfillable combo.
+  const skillCount = desiredSkillEntries.length
+  const decoMinSize: number[] = []
+  const decoMaxLevel: number[] = []
+  for (const [skillName] of desiredSkillEntries) {
+    let minSize = Infinity
+    let maxLevel = 0
+    for (const deco of Object.values(decos)) {
+      const lv = deco.skills[skillName]
+      if (!lv) continue
+      minSize = Math.min(minSize, deco.slotSize)
+      maxLevel = Math.max(maxLevel, lv)
+    }
+    decoMinSize.push(minSize)
+    decoMaxLevel.push(maxLevel)
+  }
+  let maxSlotSize = 0
+  for (const slot of ARMOR_SLOT_TYPES) {
+    for (const [, piece] of slotEntries[slot]) {
+      for (const s of piece.slots) maxSlotSize = Math.max(maxSlotSize, s)
+    }
+  }
+  for (let i = 0; i < skillCount; i++) {
+    if (decoMinSize[i] > maxSlotSize) decoMinSize[i] = Infinity
+  }
+  // Suffix sums over slot types [i..end): best-case innate points per skill and
+  // best-case count of slots >= k (index k, 1..maxSlotSize).
+  const innateSuffix: number[][] = Array.from({ length: ARMOR_SLOT_TYPES.length + 1 }, () => new Array<number>(skillCount).fill(0))
+  const slotSuffix: number[][] = Array.from({ length: ARMOR_SLOT_TYPES.length + 1 }, () => new Array<number>(maxSlotSize + 1).fill(0))
+  for (let i = ARMOR_SLOT_TYPES.length - 1; i >= 0; i--) {
+    const entries = slotEntries[ARMOR_SLOT_TYPES[i]]
+    for (let s = 0; s < skillCount; s++) {
+      let best = 0
+      for (const [, piece] of entries) best = Math.max(best, piece.skills[desiredSkillEntries[s][0]] ?? 0)
+      innateSuffix[i][s] = innateSuffix[i + 1][s] + best
+    }
+    for (let k = 1; k <= maxSlotSize; k++) {
+      let best = 0
+      for (const [, piece] of entries) best = Math.max(best, piece.slots.filter((x) => x >= k).length)
+      slotSuffix[i][k] = slotSuffix[i + 1][k] + best
+    }
+  }
+  const pieceInnate: Record<string, number[]> = {}
+  const pieceSlotsAtLeast: Record<string, number[]> = {}
+  for (const slot of ARMOR_SLOT_TYPES) {
+    for (const [name, piece] of slotEntries[slot]) {
+      pieceInnate[name] = desiredSkillEntries.map(([skillName]) => piece.skills[skillName] ?? 0)
+      const atLeast = new Array<number>(maxSlotSize + 1).fill(0)
+      for (let k = 1; k <= maxSlotSize; k++) atLeast[k] = piece.slots.filter((x) => x >= k).length
+      pieceSlotsAtLeast[name] = atLeast
+    }
+  }
+  const innateAssigned = new Array<number>(skillCount).fill(0)
+  const slotsAssigned = new Array<number>(maxSlotSize + 1).fill(0)
+  const decoDemand = new Array<number>(maxSlotSize + 1).fill(0)
+
+  function fitsDecoCapacity(nextIndex: number): boolean {
+    decoDemand.fill(0)
+    const innateLeft = innateSuffix[nextIndex]
+    for (let s = 0; s < skillCount; s++) {
+      const deficit = desiredSkillEntries[s][1] - innateAssigned[s] - innateLeft[s]
+      if (deficit <= 0) continue
+      if (decoMinSize[s] === Infinity) return false
+      decoDemand[decoMinSize[s]] += Math.ceil(deficit / decoMaxLevel[s])
+    }
+    const slotsLeft = slotSuffix[nextIndex]
+    let demand = 0
+    for (let k = maxSlotSize; k >= 1; k--) {
+      demand += decoDemand[k]
+      if (demand > slotsAssigned[k] + slotsLeft[k]) return false
+    }
+    return true
+  }
 
   function dfs(index: number, currentArmor: Record<string, PieceEntry>, usedNames: Set<string>, setCounts: Record<string, number>, groupCounts: Record<string, number>): void {
-    if (++visited > LIMIT) return
+    if (outOfTime || ++visited > LIMIT) return
 
     if (index === ARMOR_SLOT_TYPES.length) {
       const pieces = ARMOR_SLOT_TYPES.map((t) => currentArmor[t] as PieceEntry)
@@ -88,6 +180,8 @@ function walkCombosDfs(
     const addedGroupCounts: Record<string, number> = {}
 
     for (const [name, piece] of pieces) {
+      if ((++iterations & 1023) === 0 && performance.now() > deadline) outOfTime = true
+      if (outOfTime) return
       if (usedNames.has(name) && name !== 'None') continue
 
       currentArmor[slot] = [name, piece]
@@ -108,11 +202,13 @@ function walkCombosDfs(
 
       // Incrementally update assignedPoints
       const contrib = pieceContrib[name]
-      if (contrib) {
-        for (const [sk, pts] of Object.entries(contrib)) {
-          assignedPoints[sk] = (assignedPoints[sk] ?? 0) + pts
-        }
+      const innate = pieceInnate[name]
+      const slotsAtLeast = pieceSlotsAtLeast[name]
+      for (let s = 0; s < skillCount; s++) {
+        assignedPoints[s] += contrib[s]
+        innateAssigned[s] += innate[s]
       }
+      for (let k = 1; k <= maxSlotSize; k++) slotsAssigned[k] += slotsAtLeast[k]
 
       let shouldContinue = true
 
@@ -150,30 +246,27 @@ function walkCombosDfs(
 
       // Prune by skill feasibility using incremental assignedPoints — no array allocation
       if (shouldContinue) {
-        for (const [skillName, level] of desiredSkillEntries) {
-          let total = assignedPoints[skillName] ?? 0
-          if (total >= level) continue
-          for (let i = nextIndex; i < ARMOR_SLOT_TYPES.length; i++) {
-            total += maxPotential[ARMOR_SLOT_TYPES[i]]?.[skillName] ?? 0
-            if (total >= level) break
-          }
-          if (total < level) {
+        const potentialLeft = potentialSuffix[nextIndex]
+        for (let s = 0; s < skillCount; s++) {
+          if (assignedPoints[s] + potentialLeft[s] < desiredSkillEntries[s][1]) {
             shouldContinue = false
             break
           }
         }
       }
 
+      if (shouldContinue && !fitsDecoCapacity(nextIndex)) shouldContinue = false
+
       if (shouldContinue) {
         dfs(nextIndex, currentArmor, usedNames, setCounts, groupCounts)
       }
 
       // Backtrack — also clears addedSetCounts/addedGroupCounts for the next iteration
-      if (contrib) {
-        for (const [sk, pts] of Object.entries(contrib)) {
-          assignedPoints[sk] = (assignedPoints[sk] ?? 0) - pts
-        }
+      for (let s = 0; s < skillCount; s++) {
+        assignedPoints[s] -= contrib[s]
+        innateAssigned[s] -= innate[s]
       }
+      for (let k = 1; k <= maxSlotSize; k++) slotsAssigned[k] -= slotsAtLeast[k]
       usedNames.delete(name)
       delete currentArmor[slot]
       for (const sk of Object.keys(addedSetCounts)) {
@@ -205,9 +298,16 @@ export function rollCombosDfs(
 }
 
 /**
- * Exact bounded alternative to exhaustive collection. The first traversal
- * discovers the global maximum defense required by the ranking's defense
- * band; the second retains only the best `limit` prepared results.
+ * Exact bounded alternative to exhaustive collection, in a single traversal.
+ *
+ * The ranking's defense band depends on the global max defense, which is only
+ * known at the end. Results inside the band of the running max are all kept
+ * (`band`); a result can only ever leave the band as the max rises, never
+ * re-enter it. Everything below the band is ranked defense-first, which does
+ * not depend on the max, so only the best `limit` of those are kept
+ * (`belowBand`). The final order is the sorted band followed by `belowBand`.
+ *
+ * The walk stops after `budgetMs` and ranks whatever it found so far.
  */
 export function rollTopCombosDfs(
   gear: GearPool,
@@ -221,30 +321,56 @@ export function rollTopCombosDfs(
   limit = 200,
   acceptResult: (result: SearchResult) => boolean = () => true,
   beforePrepare: (result: SearchResult) => void = () => {},
+  budgetMs = SEARCH_TIME_BUDGET_MS,
 ): SearchResult[] {
-  let maxDefense = 0
-  walkCombosDfs(gear, desiredSkills, setSkills, groupSkills, initialSetCounts, initialGroupCounts, maxPotential, (result) => {
-    if (!acceptResult(result)) return
-    maxDefense = Math.max(maxDefense, result.defense)
-  })
+  let maxDefense = -Infinity
+  let band: SearchResult[] = []
+  const belowBand: SearchResult[] = []
 
-  const top: SearchResult[] = []
-  walkCombosDfs(gear, desiredSkills, setSkills, groupSkills, initialSetCounts, initialGroupCounts, maxPotential, (result) => {
-    if (!acceptResult(result)) return
-    beforePrepare(result)
-    prepareResult(result, skillMaxMap)
-    if (top.length === limit && comparePreparedResults(result, top[top.length - 1], maxDefense) >= 0) return
-
+  // With an infinite max nothing is top-tier, so this is the defense-first order.
+  const insertBelowBand = (result: SearchResult): void => {
+    if (belowBand.length === limit && comparePreparedResults(result, belowBand[belowBand.length - 1], Infinity) >= 0) return
     let low = 0
-    let high = top.length
+    let high = belowBand.length
     while (low < high) {
       const middle = (low + high) >>> 1
-      if (comparePreparedResults(result, top[middle], maxDefense) < 0) high = middle
+      if (comparePreparedResults(result, belowBand[middle], Infinity) < 0) high = middle
       else low = middle + 1
     }
-    top.splice(low, 0, result)
-    if (top.length > limit) top.pop()
-  })
+    belowBand.splice(low, 0, result)
+    if (belowBand.length > limit) belowBand.pop()
+  }
 
-  return top
+  walkCombosDfs(
+    gear,
+    desiredSkills,
+    setSkills,
+    groupSkills,
+    initialSetCounts,
+    initialGroupCounts,
+    maxPotential,
+    (result) => {
+      if (!acceptResult(result)) return
+      beforePrepare(result)
+      prepareResult(result, skillMaxMap)
+
+      if (result.defense > maxDefense) {
+        maxDefense = result.defense
+        const threshold = maxDefense - DEFENSE_BAND
+        const kept: SearchResult[] = []
+        for (const r of band) {
+          if (r.defense >= threshold) kept.push(r)
+          else insertBelowBand(r)
+        }
+        band = kept
+      }
+
+      if (result.defense >= maxDefense - DEFENSE_BAND) band.push(result)
+      else insertBelowBand(result)
+    },
+    performance.now() + budgetMs,
+  )
+
+  band.sort((a, b) => comparePreparedResults(a, b, maxDefense))
+  return band.concat(belowBand).slice(0, limit)
 }

@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { DEFENSE_BAND } from '../logic/constants'
+import { ARMOR_SLOT_TYPES, DEFENSE_BAND, type PieceEntry } from '../logic/constants'
+import { armorCombo, testCombo } from '../logic/combo'
 import { computeMaxPotential, getBestArmor } from '../logic/candidate-pool'
 import { rollCombosDfs, rollTopCombosDfs } from '../logic/dfs'
 import { reorder } from '../logic/reorder'
@@ -24,6 +25,32 @@ describe('set-search', () => {
 
     expect(bounded).toEqual(exhaustive)
   }, 15_000)
+
+  it('prunes without dropping any combo that fulfills a many-skill search', () => {
+    const skills = { Agitator: 4, Flayer: 1, Earplugs: 1, Antivirus: 3, 'Maximum Might': 3, 'Weakness Exploit': 5, 'Speed Eating': 2, Burst: 1 }
+    const fullGear = getBestArmor(skills, {}, {}, [], [], index.byType, index.decorations, 'high')
+    // Trim each slot so brute force stays small; the DFS must still find every fulfilling combo.
+    const gear = { ...fullGear }
+    for (const slot of ARMOR_SLOT_TYPES) gear[slot] = Object.fromEntries(Object.entries(fullGear[slot]).slice(0, 6))
+    const maxPotential = computeMaxPotential(gear, Object.keys(skills))
+
+    const bruteForce: string[] = []
+    const walk = (i: number, picked: PieceEntry[]): void => {
+      if (i === ARMOR_SLOT_TYPES.length) {
+        if (testCombo(armorCombo(picked), gear.decos, skills)) bruteForce.push(picked.map(([n]) => n).join('|'))
+        return
+      }
+      for (const entry of Object.entries(gear[ARMOR_SLOT_TYPES[i]])) {
+        if (entry[0] !== 'None' && picked.some(([n]) => n === entry[0])) continue
+        walk(i + 1, [...picked, entry])
+      }
+    }
+    walk(0, [])
+
+    const found = rollCombosDfs(gear, skills, {}, {}, {}, {}, maxPotential).map((r) => r.armorNames.join('|'))
+    expect(bruteForce.length).toBeGreaterThan(0)
+    expect(found.sort()).toEqual(bruteForce.sort())
+  })
 
   // ── Gore Magala (set skill) + Lord's Soul (group skill) weapon ───────────
 
