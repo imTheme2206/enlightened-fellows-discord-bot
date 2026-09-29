@@ -1,4 +1,4 @@
-import type { ArmorPiece, DecorationItem, ElementalDefenses } from '../types'
+import type { ArmorPiece, DecorationItem, ElementalDefenses } from "../types"
 
 export const LIMIT = 300_000
 /**
@@ -6,7 +6,7 @@ export const LIMIT = 300_000
  * results found so far rather than running into the worker's hard timeout
  * (SEARCH_TIMEOUT_MS in search-worker-client.ts), which fails the request.
  */
-export const SEARCH_TIME_BUDGET_MS = 2_000
+export const SEARCH_TIME_BUDGET_MS = 5_000
 /** How many top-defense pieces per slot to keep as candidates beyond skill-potential winners. */
 export const DEFENSE_POOL_SIZE = 8
 /**
@@ -17,7 +17,14 @@ export const DEFENSE_POOL_SIZE = 8
 export const DEFENSE_BAND = 10
 export const MAX_RESULTS = 200
 export const SLOT_COUNT = 3
-export const ARMOR_SLOT_TYPES = ['head', 'chest', 'arms', 'waist', 'legs', 'talisman'] as const
+export const ARMOR_SLOT_TYPES = [
+  "head",
+  "chest",
+  "arms",
+  "waist",
+  "legs",
+  "talisman",
+] as const
 export type SlotType = (typeof ARMOR_SLOT_TYPES)[number]
 
 /** A piece entry as used inside the DFS: [name, ArmorPiece] */
