@@ -23,7 +23,10 @@ describe('set-search', () => {
     const exhaustive = reorder(rollCombosDfs(gear, skills, {}, {}, {}, {}, maxPotential), skillMaxMap).slice(0, 200)
     const bounded = rollTopCombosDfs(gear, skills, {}, {}, {}, {}, maxPotential, skillMaxMap, 200)
 
-    expect(bounded).toEqual(exhaustive)
+    // _originalIndex counts matched leaves; the bounded walk's defense bound
+    // skips leaves, so only the relative order it encodes carries over.
+    const withoutIndex = (results: SearchResult[]) => results.map(({ _originalIndex, ...rest }) => rest)
+    expect(withoutIndex(bounded)).toEqual(withoutIndex(exhaustive))
   }, 15_000)
 
   it('prunes without dropping any combo that fulfills a many-skill search', () => {

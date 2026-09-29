@@ -3,8 +3,8 @@ import type { ArmorPiece, DecorationItem, ElementalDefenses } from "../types"
 export const LIMIT = 300_000
 /**
  * Wall-clock budget for the DFS walk. Past it the search returns the best
- * results found so far rather than running into the worker's hard timeout
- * (SEARCH_TIMEOUT_MS in search-worker-client.ts), which fails the request.
+ * results found so far. The worker's hard timeout (SEARCH_TIMEOUT_MS in
+ * search-worker-client.ts) is derived from this, so raising it is safe.
  */
 export const SEARCH_TIME_BUDGET_MS = 5_000
 /** How many top-defense pieces per slot to keep as candidates beyond skill-potential winners. */

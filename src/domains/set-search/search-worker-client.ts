@@ -1,8 +1,14 @@
 import { Worker } from 'node:worker_threads'
+import { SEARCH_TIME_BUDGET_MS } from './logic/constants'
 import type { ArmorPiece, SearchInput, SearchResult, SetSearchIndex } from './types'
 import type { SearchWorkerRequest, SearchWorkerResponse } from './search-worker-protocol'
 
-const SEARCH_TIMEOUT_MS = 4_000
+/**
+ * Hard kill for a hung or crashed worker only. The DFS stops itself at
+ * SEARCH_TIME_BUDGET_MS and returns its best results so far, so a healthy
+ * search never reaches this — derived from the budget so the two cannot drift.
+ */
+const SEARCH_TIMEOUT_MS = SEARCH_TIME_BUDGET_MS + 5_000
 
 export class SetSearchTimeoutError extends Error {
   constructor() {
@@ -11,31 +17,36 @@ export class SetSearchTimeoutError extends Error {
   }
 }
 
-interface PendingSearch {
+interface QueuedSearch {
+  id: number
+  input: SearchInput
+  index: SetSearchIndex
+  customTalismans: ArmorPiece[]
   resolve: (results: SearchResult[]) => void
   reject: (error: Error) => void
-  timeout: ReturnType<typeof setTimeout>
 }
 
 let worker: Worker | null = null
 let syncedIndex: SetSearchIndex | null = null
 let nextRequestId = 1
-const pending = new Map<number, PendingSearch>()
-
-function rejectPending(error: Error): void {
-  for (const request of pending.values()) {
-    clearTimeout(request.timeout)
-    request.reject(error)
-  }
-  pending.clear()
-}
+// The worker runs one search at a time, so searches are dispatched one at a
+// time: each request's hard timeout then covers only its own run, never time
+// spent queued behind another search.
+const queue: QueuedSearch[] = []
+let active: { search: QueuedSearch; timeout: ReturnType<typeof setTimeout> } | null = null
 
 function resetWorker(error: Error): void {
   const staleWorker = worker
   worker = null
   syncedIndex = null
-  rejectPending(error)
+  if (active) {
+    clearTimeout(active.timeout)
+    active.search.reject(error)
+    active = null
+  }
   void staleWorker?.terminate()
+  // Queued searches never reached the dead worker — run them on a fresh one.
+  dispatchNext()
 }
 
 function createWorker(): Worker {
@@ -43,14 +54,17 @@ function createWorker(): Worker {
   const nextWorker = new Worker(new URL(workerFile, import.meta.url))
 
   nextWorker.on('message', (message: SearchWorkerResponse) => {
-    const request = pending.get(message.id)
-    if (!request) return
-    clearTimeout(request.timeout)
-    pending.delete(message.id)
-    if (message.type === 'result') request.resolve(message.results)
-    else request.reject(new Error(message.message))
+    if (!active || active.search.id !== message.id) return
+    const { search, timeout } = active
+    clearTimeout(timeout)
+    active = null
+    if (message.type === 'result') search.resolve(message.results)
+    else search.reject(new Error(message.message))
+    dispatchNext()
   })
-  nextWorker.on('error', (error) => resetWorker(error))
+  nextWorker.on('error', (error) => {
+    if (worker === nextWorker) resetWorker(error)
+  })
   nextWorker.on('exit', (code) => {
     if (worker === nextWorker) resetWorker(new Error(`Set-search worker exited with code ${code}`))
   })
@@ -58,25 +72,35 @@ function createWorker(): Worker {
   return nextWorker
 }
 
-export function runSearchInWorker(input: SearchInput, index: SetSearchIndex, customTalismans: ArmorPiece[] = []): Promise<SearchResult[]> {
+function dispatchNext(): void {
+  if (active) return
+  const search = queue.shift()
+  if (!search) return
+
   worker ??= createWorker()
-  if (syncedIndex !== index) {
+  if (syncedIndex !== search.index) {
     worker.postMessage({
       type: 'set-index',
-      index,
+      index: search.index,
     } satisfies SearchWorkerRequest)
-    syncedIndex = index
+    syncedIndex = search.index
   }
 
-  const id = nextRequestId++
+  active = {
+    search,
+    timeout: setTimeout(() => resetWorker(new SetSearchTimeoutError()), SEARCH_TIMEOUT_MS),
+  }
+  worker.postMessage({
+    type: 'search',
+    id: search.id,
+    input: search.input,
+    customTalismans: search.customTalismans,
+  } satisfies SearchWorkerRequest)
+}
+
+export function runSearchInWorker(input: SearchInput, index: SetSearchIndex, customTalismans: ArmorPiece[] = []): Promise<SearchResult[]> {
   return new Promise<SearchResult[]>((resolve, reject) => {
-    const timeout = setTimeout(() => resetWorker(new SetSearchTimeoutError()), SEARCH_TIMEOUT_MS)
-    pending.set(id, { resolve, reject, timeout })
-    worker?.postMessage({
-      type: 'search',
-      id,
-      input,
-      customTalismans,
-    } satisfies SearchWorkerRequest)
+    queue.push({ id: nextRequestId++, input, index, customTalismans, resolve, reject })
+    dispatchNext()
   })
 }
