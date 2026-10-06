@@ -19,6 +19,10 @@ _Avoid_: Weapon loadout, full equipment loadout.
 A catalog item of one of 14 kinds (great sword ... heavy bowgun) with base raw/display damage, affinity, element/status specials, sharpness (melee), weapon-type decoration slots, ordinary weapon Skills, and kind-specific data (phial, shell, coatings, ammo, melody, ...). Identity is its upstream kind + gameId (ADR-0013), not its name. The three Artian base templates share a name upstream, so the catalog suffixes their display names with their affinity.
 _Avoid_: Weapon bonus (that is the Set/Group Bonus contribution, a customization concern).
 
+**Monster**:
+A large monster catalog item with base HP, per-part hitzone multipliers (slash/blunt/pierce/fire/water/thunder/ice/dragon/stun, 0-1), part HP, and weaknesses. Unlike equipment it is replaced when upstream changes (ADR-0015); identity is its canonical name and its `dataVersion` (content hash + fetchedAt) changes whenever its values do. Saved Builds never reference a Monster.
+_Avoid_: Boss, target (the target is the hunter's selection of a Monster and part, a frontend concern).
+
 **Working Build**:
 The frontend-owned, locally persisted Set Builder composition before the user explicitly saves it through the API.
 _Avoid_: Server draft, autosaved build.

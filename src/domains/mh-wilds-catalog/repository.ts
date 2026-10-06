@@ -1,8 +1,9 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
-import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill, weapon, weaponSkill } from '../../infra/db/schema'
+import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, monster, monsterPart, monsterWeakness, skill, weapon, weaponSkill } from '../../infra/db/schema'
 import type { CatalogIndexProjection } from './projection'
-import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
+import type { ArmorCatalogItem, DecorationCatalogItem, MonsterDetail, MonsterListItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
+import { monsterIconUrl } from './monster-icon'
 import { transcendSlots } from './transcend'
 
 /**
@@ -13,6 +14,33 @@ import { transcendSlots } from './transcend'
  * applied yet.
  */
 export abstract class CatalogRepository {
+  static async findMonsterList(): Promise<MonsterListItem[]> {
+    const rows = await db
+      .select({ id: monster.id, name: monster.name, species: monster.species, baseHealth: monster.baseHealth })
+      .from(monster)
+      .orderBy(asc(monster.name))
+    return rows.map((r) => ({ ...r, iconUrl: monsterIconUrl(r.name) }))
+  }
+
+  static async findMonsterDetail(id: string): Promise<MonsterDetail | null> {
+    const [m] = await db.select().from(monster).where(eq(monster.id, id))
+    if (!m) return null
+    const parts = await db.select().from(monsterPart).where(eq(monsterPart.monsterId, id)).orderBy(asc(monsterPart.position))
+    const weaknesses = await db.select().from(monsterWeakness).where(eq(monsterWeakness.monsterId, id)).orderBy(asc(monsterWeakness.position))
+    return {
+      id: m.id,
+      name: m.name,
+      species: m.species,
+      baseHealth: m.baseHealth,
+      iconUrl: monsterIconUrl(m.name),
+      description: m.description,
+      size: m.size,
+      dataVersion: { hash: m.contentHash, fetchedAt: m.fetchedAt.toISOString() },
+      parts: parts.map((p) => ({ id: p.id, kind: p.kind, name: p.name, health: p.health, kinsectEssence: p.kinsectEssence, multipliers: p.multipliers })),
+      weaknesses: weaknesses.map((w) => ({ kind: w.kind as MonsterDetail['weaknesses'][number]['kind'], name: w.name, level: w.level, condition: w.condition })),
+    }
+  }
+
   static async findArmorCatalog(): Promise<ArmorCatalogItem[]> {
     const armorRows = await db.select().from(armor).orderBy(asc(armor.name))
     const skillRows = await db

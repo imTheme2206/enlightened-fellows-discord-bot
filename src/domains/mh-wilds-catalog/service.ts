@@ -1,6 +1,6 @@
 import type { CatalogIndexProjection } from './projection'
 import { CatalogRepository } from './repository'
-import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
+import type { ArmorCatalogItem, DecorationCatalogItem, MonsterDetail, MonsterListItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
 
 /**
  * MH Wilds Catalog domain service (ADR-0009): the shared read boundary over
@@ -18,6 +18,14 @@ export abstract class CatalogService {
 
   static getWeapons(query: WeaponCatalogQuery = {}): Promise<WeaponCatalogItem[]> {
     return CatalogRepository.findWeaponCatalog(query)
+  }
+
+  static getMonsters(): Promise<MonsterListItem[]> {
+    return CatalogRepository.findMonsterList()
+  }
+
+  static getMonster(id: string): Promise<MonsterDetail | null> {
+    return CatalogRepository.findMonsterDetail(id)
   }
 
   static getSkills(): Promise<SkillCatalogResponse> {

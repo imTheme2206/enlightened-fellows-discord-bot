@@ -71,6 +71,13 @@
       "when": 1791266979456,
       "tag": "0009_weapon_game_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791267999019,
+      "tag": "0010_monster_catalog",
+      "breakpoints": true
     }
   ]
 }

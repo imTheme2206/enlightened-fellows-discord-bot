@@ -6,7 +6,7 @@ import path from 'path'
 import logger from '../../infra/logger'
 import type { AttachmentRef, EmbedPaginationEntry, PaginatedEmbeds } from './embed-pagination'
 import { paginateEmbedEntries } from './embed-pagination'
-import { resolveMonsterIcon } from './resolve-monster-icon'
+import { resolveMonsterIcon } from '../../domains/mh-wilds-catalog/monster-icon'
 import { craftEventEmbed } from './wilds-event-embed'
 
 /**

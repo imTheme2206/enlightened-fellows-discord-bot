@@ -79,3 +79,34 @@ export interface MhdbWeapon {
   echoBubble?: unknown
   echoWave?: unknown
 }
+
+export interface MhdbMonsterPart {
+  id: number
+  kind: string
+  name: string
+  health: number | null
+  kinsectEssence: string | null
+  multipliers: Record<'slash' | 'blunt' | 'pierce' | 'fire' | 'water' | 'thunder' | 'ice' | 'dragon' | 'stun', number>
+}
+
+export interface MhdbMonsterWeakness {
+  kind: 'element' | 'status' | 'effect'
+  element?: string
+  status?: string
+  effect?: string
+  level: number
+  condition: string | null
+}
+
+export interface MhdbMonster {
+  id: number
+  gameId: number
+  kind: 'large' | 'small'
+  name: string
+  species: string
+  description: string
+  baseHealth: number
+  size: Record<string, number>
+  parts: MhdbMonsterPart[]
+  weaknesses: MhdbMonsterWeakness[]
+}

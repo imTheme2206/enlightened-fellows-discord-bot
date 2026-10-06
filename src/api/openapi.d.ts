@@ -143,6 +143,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/monsters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsMonsters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mh-wilds/monsters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsMonstersById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mh-wilds/search": {
         parameters: {
             query?: never;
@@ -523,6 +557,108 @@ export interface operations {
                             [key: string]: unknown;
                         };
                     }[];
+                };
+            };
+        };
+    };
+    "getApiMh-wildsMonsters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        species: string;
+                        baseHealth: number;
+                        iconUrl: string;
+                    }[];
+                };
+            };
+        };
+    };
+    "getApiMh-wildsMonstersById": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        species: string;
+                        baseHealth: number;
+                        iconUrl: string;
+                        description: string;
+                        size: {
+                            [key: string]: number;
+                        };
+                        dataVersion: {
+                            hash: string;
+                            fetchedAt: string;
+                        };
+                        parts: {
+                            id: string;
+                            kind: string;
+                            name: string;
+                            health: number | null;
+                            kinsectEssence: string | null;
+                            multipliers: {
+                                slash: number;
+                                blunt: number;
+                                pierce: number;
+                                fire: number;
+                                water: number;
+                                thunder: number;
+                                ice: number;
+                                dragon: number;
+                                stun: number;
+                            };
+                        }[];
+                        weaknesses: {
+                            /** @enum {string} */
+                            kind: "element" | "status" | "effect";
+                            name: string;
+                            level: number;
+                            condition: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Response for status 404 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: {
+                            /** @constant */
+                            code: "NOT_FOUND";
+                            message: string;
+                        };
+                    };
                 };
             };
         };

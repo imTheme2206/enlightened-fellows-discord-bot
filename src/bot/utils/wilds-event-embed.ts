@@ -1,7 +1,7 @@
 import dayjs from 'dayjs'
 import { ColorResolvable, EmbedBuilder } from 'discord.js'
 import { EventQuestItem } from '@imthmn/mh-wilds-event-scraper'
-import { resolveMonsterIcon } from './resolve-monster-icon'
+import { resolveMonsterIcon } from '../../domains/mh-wilds-catalog/monster-icon'
 
 const toCapitalCase = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1)

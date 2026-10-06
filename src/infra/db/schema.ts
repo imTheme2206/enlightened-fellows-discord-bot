@@ -197,6 +197,77 @@ export const weaponSkill = pgTable(
   (t) => [primaryKey({ columns: [t.weaponId, t.skillId] })],
 )
 
+/** Per-damage-type hitzone multipliers (0-1) as scraped; stored as jsonb on `monster_part`. */
+export type MonsterMultipliers = {
+  slash: number
+  blunt: number
+  pierce: number
+  fire: number
+  water: number
+  thunder: number
+  ice: number
+  dragon: number
+  stun: number
+}
+
+/**
+ * A large monster as catalog data (ADR-0015). Unlike released equipment it is
+ * replaced when upstream changes: `contentHash` fingerprints the ingested
+ * content and `fetchedAt` records when that content was last written, together
+ * forming the monster's `dataVersion`. Identity is the canonical `name`; `id`
+ * is assigned once and kept stable across replacements.
+ */
+export const monster = pgTable("monster", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  gameId: integer("game_id").notNull(),
+  kind: text("kind").notNull(), // 'large' | 'small'
+  species: text("species").notNull(),
+  description: text("description").notNull().default(""),
+  baseHealth: integer("base_health").notNull(),
+  size: jsonb("size").$type<Record<string, number>>().notNull().default({}),
+  contentHash: text("content_hash").notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
+})
+
+/**
+ * One hitzone of a monster. Parts can repeat a `kind` (Gogmazios has six
+ * `hide`), so each keeps its upstream part id; `position` preserves upstream order.
+ */
+export const monsterPart = pgTable(
+  "monster_part",
+  {
+    id: text("id").primaryKey(),
+    monsterId: text("monster_id")
+      .notNull()
+      .references(() => monster.id, { onDelete: "cascade" }),
+    upstreamId: integer("upstream_id").notNull(),
+    position: integer("position").notNull(),
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    health: integer("health"),
+    kinsectEssence: text("kinsect_essence"),
+    multipliers: jsonb("multipliers").$type<MonsterMultipliers>().notNull(),
+  },
+  (t) => [unique("monster_part_monster_upstream_unique").on(t.monsterId, t.upstreamId)],
+)
+
+/** An elemental, status, or effect weakness of a monster (`kind`: 'element' | 'status' | 'effect'). */
+export const monsterWeakness = pgTable(
+  "monster_weakness",
+  {
+    monsterId: text("monster_id")
+      .notNull()
+      .references(() => monster.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    level: integer("level").notNull(),
+    condition: text("condition"),
+  },
+  (t) => [primaryKey({ columns: [t.monsterId, t.position] })],
+)
+
 export const jobLog = pgTable("job_log", {
   id: text("id").primaryKey(),
   jobName: text("job_name").notNull(),
@@ -328,6 +399,9 @@ export type ArmorBonus = typeof armorBonus.$inferSelect
 export type Armor = typeof armor.$inferSelect
 export type Weapon = typeof weapon.$inferSelect
 export type WeaponSkill = typeof weaponSkill.$inferSelect
+export type Monster = typeof monster.$inferSelect
+export type MonsterPart = typeof monsterPart.$inferSelect
+export type MonsterWeakness = typeof monsterWeakness.$inferSelect
 export type JobLog = typeof jobLog.$inferSelect
 export type NewJobLog = typeof jobLog.$inferInsert
 export type SearchHistory = typeof searchHistory.$inferSelect

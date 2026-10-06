@@ -2,6 +2,8 @@ import { CatalogIngestionService } from "../../mh-wilds-catalog/ingestion/servic
 import { OrphanedTalismanSkillError, ScrapeConflictError } from "../../mh-wilds-catalog/ingestion/errors"
 import { deKira } from "../../mh-wilds-catalog/ingestion/names"
 import { mapMhdbWeapons } from "../../mh-wilds-catalog/ingestion/weapons"
+import { mapMhdbMonsters } from "../../mh-wilds-catalog/ingestion/monsters"
+import { MonsterIngestionService } from "../../mh-wilds-catalog/ingestion/monster-service"
 import { SeedDataSchema, transformSeedData } from "../../mh-wilds-catalog/ingestion/transform"
 import logger from "../../../infra/logger"
 import { JobLogService } from "../../job-logs/service"
@@ -11,6 +13,7 @@ import type {
   MhdbArmorSet,
   MhdbCharmGroup,
   MhdbDecoration,
+  MhdbMonster,
   MhdbSkill,
   MhdbWeapon,
 } from "../../mh-wilds-catalog/ingestion/mhdb-types"
@@ -202,30 +205,41 @@ export interface ScraperResult {
   skillCount: number
   decoCount: number
   weaponCount: number
+  /** Monsters (ADR-0015): new, and replaced because upstream content changed. */
+  monsterInsertedCount: number
+  monsterUpdatedCount: number
+}
+
+type EquipmentResult = Pick<ScraperResult, "armorCount" | "skillCount" | "decoCount" | "weaponCount">
+type MonsterResult = Pick<ScraperResult, "monsterInsertedCount" | "monsterUpdatedCount">
+
+const errorDetail = (err: unknown): string => {
+  const message = err instanceof Error ? err.message : String(err)
+  // Structured operator-review payload for conflicts (ADR-0007) / orphans.
+  if (err instanceof ScrapeConflictError)
+    return JSON.stringify({ conflicts: err.conflicts.slice(0, 50), total: err.conflicts.length })
+  if (err instanceof OrphanedTalismanSkillError)
+    return JSON.stringify({ orphanedSkillIds: err.skillIds })
+  return message
 }
 
 /**
- * Public scraper entry point (called by `db-init.ts`). Fetches + transforms
- * the upstream feed (set-search-agnostic), delegates reconciliation and
- * insert-only persistence to the MH Wilds Catalog domain, then triggers the
- * set-search index rebuild.
+ * Armor / decoration / skill / weapon ingestion (ADR-0007/0013): fetch +
+ * transform, delegate insert-only persistence to the catalog domain, then
+ * rebuild the set-search index.
  */
-export async function runScraper(
-  options: { source?: "cron" | "manual" | "boot" } = {},
-): Promise<ScraperResult> {
-  const source = options.source ?? "manual"
-  const jobName = `scraper:${source}`
-
-  logger.info(`[scraperService] Starting scraper (source: ${source})`)
-
-  let result: ScraperResult = { armorCount: 0, skillCount: 0, decoCount: 0, weaponCount: 0 }
-
+const scrapeEquipment = async (jobName: string): Promise<EquipmentResult> => {
   try {
     const seedData = await fetchSeedData()
     const transformed = transformSeedData(seedData)
 
     const ingestResult = await CatalogIngestionService.reconcileAndPersist(transformed)
-    result = { armorCount: ingestResult.armorCount, skillCount: ingestResult.skillCount, decoCount: ingestResult.decoCount, weaponCount: ingestResult.weaponCount }
+    const result = {
+      armorCount: ingestResult.armorCount,
+      skillCount: ingestResult.skillCount,
+      decoCount: ingestResult.decoCount,
+      weaponCount: ingestResult.weaponCount,
+    }
 
     logger.info(
       `[scraperService] Success (insert-only): +${ingestResult.skillCount} skills, +${ingestResult.bonusCount} bonuses, +${ingestResult.armorCount} armor, +${ingestResult.decoCount} decorations, +${ingestResult.weaponCount} weapons`,
@@ -241,20 +255,61 @@ export async function runScraper(
 
     return result
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    logger.error(`[scraperService] Failed: ${message}`, { err })
+    logger.error(`[scraperService] Failed: ${err instanceof Error ? err.message : String(err)}`, { err })
     try {
-      // Structured operator-review payload for conflicts (ADR-0007) / orphans.
-      const detail =
-        err instanceof ScrapeConflictError
-          ? JSON.stringify({ conflicts: err.conflicts.slice(0, 50), total: err.conflicts.length })
-          : err instanceof OrphanedTalismanSkillError
-            ? JSON.stringify({ orphanedSkillIds: err.skillIds })
-            : message
-      await JobLogService.log(jobName, "FAILED", detail)
+      await JobLogService.log(jobName, "FAILED", errorDetail(err))
     } catch {
       // ignore logging failure
     }
     throw err
   }
+}
+
+/**
+ * Monster ingestion (ADR-0015): replace-on-change, in its own transaction and
+ * job log entry so it is independent of the equipment scrape above.
+ */
+export const scrapeMonsters = async (source: string = "manual"): Promise<MonsterResult> => {
+  const jobName = `scraper:${source}:monsters`
+  try {
+    const list = await fetchJson<MhdbMonster[]>(`${BASE_URL}/monsters`)
+    const records = mapMhdbMonsters(list)
+    if (records.length === 0) throw new Error("Monster feed returned no large monsters")
+    const r = await MonsterIngestionService.reconcileAndPersist(records)
+    logger.info(
+      `[scraperService] Monsters: +${r.inserted} new, ${r.updated} updated, ${r.unchanged} unchanged`,
+    )
+    await JobLogService.log(jobName, "SUCCESS", JSON.stringify(r))
+    return { monsterInsertedCount: r.inserted, monsterUpdatedCount: r.updated }
+  } catch (err) {
+    logger.error(`[scraperService] Monster scrape failed: ${err instanceof Error ? err.message : String(err)}`, { err })
+    try {
+      await JobLogService.log(jobName, "FAILED", errorDetail(err))
+    } catch {
+      // ignore logging failure
+    }
+    throw err
+  }
+}
+
+/**
+ * Public scraper entry point (called by `db-init.ts`). Runs the equipment
+ * scrape and the monster scrape independently: a failure (e.g. an ADR-0007
+ * conflict) in one never prevents the other from being applied. The first
+ * failure is rethrown after both have run.
+ */
+export async function runScraper(
+  options: { source?: "cron" | "manual" | "boot" } = {},
+): Promise<ScraperResult> {
+  const source = options.source ?? "manual"
+
+  logger.info(`[scraperService] Starting scraper (source: ${source})`)
+
+  const [equipment, monsters] = await Promise.allSettled([
+    scrapeEquipment(`scraper:${source}`),
+    scrapeMonsters(source),
+  ])
+  if (equipment.status === "rejected") throw equipment.reason
+  if (monsters.status === "rejected") throw monsters.reason
+  return { ...equipment.value, ...monsters.value }
 }

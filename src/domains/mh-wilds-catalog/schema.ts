@@ -151,3 +151,64 @@ export const weaponCatalogQuerySchema = z.object({
   kind: weaponKindSchema.optional(),
 })
 export type WeaponCatalogQuery = z.infer<typeof weaponCatalogQuerySchema>
+
+/** ADR-0015: monsters are replace-on-change catalog data. */
+export const monsterMultipliersSchema = z.object({
+  slash: z.number(),
+  blunt: z.number(),
+  pierce: z.number(),
+  fire: z.number(),
+  water: z.number(),
+  thunder: z.number(),
+  ice: z.number(),
+  dragon: z.number(),
+  stun: z.number(),
+})
+
+/** Content fingerprint + when that content was written; changes whenever upstream values change. */
+export const monsterDataVersionSchema = z.object({
+  hash: z.string(),
+  fetchedAt: z.string(),
+})
+
+export const monsterListItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  species: z.string(),
+  baseHealth: z.number(),
+  /** Path of the monster's icon, served by this API (falls back to the Unknown icon). */
+  iconUrl: z.string(),
+})
+export type MonsterListItem = z.infer<typeof monsterListItemSchema>
+export const monsterListResponseSchema = z.array(monsterListItemSchema)
+
+export const monsterPartSchema = z.object({
+  /** Stable across replacements of the monster (`<monsterId>:<upstream part id>`). */
+  id: z.string(),
+  kind: z.string(),
+  name: z.string(),
+  /** Null when upstream publishes no part HP. */
+  health: z.number().nullable(),
+  kinsectEssence: z.string().nullable(),
+  multipliers: monsterMultipliersSchema,
+})
+
+export const monsterWeaknessSchema = z.object({
+  kind: z.enum(['element', 'status', 'effect']),
+  /** Element (e.g. 'dragon'), status (e.g. 'paralysis') or effect (e.g. 'flash') name. */
+  name: z.string(),
+  level: z.number(),
+  condition: z.string().nullable(),
+})
+
+export const monsterDetailSchema = monsterListItemSchema.extend({
+  description: z.string(),
+  size: z.record(z.string(), z.number()),
+  dataVersion: monsterDataVersionSchema,
+  parts: z.array(monsterPartSchema),
+  weaknesses: z.array(monsterWeaknessSchema),
+})
+export type MonsterDetail = z.infer<typeof monsterDetailSchema>
+
+export const monsterParamsSchema = z.object({ id: z.string() })
+export const monsterNotFoundSchema = z.object({ error: z.object({ code: z.literal('NOT_FOUND'), message: z.string() }) })

@@ -7,6 +7,8 @@ import { decorationsRoutes } from "./routes/decorations"
 import { fetchArmorsRoutes } from "./routes/fetch-armors"
 import { genshinCodesRoutes } from "./routes/genshin-codes"
 import { jobLogsRoutes } from "./routes/job-logs"
+import { monsterIconsRoutes } from "./routes/monster-icons"
+import { monstersRoutes } from "./routes/monsters"
 import { searchRoutes } from "./routes/search"
 import { skillsRoutes } from "./routes/skills"
 import { talismansRoutes } from "./routes/talismans"
@@ -36,6 +38,8 @@ export function createApp() {
           .use(armorsRoutes)
           .use(decorationsRoutes)
           .use(weaponsRoutes)
+          .use(monstersRoutes)
+          .use(monsterIconsRoutes)
           .use(searchRoutes)
           .use(buildsPublicRoutes)
           .use(buildsOwnerRoutes),

@@ -2,7 +2,8 @@ import { count } from 'drizzle-orm'
 import logger from '../../infra/logger'
 import { db } from '../../infra/db/client'
 import { armor } from '../../infra/db/schema'
-import { runScraper } from '../../domains/set-search/scraper'
+import { runScraper, scrapeMonsters } from '../../domains/set-search/scraper'
+import { MonsterIngestionService } from '../../domains/mh-wilds-catalog/ingestion/monster-service'
 import { refresh } from '../../domains/set-search/runtime'
 
 export async function seedOnBoot(): Promise<void> {
@@ -14,5 +15,11 @@ export async function seedOnBoot(): Promise<void> {
     await runScraper({ source: 'boot' })
   } else {
     await refresh()
+    // Existing catalogs predate the monster tables (ADR-0015); seed them once.
+    try {
+      if (await MonsterIngestionService.isEmpty()) await scrapeMonsters('boot')
+    } catch (err) {
+      logger.warn('[dbInit] Monster seed failed (non-fatal; already job-logged):', { err })
+    }
   }
 }
