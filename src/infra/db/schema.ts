@@ -350,6 +350,35 @@ export const customTalisman = pgTable(
   (t) => [unique().on(t.userId, t.name)],
 )
 
+/** Configuration is stored independently of the replaceable weapon catalog. */
+export type SavedWeaponCustomization = {
+  element: string | null
+  attackParts: number
+  affinityParts: number
+  elementInfusion: boolean
+  reinforcements: { type: string; level: string }[]
+}
+
+/** A user's named Artian / Gogma Artian configuration. */
+export const customWeapon = pgTable(
+  "custom_weapon",
+  {
+    id: text("id").primaryKey(),
+    // Discord snowflake — intentionally text, not a FK to auth.users (see ADR-0003).
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    // No FK: catalog refreshes replace catalog rows, while saved configs remain durable.
+    weaponId: text("weapon_id").notNull(),
+    customization: jsonb("customization").$type<SavedWeaponCustomization>().notNull(),
+    setBonusId: text("set_bonus_id"),
+    groupBonusId: text("group_bonus_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique("custom_weapon_user_name_unique").on(t.userId, t.name)],
+)
+
 /**
  * A Saved Build: one JSONB aggregate row (ADR-0008). The scalar lifecycle fields
  * are indexed; the domain-validated, schema-versioned `composition` snapshot is
@@ -423,5 +452,7 @@ export type RegisteredChannel = typeof registeredChannel.$inferSelect
 export type NewRegisteredChannel = typeof registeredChannel.$inferInsert
 export type CustomTalisman = typeof customTalisman.$inferSelect
 export type NewCustomTalisman = typeof customTalisman.$inferInsert
+export type CustomWeapon = typeof customWeapon.$inferSelect
+export type NewCustomWeapon = typeof customWeapon.$inferInsert
 export type SavedBuild = typeof savedBuild.$inferSelect
 export type NewSavedBuild = typeof savedBuild.$inferInsert

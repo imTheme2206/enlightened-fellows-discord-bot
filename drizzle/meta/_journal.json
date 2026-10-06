@@ -85,6 +85,13 @@
       "when": 1791270402617,
       "tag": "0011_catalog_sync_state",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791275370868,
+      "tag": "0012_free_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

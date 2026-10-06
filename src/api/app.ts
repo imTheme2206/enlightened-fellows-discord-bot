@@ -4,6 +4,7 @@ import { armorsRoutes } from "./routes/armors"
 import { artianRulesRoutes } from "./routes/artian-rules"
 import { buildsOwnerRoutes, buildsPublicRoutes } from "./routes/builds"
 import { channelsRoutes } from "./routes/channels"
+import { customWeaponsRoutes } from "./routes/custom-weapons"
 import { decorationsRoutes } from "./routes/decorations"
 import { fetchArmorsRoutes } from "./routes/fetch-armors"
 import { genshinCodesRoutes } from "./routes/genshin-codes"
@@ -46,6 +47,6 @@ export function createApp() {
           .use(buildsPublicRoutes)
           .use(buildsOwnerRoutes),
       )
-      .group("/api", (app) => app.use(talismansRoutes))
+      .group("/api", (app) => app.use(talismansRoutes).use(customWeaponsRoutes))
   )
 }
