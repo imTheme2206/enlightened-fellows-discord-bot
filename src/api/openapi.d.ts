@@ -3016,6 +3016,17 @@ export interface operations {
                     weapon: {
                         setBonus: string | null;
                         groupBonus: string | null;
+                        weaponId?: string | null;
+                        customization?: {
+                            element: string | null;
+                            attackParts: number;
+                            affinityParts: number;
+                            elementInfusion: boolean;
+                            reinforcements: {
+                                type: string;
+                                level: string;
+                            }[];
+                        } | null;
                     };
                     name: string;
                     description?: string | null;
@@ -3050,6 +3061,17 @@ export interface operations {
                     weapon: {
                         setBonus: string | null;
                         groupBonus: string | null;
+                        weaponId?: string | null;
+                        customization?: {
+                            element: string | null;
+                            attackParts: number;
+                            affinityParts: number;
+                            elementInfusion: boolean;
+                            reinforcements: {
+                                type: string;
+                                level: string;
+                            }[];
+                        } | null;
                     };
                     name: string;
                     description?: string | null;
@@ -3084,6 +3106,17 @@ export interface operations {
                     weapon: {
                         setBonus: string | null;
                         groupBonus: string | null;
+                        weaponId?: string | null;
+                        customization?: {
+                            element: string | null;
+                            attackParts: number;
+                            affinityParts: number;
+                            elementInfusion: boolean;
+                            reinforcements: {
+                                type: string;
+                                level: string;
+                            }[];
+                        } | null;
                     };
                     name: string;
                     description?: string | null;

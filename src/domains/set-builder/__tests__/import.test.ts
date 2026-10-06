@@ -4,7 +4,9 @@ import type { SetBuilderErrorCode } from "../errors"
 import { SetBuilderError } from "../errors"
 import { buildImportComposition, type ImportCatalogInput } from "../import"
 import type { ImportBuildRequest } from "../schema"
-import { ARMORS, CUSTOM_TALISMAN, DECORATIONS, SKILLS } from "./fixtures"
+import { canonicalizeSaveComposition } from "../canonicalize"
+import { importBuildRequestSchema } from "../schema"
+import { ARMORS, CUSTOM_TALISMAN, DECORATIONS, SKILLS, makeView } from "./fixtures"
 
 /** Asserts `fn` throws a `SetBuilderError` with the expected machine code. */
 function expectCode(fn: () => void, code: SetBuilderErrorCode) {
@@ -206,5 +208,68 @@ describe("buildImportComposition", () => {
       () => buildImportComposition(request, CATALOG, []),
       "WEAPON_BONUS_KIND_MISMATCH",
     )
+  })
+
+  describe("equipped catalog weapon", () => {
+    const customization = {
+      element: "water",
+      attackParts: 1,
+      affinityParts: 2,
+      elementInfusion: false,
+      reinforcements: [{ type: "attack", level: "EX" }],
+    }
+
+    it("carries the weaponId and customization through, with bonuses resolved by name", () => {
+      const request = makeRequest({
+        weapon: {
+          weaponId: "weapon-gogma-gs",
+          setBonus: "Example Set",
+          groupBonus: "Example Group",
+          customization,
+        },
+      })
+      const composition = buildImportComposition(request, CATALOG, [])
+      expect(composition.weapon).toEqual({
+        weaponId: "weapon-gogma-gs",
+        decorations: [],
+        setBonusId: "bn-set",
+        groupBonusId: "bn-group",
+        customization,
+      })
+      // The composition is accepted by the same canonicalizer a manual Save uses.
+      const snapshot = canonicalizeSaveComposition(
+        { name: "x", isShared: false, composition },
+        makeView(),
+      )
+      expect(snapshot.positions.weapon?.weaponId).toBe("weapon-gogma-gs")
+      expect(snapshot.positions.weapon?.customization?.family).toBe("gogma")
+      expect(snapshot.positions.weapon?.setBonus?.name).toBe("Example Set")
+    })
+
+    it("a plain catalog weapon imports without bonuses or customization", () => {
+      const request = makeRequest({
+        weapon: { weaponId: "weapon-gs", setBonus: null, groupBonus: null },
+      })
+      expect(buildImportComposition(request, CATALOG, []).weapon).toEqual({
+        weaponId: "weapon-gs",
+        decorations: [],
+        setBonusId: null,
+        groupBonusId: null,
+      })
+    })
+
+    it("the request schema still accepts the legacy bonus-only weapon and rejects an empty weaponId", () => {
+      const base = { result: makeResult(), name: "n" }
+      const legacy = importBuildRequestSchema.safeParse({
+        ...base,
+        weapon: { setBonus: null, groupBonus: null },
+      })
+      expect(legacy.success).toBe(true)
+      const empty = importBuildRequestSchema.safeParse({
+        ...base,
+        weapon: { setBonus: null, groupBonus: null, weaponId: "" },
+      })
+      expect(empty.success).toBe(false)
+    })
   })
 })

@@ -215,9 +215,10 @@ function resolveWeapon(
   weapon: ImportBuildRequest["weapon"],
   bonuses: BonusCatalogEntry[],
 ): CompositionRequest["weapon"] {
-  // The optimizer has no weapon item, only its bonus contribution (by name).
+  // The optimizer names bonuses (no ids); an equipped catalog weapon arrives by id and its
+  // Artian configuration is validated downstream exactly like a manual Save.
   return {
-    weaponId: null,
+    weaponId: weapon.weaponId ?? null,
     decorations: [],
     setBonusId: weapon.setBonus
       ? resolveBonus(weapon.setBonus, "set", bonuses).id
@@ -225,6 +226,7 @@ function resolveWeapon(
     groupBonusId: weapon.groupBonus
       ? resolveBonus(weapon.groupBonus, "group", bonuses).id
       : null,
+    ...(weapon.customization ? { customization: weapon.customization } : {}),
   }
 }
 

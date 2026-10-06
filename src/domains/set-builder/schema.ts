@@ -117,14 +117,22 @@ export type PatchBuildRequest = z.infer<typeof patchBuildRequestSchema>
  * is already the shared, versionless API contract for a search result (ADR-0001),
  * so referencing it here is the same kind of cross-domain boundary as the
  * catalog's shared DTOs rather than a new coupling. `weapon` carries the
- * optimizer's "gogma weapon" Set/Group Bonus contribution by *name* (the result
- * has no ids); the service resolves each against the bonus catalog.
+ * optimizer's equipped weapon: its Set/Group Bonus contribution by *name* (the
+ * result has no ids; the service resolves each against the bonus catalog) and,
+ * optionally, a catalog `weaponId` with its Artian `customization`.
  */
 export const importBuildRequestSchema = z.object({
   result: searchResultSchema,
   weapon: z.object({
     setBonus: z.string().nullable(),
     groupBonus: z.string().nullable(),
+    /**
+     * The equipped catalog weapon (ADR-0013/0014) and its Artian configuration.
+     * Optional so bonus-only imports keep working; a Gogma Artian's rolled bonuses
+     * stay in `setBonus`/`groupBonus` (by name). Validated downstream like a manual Save.
+     */
+    weaponId: z.string().min(1).nullish(),
+    customization: artianCustomizationRequestSchema.nullish(),
   }),
   name: z.string().trim().min(1).max(MAX_BUILD_NAME_LENGTH),
   description: z.string().max(MAX_BUILD_DESCRIPTION_LENGTH).nullish(),
