@@ -25,6 +25,7 @@ const sample: WeaponCatalogItem = {
   elderseal: null,
   defenseBonus: 0,
   series: 'Rey Dau Tree',
+  artian: null,
   kindSpecific: {},
 }
 

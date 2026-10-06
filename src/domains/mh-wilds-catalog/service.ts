@@ -1,6 +1,7 @@
+import { ARTIAN_RULES } from './artian-rules'
 import type { CatalogIndexProjection } from './projection'
 import { CatalogRepository } from './repository'
-import type { ArmorCatalogItem, DecorationCatalogItem, MonsterDetail, MonsterListItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
+import type { ArmorCatalogItem, ArtianRulesResponse, DecorationCatalogItem, MonsterDetail, MonsterListItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
 
 /**
  * MH Wilds Catalog domain service (ADR-0009): the shared read boundary over
@@ -18,6 +19,11 @@ export abstract class CatalogService {
 
   static getWeapons(query: WeaponCatalogQuery = {}): Promise<WeaponCatalogItem[]> {
     return CatalogRepository.findWeaponCatalog(query)
+  }
+
+  /** The hand-maintained Artian / Gogma Artian rules table (ADR-0014); static, no I/O. */
+  static getArtianRules(): ArtianRulesResponse {
+    return ARTIAN_RULES
   }
 
   static getMonsters(): Promise<MonsterListItem[]> {

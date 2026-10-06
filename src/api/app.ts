@@ -1,6 +1,7 @@
 import { Elysia } from "elysia"
 import { authGuard } from "./middleware/auth-guard"
 import { armorsRoutes } from "./routes/armors"
+import { artianRulesRoutes } from "./routes/artian-rules"
 import { buildsOwnerRoutes, buildsPublicRoutes } from "./routes/builds"
 import { channelsRoutes } from "./routes/channels"
 import { decorationsRoutes } from "./routes/decorations"
@@ -38,6 +39,7 @@ export function createApp() {
           .use(armorsRoutes)
           .use(decorationsRoutes)
           .use(weaponsRoutes)
+          .use(artianRulesRoutes)
           .use(monstersRoutes)
           .use(monsterIconsRoutes)
           .use(searchRoutes)

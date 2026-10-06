@@ -3,6 +3,10 @@ import type {
   DecorationCatalogItem,
   WeaponCatalogItem,
 } from "../mh-wilds-catalog/schema"
+import {
+  deriveArtianStats,
+  findArtianConfigIssue,
+} from "../mh-wilds-catalog/artian"
 import type {
   BuildSnapshot,
   SnapshotArmorPiece,
@@ -191,8 +195,32 @@ function isWeaponStale(
   // Legacy bonus-only snapshots (pre ADR-0013) carry no weapon item to compare.
   if (!weapon.weaponId) return false
 
-  const current = catalog.weaponsById.get(weapon.weaponId)
-  if (!current) return true
+  const catalogWeapon = catalog.weaponsById.get(weapon.weaponId)
+  if (!catalogWeapon) return true
+
+  // A customized Artian weapon is compared at its *effective* values: derived
+  // afresh from the live catalog row, the saved configuration and the current
+  // rules, so a changed base row or rules table both surface as stale (ADR-0014).
+  let current: Pick<WeaponCatalogItem, "damage" | "affinity" | "specials"> =
+    catalogWeapon
+  if (weapon.customization) {
+    const { family, focus, config } = weapon.customization
+    const artian = catalogWeapon.artian
+    if (!artian || artian.family !== family || artian.focus !== focus)
+      return true
+    if (findArtianConfigIssue(catalogWeapon, artian, config)) return true
+    const derived = deriveArtianStats(catalogWeapon, artian, config)
+    if (
+      derived.sharpnessBonus !== weapon.customization.sharpnessBonus ||
+      derived.ammoBonus !== weapon.customization.ammoBonus
+    )
+      return true
+    current = derived
+  } else if (catalogWeapon.artian) {
+    // Saved before the weapon was customizable: effective stats are the row's own.
+    current = catalogWeapon
+  }
+
   if (
     current.damage.raw !== weapon.damage?.raw ||
     current.damage.display !== weapon.damage?.display
@@ -202,12 +230,12 @@ function isWeaponStale(
   if (specialsKey(current.specials) !== specialsKey(weapon.specials ?? []))
     return true
   if (
-    JSON.stringify(sharpnessTuple(current.sharpness)) !==
+    JSON.stringify(sharpnessTuple(catalogWeapon.sharpness)) !==
     JSON.stringify(sharpnessTuple(weapon.sharpness ?? null))
   )
     return true
-  if (!numbersEqual(current.slots, weapon.slots ?? [])) return true
-  if (grantsKey(current.skills) !== grantsKey(weapon.skills ?? [])) return true
+  if (!numbersEqual(catalogWeapon.slots, weapon.slots ?? [])) return true
+  if (grantsKey(catalogWeapon.skills) !== grantsKey(weapon.skills ?? [])) return true
   return (weapon.decorations ?? []).some((d) => isDecorationStale(d, catalog))
 }
 

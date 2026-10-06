@@ -14,6 +14,7 @@ const weapon = (overrides: Partial<WeaponSel> = {}): WeaponSel => ({
   decorations: [],
   setBonusId: null,
   groupBonusId: null,
+  customization: null,
   ...overrides,
 })
 
@@ -44,7 +45,6 @@ const weaponSnapshot = () =>
     makeRequest({
       weapon: weapon({
         decorations: [{ slotIndex: 0, decorationId: "deco-weapon-1" }],
-        setBonusId: "bn-set",
       }),
     }),
     makeView(),
@@ -74,10 +74,10 @@ describe("weapon in a Saved Build", () => {
         skills: [{ skillId: "sk-crit", name: "Critical Eye", level: 1 }],
       },
     ])
-    expect(w.setBonus?.name).toBe("Example Set")
+    expect(w.customization).toBeNull()
+    expect(w.setBonus).toBeNull()
     expect(snapshot.skillDefinitions["Attack Boost"]).toBe(5)
     expect(snapshot.skillDefinitions["Critical Eye"]).toBe(5)
-    expect(snapshot.bonusDefinitions["Example Set"]).toBeDefined()
   })
 
   it("accepts a weapon decoration in a fitting weapon slot (smaller deco in larger slot)", () => {
@@ -274,5 +274,230 @@ describe("legacy bonus-only weapon snapshot (pre ADR-0013)", () => {
     expect(snapshot.positions.weapon?.weaponId).toBeUndefined()
     expect(snapshot.positions.weapon?.setBonus?.name).toBe("Example Set")
     expect(deriveStaleness(snapshot, freshCatalog())).toBe(false)
+  })
+})
+
+describe("Artian / Gogma Artian customization (ADR-0014)", () => {
+  const GOGMA = "weapon-gogma-gs"
+  const ARTIAN = "weapon-artian-gs"
+  const gogmaConfig = {
+    element: "water" as const,
+    attackParts: 1,
+    affinityParts: 2,
+    elementInfusion: false,
+    reinforcements: [
+      { type: "attack" as const, level: "EX" as const },
+      { type: "attack" as const, level: "EX" as const },
+      { type: "affinity" as const, level: "III" as const },
+      { type: "element" as const, level: "EX" as const },
+      { type: "sharpness" as const, level: "EX" as const },
+    ],
+  }
+  const gogmaWeapon = (overrides: Partial<WeaponSel> = {}) =>
+    weapon({
+      weaponId: GOGMA,
+      setBonusId: "bn-set",
+      groupBonusId: "bn-group",
+      customization: gogmaConfig,
+      ...overrides,
+    })
+  const gogmaSnapshot = () =>
+    canonicalizeSaveComposition(makeRequest({ weapon: gogmaWeapon() }), makeView())
+
+  it("snapshots effective stats, the config and both bonuses for a Gogma Artian", () => {
+    const snapshot = gogmaSnapshot()
+    expect(() => buildSnapshotSchema.parse(snapshot)).not.toThrow()
+    const w = snapshot.positions.weapon!
+
+    // Catalog row 180 raw / +15%: +5 attack part, +24 from two EX, +10% from two affinity parts, +8% III.
+    expect(w.damage).toEqual({ raw: 209, display: 1003 })
+    expect(w.affinity).toBe(15 + 10 + 8)
+    // Water r8 450, Affinity Focus -10 (Great Sword), Element EX +110.
+    expect(w.specials).toEqual([
+      { kind: "element", name: "water", damage: { raw: 55, display: 550 }, hidden: false },
+    ])
+    expect(w.customization).toEqual({
+      family: "gogma",
+      tier: 8,
+      focus: "affinity",
+      config: gogmaConfig,
+      base: { damage: { raw: 180, display: 864 }, affinity: 15 },
+      sharpnessBonus: 50,
+      ammoBonus: 0,
+      gameVersion: "1.041",
+    })
+    expect(w.setBonus?.name).toBe("Example Set")
+    expect(w.groupBonus?.name).toBe("Example Group")
+    expect(snapshot.bonusDefinitions["Example Set"]).toBeDefined()
+    expect(snapshot.bonusDefinitions["Example Group"]).toBeDefined()
+  })
+
+  it("records an empty configuration for an unconfigured Artian weapon", () => {
+    const snapshot = canonicalizeSaveComposition(
+      makeRequest({ weapon: weapon({ weaponId: ARTIAN }) }),
+      makeView(),
+    )
+    const w = snapshot.positions.weapon!
+    expect(w.damage).toEqual({ raw: 190, display: 912 })
+    expect(w.customization?.family).toBe("artian")
+    expect(w.customization?.config.reinforcements).toEqual([])
+  })
+
+  it("rejects a customization on a plain catalog weapon or a bonus-only weapon", () => {
+    const config = { ...gogmaConfig, reinforcements: [] }
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: weapon({ customization: config }) }),
+          makeView(),
+        ),
+      "WEAPON_CUSTOMIZATION_NOT_ALLOWED",
+    )
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({
+            weapon: weapon({ weaponId: null, setBonusId: "bn-set", customization: config }),
+          }),
+          makeView(),
+        ),
+      "WEAPON_CUSTOMIZATION_NOT_ALLOWED",
+    )
+  })
+
+  const invalid = (customization: WeaponSel["customization"], weaponId = GOGMA) => {
+    try {
+      canonicalizeSaveComposition(
+        makeRequest({ weapon: gogmaWeapon({ weaponId, customization }) }),
+        makeView(),
+      )
+    } catch (err) {
+      expect(err).toBeInstanceOf(SetBuilderError)
+      expect((err as SetBuilderError).code).toBe("WEAPON_CUSTOMIZATION_INVALID")
+      expect((err as SetBuilderError).status).toBe(422)
+      return (err as SetBuilderError).details?.reason
+    }
+    throw new Error("expected WEAPON_CUSTOMIZATION_INVALID")
+  }
+
+  it("rejects an element the weapon kind cannot take", () => {
+    // Poison / paralysis / sleep Bows only change the coating, so they are not choosable.
+    expect(
+      invalid({ ...gogmaConfig, element: "poison", reinforcements: [] }, "weapon-gogma-bow"),
+    ).toBe("element_not_available")
+    expect(
+      invalid({ ...gogmaConfig, element: "fire", reinforcements: [{ type: "sharpness", level: "I" }] }, "weapon-gogma-bow"),
+    ).toBe("reinforcement_not_available")
+  })
+
+  it("rejects too many reinforcements, bad levels and too many EX of a type", () => {
+    const five = gogmaConfig.reinforcements
+    expect(invalid({ ...gogmaConfig, reinforcements: [...five, { type: "attack", level: "I" }] })).toBe(
+      "too_many_reinforcements",
+    )
+    expect(
+      invalid({ ...gogmaConfig, reinforcements: [{ type: "element", level: "III" }] }),
+    ).toBe("reinforcement_level_not_available")
+    expect(
+      invalid({
+        ...gogmaConfig,
+        reinforcements: [
+          { type: "attack", level: "EX" },
+          { type: "attack", level: "EX" },
+          { type: "attack", level: "EX" },
+        ],
+      }),
+    ).toBe("too_many_ex_of_type")
+    expect(
+      invalid({ ...gogmaConfig, reinforcements: [{ type: "attack", level: "EX" }] }, ARTIAN),
+    ).toBe("reinforcement_level_not_available")
+  })
+
+  it("requires both bonuses on a Gogma Artian and forbids them elsewhere", () => {
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: gogmaWeapon({ groupBonusId: null }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_REQUIRED",
+    )
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: weapon({ weaponId: ARTIAN, setBonusId: "bn-set" }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_NOT_ALLOWED",
+    )
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: weapon({ setBonusId: "bn-set" }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_NOT_ALLOWED",
+    )
+  })
+
+  it("rejects wrong-kind and unknown bonus ids on a Gogma Artian", () => {
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: gogmaWeapon({ setBonusId: "bn-group" }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_KIND_MISMATCH",
+    )
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: gogmaWeapon({ groupBonusId: "bn-set" }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_KIND_MISMATCH",
+    )
+    expectCode(
+      () =>
+        canonicalizeSaveComposition(
+          makeRequest({ weapon: gogmaWeapon({ groupBonusId: "nope" }) }),
+          makeView(),
+        ),
+      "WEAPON_BONUS_NOT_FOUND",
+    )
+  })
+
+  it("request schema accepts and defaults the customization field", () => {
+    const base = {
+      head: null, chest: null, arms: null, waist: null, legs: null, talisman: null,
+    }
+    const parsed = saveBuildRequestSchema.parse({
+      name: "x",
+      composition: { ...base, weapon: { weaponId: GOGMA, setBonusId: "a", groupBonusId: "b", customization: gogmaConfig } },
+    })
+    expect(parsed.composition.weapon?.customization).toEqual(gogmaConfig)
+  })
+
+  it("answers an unknown element or out-of-range part count with a coded 422, not a schema error", () => {
+    expect(invalid({ ...gogmaConfig, element: "plasma" as never, reinforcements: [] })).toBe("unknown_value")
+    expect(invalid({ ...gogmaConfig, attackParts: 7, reinforcements: [] })).toBe("unknown_value")
+    expect(invalid({ ...gogmaConfig, reinforcements: [{ type: "luck" as never, level: "I" }] })).toBe("unknown_value")
+    expect(invalid({ ...gogmaConfig, reinforcements: [{ type: "attack", level: "MAX" as never }] })).toBe("unknown_value")
+  })
+
+  it("is fresh when unchanged and stale when the base row or the config's effect changes", () => {
+    expect(deriveStaleness(gogmaSnapshot(), freshCatalog())).toBe(false)
+
+    const rebalanced = freshCatalog()
+    rebalanced.weaponsById.set(GOGMA, { ...WEAPONS[3], damage: { raw: 190, display: 912 } })
+    expect(deriveStaleness(gogmaSnapshot(), rebalanced)).toBe(true)
+
+    const reclassified = freshCatalog()
+    reclassified.weaponsById.set(GOGMA, { ...WEAPONS[3], artian: null })
+    expect(deriveStaleness(gogmaSnapshot(), reclassified)).toBe(true)
+
+    const tampered = gogmaSnapshot()
+    tampered.positions.weapon!.damage = { raw: 999, display: 999 }
+    expect(deriveStaleness(tampered, freshCatalog())).toBe(true)
   })
 })

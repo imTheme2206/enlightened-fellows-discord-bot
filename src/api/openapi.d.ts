@@ -143,6 +143,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/artian-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsArtian-rules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mh-wilds/monsters": {
         parameters: {
             query?: never;
@@ -553,10 +569,126 @@ export interface operations {
                         elderseal: string | null;
                         defenseBonus: number;
                         series: string | null;
+                        artian: {
+                            /** @enum {string} */
+                            family: "artian" | "gogma";
+                            /** @enum {number} */
+                            tier: 6 | 7 | 8;
+                            /** @enum {string | null} */
+                            focus: "attack" | "affinity" | "element" | null;
+                        } | null;
                         kindSpecific: {
                             [key: string]: unknown;
                         };
                     }[];
+                };
+            };
+        };
+    };
+    "getApiMh-wildsArtian-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        gameVersion: string;
+                        retrievedAt: string;
+                        production: {
+                            parts: number;
+                            attackPerPart: number;
+                            affinityPerPart: number;
+                        };
+                        baseStats: {
+                            raw: {
+                                "6": number;
+                                "7": number;
+                                "8": number;
+                            };
+                            affinity: number;
+                        };
+                        gogmaFocus: {
+                            attack: {
+                                raw: number;
+                                affinity: number;
+                            };
+                            affinity: {
+                                raw: number;
+                                affinity: number;
+                            };
+                            element: {
+                                raw: number;
+                                affinity: number;
+                            };
+                        };
+                        reinforcement: {
+                            maxCount: number;
+                            attack: {
+                                I: number;
+                                II: number;
+                                III: number;
+                                EX: number;
+                            };
+                            affinity: {
+                                I: number;
+                                II: number;
+                                III: number;
+                                EX: number;
+                            };
+                            sharpness: {
+                                I: number;
+                                EX: number;
+                            };
+                            sharpnessInsectGlaiveI: number;
+                            ammo: {
+                                I: number;
+                                EX: number;
+                            };
+                            maxExPerType: number;
+                            artianMaxPerType: {
+                                attack: number;
+                                affinity: number;
+                                element: number;
+                                sharpness: number;
+                                ammo: number;
+                            };
+                        };
+                        kinds: {
+                            [key: string]: {
+                                artianNames: {
+                                    "6": string;
+                                    "7": string;
+                                    "8": string;
+                                };
+                                gogmaName: string;
+                                elements: {
+                                    [key: string]: {
+                                        r67: number;
+                                        r8: number;
+                                    };
+                                };
+                                elementInfusion: number | null;
+                                gogmaFocusElementDelta: {
+                                    affinity: number;
+                                    element: number;
+                                } | null;
+                                elementBoost: {
+                                    I: number;
+                                    II: number;
+                                    EX: number;
+                                } | null;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -1127,6 +1259,36 @@ export interface operations {
                                             level: number;
                                         }[];
                                     }[];
+                                    customization?: {
+                                        /** @enum {string} */
+                                        family: "artian" | "gogma";
+                                        /** @enum {number} */
+                                        tier: 6 | 7 | 8;
+                                        /** @enum {string | null} */
+                                        focus: "attack" | "affinity" | "element" | null;
+                                        config: {
+                                            element: "fire" | "water" | "thunder" | "ice" | "dragon" | "poison" | "paralysis" | "sleep" | "blast" | null;
+                                            attackParts: number;
+                                            affinityParts: number;
+                                            elementInfusion: boolean;
+                                            reinforcements: {
+                                                /** @enum {string} */
+                                                type: "attack" | "affinity" | "element" | "sharpness" | "ammo";
+                                                /** @enum {string} */
+                                                level: "I" | "II" | "III" | "EX";
+                                            }[];
+                                        };
+                                        base: {
+                                            damage: {
+                                                raw: number;
+                                                display: number;
+                                            };
+                                            affinity: number;
+                                        };
+                                        sharpnessBonus: number;
+                                        ammoBonus: number;
+                                        gameVersion: string;
+                                    } | null;
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -1240,6 +1402,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -1309,6 +1481,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -1378,6 +1560,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -1679,6 +1871,36 @@ export interface operations {
                                             level: number;
                                         }[];
                                     }[];
+                                    customization?: {
+                                        /** @enum {string} */
+                                        family: "artian" | "gogma";
+                                        /** @enum {number} */
+                                        tier: 6 | 7 | 8;
+                                        /** @enum {string | null} */
+                                        focus: "attack" | "affinity" | "element" | null;
+                                        config: {
+                                            element: "fire" | "water" | "thunder" | "ice" | "dragon" | "poison" | "paralysis" | "sleep" | "blast" | null;
+                                            attackParts: number;
+                                            affinityParts: number;
+                                            elementInfusion: boolean;
+                                            reinforcements: {
+                                                /** @enum {string} */
+                                                type: "attack" | "affinity" | "element" | "sharpness" | "ammo";
+                                                /** @enum {string} */
+                                                level: "I" | "II" | "III" | "EX";
+                                            }[];
+                                        };
+                                        base: {
+                                            damage: {
+                                                raw: number;
+                                                display: number;
+                                            };
+                                            affinity: number;
+                                        };
+                                        sharpnessBonus: number;
+                                        ammoBonus: number;
+                                        gameVersion: string;
+                                    } | null;
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -2051,6 +2273,36 @@ export interface operations {
                                             level: number;
                                         }[];
                                     }[];
+                                    customization?: {
+                                        /** @enum {string} */
+                                        family: "artian" | "gogma";
+                                        /** @enum {number} */
+                                        tier: 6 | 7 | 8;
+                                        /** @enum {string | null} */
+                                        focus: "attack" | "affinity" | "element" | null;
+                                        config: {
+                                            element: "fire" | "water" | "thunder" | "ice" | "dragon" | "poison" | "paralysis" | "sleep" | "blast" | null;
+                                            attackParts: number;
+                                            affinityParts: number;
+                                            elementInfusion: boolean;
+                                            reinforcements: {
+                                                /** @enum {string} */
+                                                type: "attack" | "affinity" | "element" | "sharpness" | "ammo";
+                                                /** @enum {string} */
+                                                level: "I" | "II" | "III" | "EX";
+                                            }[];
+                                        };
+                                        base: {
+                                            damage: {
+                                                raw: number;
+                                                display: number;
+                                            };
+                                            affinity: number;
+                                        };
+                                        sharpnessBonus: number;
+                                        ammoBonus: number;
+                                        gameVersion: string;
+                                    } | null;
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -2194,6 +2446,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -2263,6 +2525,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -2332,6 +2604,16 @@ export interface operations {
                             }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
+                            customization?: {
+                                element: string | null;
+                                attackParts: number;
+                                affinityParts: number;
+                                elementInfusion: boolean;
+                                reinforcements: {
+                                    type: string;
+                                    level: string;
+                                }[];
+                            } | null;
                         } | null;
                     };
                 };
@@ -2633,6 +2915,36 @@ export interface operations {
                                             level: number;
                                         }[];
                                     }[];
+                                    customization?: {
+                                        /** @enum {string} */
+                                        family: "artian" | "gogma";
+                                        /** @enum {number} */
+                                        tier: 6 | 7 | 8;
+                                        /** @enum {string | null} */
+                                        focus: "attack" | "affinity" | "element" | null;
+                                        config: {
+                                            element: "fire" | "water" | "thunder" | "ice" | "dragon" | "poison" | "paralysis" | "sleep" | "blast" | null;
+                                            attackParts: number;
+                                            affinityParts: number;
+                                            elementInfusion: boolean;
+                                            reinforcements: {
+                                                /** @enum {string} */
+                                                type: "attack" | "affinity" | "element" | "sharpness" | "ammo";
+                                                /** @enum {string} */
+                                                level: "I" | "II" | "III" | "EX";
+                                            }[];
+                                        };
+                                        base: {
+                                            damage: {
+                                                raw: number;
+                                                display: number;
+                                            };
+                                            affinity: number;
+                                        };
+                                        sharpnessBonus: number;
+                                        ammoBonus: number;
+                                        gameVersion: string;
+                                    } | null;
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -3076,6 +3388,36 @@ export interface operations {
                                             level: number;
                                         }[];
                                     }[];
+                                    customization?: {
+                                        /** @enum {string} */
+                                        family: "artian" | "gogma";
+                                        /** @enum {number} */
+                                        tier: 6 | 7 | 8;
+                                        /** @enum {string | null} */
+                                        focus: "attack" | "affinity" | "element" | null;
+                                        config: {
+                                            element: "fire" | "water" | "thunder" | "ice" | "dragon" | "poison" | "paralysis" | "sleep" | "blast" | null;
+                                            attackParts: number;
+                                            affinityParts: number;
+                                            elementInfusion: boolean;
+                                            reinforcements: {
+                                                /** @enum {string} */
+                                                type: "attack" | "affinity" | "element" | "sharpness" | "ammo";
+                                                /** @enum {string} */
+                                                level: "I" | "II" | "III" | "EX";
+                                            }[];
+                                        };
+                                        base: {
+                                            damage: {
+                                                raw: number;
+                                                display: number;
+                                            };
+                                            affinity: number;
+                                        };
+                                        sharpnessBonus: number;
+                                        ammoBonus: number;
+                                        gameVersion: string;
+                                    } | null;
                                     setBonus: {
                                         bonusId: string;
                                         name: string;

@@ -22,6 +22,10 @@ export type SetBuilderErrorCode =
   | "WEAPON_NOT_FOUND"
   | "WEAPON_BONUS_NOT_FOUND"
   | "WEAPON_BONUS_KIND_MISMATCH"
+  | "WEAPON_BONUS_NOT_ALLOWED"
+  | "WEAPON_BONUS_REQUIRED"
+  | "WEAPON_CUSTOMIZATION_NOT_ALLOWED"
+  | "WEAPON_CUSTOMIZATION_INVALID"
   // Persistence / lifecycle (§Lifecycle and concurrency, §Ownership).
   | "BUILD_NOT_FOUND"
   | "NOT_OWNER"
@@ -45,6 +49,10 @@ const STATUS: Record<SetBuilderErrorCode, number> = {
   WEAPON_NOT_FOUND: 422,
   WEAPON_BONUS_NOT_FOUND: 422,
   WEAPON_BONUS_KIND_MISMATCH: 422,
+  WEAPON_BONUS_NOT_ALLOWED: 422,
+  WEAPON_BONUS_REQUIRED: 422,
+  WEAPON_CUSTOMIZATION_NOT_ALLOWED: 422,
+  WEAPON_CUSTOMIZATION_INVALID: 422,
   BUILD_NOT_FOUND: 404,
   NOT_OWNER: 403,
   REVISION_CONFLICT: 409,
@@ -73,6 +81,14 @@ const DEFAULT_MESSAGE: Record<SetBuilderErrorCode, string> = {
     "A selected weapon bonus no longer exists in the catalog.",
   WEAPON_BONUS_KIND_MISMATCH:
     "A selected weapon bonus does not match its Set/Group slot.",
+  WEAPON_BONUS_NOT_ALLOWED:
+    "Only a Gogma Artian weapon carries a Set/Group Bonus.",
+  WEAPON_BONUS_REQUIRED:
+    "A Gogma Artian weapon always has both a Set Bonus and a Group Bonus.",
+  WEAPON_CUSTOMIZATION_NOT_ALLOWED:
+    "Only an Artian or Gogma Artian weapon can be customized.",
+  WEAPON_CUSTOMIZATION_INVALID:
+    "This Artian customization breaks the Artian rules.",
   BUILD_NOT_FOUND: "This build does not exist.",
   NOT_OWNER: "You do not own this build.",
   REVISION_CONFLICT: "This build was modified since you loaded it.",

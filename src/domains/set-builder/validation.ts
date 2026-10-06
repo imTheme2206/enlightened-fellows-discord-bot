@@ -1,4 +1,8 @@
 import type { CatalogView } from "./catalog-view"
+import {
+  findArtianConfigIssue,
+  parseArtianCustomization,
+} from "../mh-wilds-catalog/artian"
 import { SetBuilderError } from "./errors"
 import type { CompositionRequest, SaveBuildRequest } from "./schema"
 
@@ -16,7 +20,10 @@ import type { CompositionRequest, SaveBuildRequest } from "./schema"
  *   - decoration armor/weapon type matches the slot type;
  *   - the slot is at least the decoration's required size;
  *   - a weapon exists and its decorations fit its weapon-type slots;
- *   - a weapon's Set/Group Bonus references resolve and match their slot's kind.
+ *   - a weapon's Set/Group Bonus references resolve and match their slot's kind;
+ *   - an Artian customization is only on an Artian-family weapon and obeys the
+ *     rules table, and only a Gogma Artian carries (and must carry) both bonuses
+ *     (ADR-0014).
  *
  * Per-user save/share limits and idempotency are enforced in the service layer,
  * which needs live counts. Missing pieces and empty slots are valid; duplicate
@@ -106,6 +113,47 @@ function validateWeapon(
       })
     }
     slots = item.slots.map((size) => ({ type: "weapon", size }))
+
+    if (weapon.customization) {
+      if (!item.artian) {
+        throw new SetBuilderError("WEAPON_CUSTOMIZATION_NOT_ALLOWED", {
+          weaponId: weapon.weaponId,
+        })
+      }
+      const parsed = parseArtianCustomization(weapon.customization)
+      const issue =
+        "issue" in parsed
+          ? parsed.issue
+          : findArtianConfigIssue(item, item.artian, parsed.config)
+      if (issue) {
+        throw new SetBuilderError("WEAPON_CUSTOMIZATION_INVALID", {
+          weaponId: weapon.weaponId,
+          reason: issue.reason,
+          ...issue.details,
+        })
+      }
+    }
+
+    const hasBonus = weapon.setBonusId !== null || weapon.groupBonusId !== null
+    if (item.artian?.family === "gogma") {
+      for (const [slot, id] of [
+        ["set", weapon.setBonusId],
+        ["group", weapon.groupBonusId],
+      ] as const) {
+        if (id === null) {
+          throw new SetBuilderError("WEAPON_BONUS_REQUIRED", { slot })
+        }
+      }
+    } else if (hasBonus) {
+      throw new SetBuilderError("WEAPON_BONUS_NOT_ALLOWED", {
+        weaponId: weapon.weaponId,
+      })
+    }
+  } else if (weapon.customization) {
+    // A bonus-only weapon (optimizer import) has no base to customize.
+    throw new SetBuilderError("WEAPON_CUSTOMIZATION_NOT_ALLOWED", {
+      weaponId: null,
+    })
   }
   validateDecorations("weapon", weapon.decorations, slots, view)
 

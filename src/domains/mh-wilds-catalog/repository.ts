@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
 import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, monster, monsterPart, monsterWeakness, skill, weapon, weaponSkill } from '../../infra/db/schema'
 import type { CatalogIndexProjection } from './projection'
+import { classifyArtianWeapon } from './artian'
 import type { ArmorCatalogItem, DecorationCatalogItem, MonsterDetail, MonsterListItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
 import { monsterIconUrl } from './monster-icon'
 import { transcendSlots } from './transcend'
@@ -131,6 +132,14 @@ export abstract class CatalogRepository {
       rarity: w.rarity,
       damage: { raw: w.raw, display: w.display },
       affinity: w.affinity,
+      artian: classifyArtianWeapon({
+        kind: w.kind as WeaponCatalogItem['kind'],
+        name: w.name,
+        rarity: w.rarity,
+        series: w.series,
+        damage: { raw: w.raw, display: w.display },
+        affinity: w.affinity,
+      }),
       specials: w.specials,
       sharpness: w.sharpness,
       handicraft: w.handicraft,

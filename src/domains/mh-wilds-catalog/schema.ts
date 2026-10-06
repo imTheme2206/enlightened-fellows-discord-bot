@@ -104,6 +104,19 @@ export type WeaponKind = z.infer<typeof weaponKindSchema>
 
 const weaponDamageSchema = z.object({ raw: z.number(), display: z.number() })
 
+/**
+ * ADR-0014: which catalog weapons are customizable Artian / Gogma Artian bases.
+ * Computed server-side from the rules table (`artian-rules.ts`), never stored.
+ * `tier` is the Artian rarity (6/7/8); every Gogma Artian is rarity 8 and its
+ * `focus` is the Tarred Device focus its catalog row represents.
+ */
+export const weaponArtianSchema = z.object({
+  family: z.enum(['artian', 'gogma']),
+  tier: z.union([z.literal(6), z.literal(7), z.literal(8)]),
+  focus: z.enum(['attack', 'affinity', 'element']).nullable(),
+})
+export type WeaponArtian = z.infer<typeof weaponArtianSchema>
+
 /** ADR-0013: weapons are first-class catalog items. */
 export const weaponCatalogItemSchema = z.object({
   id: z.string(),
@@ -141,6 +154,8 @@ export const weaponCatalogItemSchema = z.object({
   elderseal: z.string().nullable(),
   defenseBonus: z.number(),
   series: z.string().nullable(),
+  /** Non-null for Artian / Gogma Artian bases the hunter can customize (ADR-0014). */
+  artian: weaponArtianSchema.nullable(),
   /** Fields only some kinds carry: phial, shell, coatings, ammo, kinsectLevel, melody, ... */
   kindSpecific: z.record(z.string(), z.unknown()),
 })
@@ -212,3 +227,78 @@ export type MonsterDetail = z.infer<typeof monsterDetailSchema>
 
 export const monsterParamsSchema = z.object({ id: z.string() })
 export const monsterNotFoundSchema = z.object({ error: z.object({ code: z.literal('NOT_FOUND'), message: z.string() }) })
+
+// ── Artian customization (ADR-0014) ─────────────────────────────────────────
+
+export const artianElementSchema = z.enum(['fire', 'water', 'thunder', 'ice', 'dragon', 'poison', 'paralysis', 'sleep', 'blast'])
+export const artianReinforcementTypeSchema = z.enum(['attack', 'affinity', 'element', 'sharpness', 'ammo'])
+export const artianReinforcementLevelSchema = z.enum(['I', 'II', 'III', 'EX'])
+
+/**
+ * What a hunter configures on an Artian / Gogma Artian weapon. `attackParts` /
+ * `affinityParts` count the forged parts carrying each Artian bonus (at most 3 in
+ * total); `elementInfusion` is the bonus for three matching parts. The array
+ * bound here only caps payload size: the real limit (5) and every other rule is
+ * enforced against the rules table so violations return a coded 422.
+ */
+export const artianCustomizationSchema = z.object({
+  element: artianElementSchema.nullable(),
+  attackParts: z.number().int().min(0).max(3),
+  affinityParts: z.number().int().min(0).max(3),
+  elementInfusion: z.boolean(),
+  reinforcements: z
+    .array(z.object({ type: artianReinforcementTypeSchema, level: artianReinforcementLevelSchema }))
+    .max(16),
+})
+export type ArtianCustomization = z.infer<typeof artianCustomizationSchema>
+
+/**
+ * The same shape as it arrives in a Save request. Enum and range violations are
+ * deliberately *not* schema errors: a hunter's configuration that breaks the
+ * Artian rules (unknown element, out-of-range parts, ...) is a well-formed
+ * request with a rejected composition, so it is checked by `parseArtianCustomization`
+ * and answered with the coded 422 like every other composition rule.
+ */
+export const artianCustomizationRequestSchema = z.object({
+  element: z.string().max(32).nullable(),
+  attackParts: z.number().int(),
+  affinityParts: z.number().int(),
+  elementInfusion: z.boolean(),
+  reinforcements: z.array(z.object({ type: z.string().max(32), level: z.string().max(8) })).max(32),
+})
+export type ArtianCustomizationRequest = z.infer<typeof artianCustomizationRequestSchema>
+
+const sourcedLevels = z.object({ I: z.number(), II: z.number(), III: z.number(), EX: z.number() })
+const kindRulesSchema = z.object({
+  artianNames: z.object({ '6': z.string(), '7': z.string(), '8': z.string() }),
+  gogmaName: z.string(),
+  elements: z.record(z.string(), z.object({ r67: z.number(), r8: z.number() })),
+  elementInfusion: z.number().nullable(),
+  gogmaFocusElementDelta: z.object({ affinity: z.number(), element: z.number() }).nullable(),
+  elementBoost: z.object({ I: z.number(), II: z.number(), EX: z.number() }).nullable(),
+})
+
+/** `GET /api/mh-wilds/artian-rules`: the plain numbers (sources stay in the rules file). */
+export const artianRulesResponseSchema = z.object({
+  gameVersion: z.string(),
+  retrievedAt: z.string(),
+  production: z.object({ parts: z.number(), attackPerPart: z.number(), affinityPerPart: z.number() }),
+  baseStats: z.object({ raw: z.object({ '6': z.number(), '7': z.number(), '8': z.number() }), affinity: z.number() }),
+  gogmaFocus: z.object({
+    attack: z.object({ raw: z.number(), affinity: z.number() }),
+    affinity: z.object({ raw: z.number(), affinity: z.number() }),
+    element: z.object({ raw: z.number(), affinity: z.number() }),
+  }),
+  reinforcement: z.object({
+    maxCount: z.number(),
+    attack: sourcedLevels,
+    affinity: sourcedLevels,
+    sharpness: z.object({ I: z.number(), EX: z.number() }),
+    sharpnessInsectGlaiveI: z.number(),
+    ammo: z.object({ I: z.number(), EX: z.number() }),
+    maxExPerType: z.number(),
+    artianMaxPerType: z.object({ attack: z.number(), affinity: z.number(), element: z.number(), sharpness: z.number(), ammo: z.number() }),
+  }),
+  kinds: z.record(weaponKindSchema, kindRulesSchema),
+})
+export type ArtianRulesResponse = z.infer<typeof artianRulesResponseSchema>

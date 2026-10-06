@@ -1,3 +1,9 @@
+import {
+  EMPTY_ARTIAN_CUSTOMIZATION,
+  deriveArtianStats,
+  parseArtianCustomization,
+} from "../mh-wilds-catalog/artian"
+import { ARTIAN_RULES_GAME_VERSION } from "../mh-wilds-catalog/artian-rules"
 import type { CatalogView } from "./catalog-view"
 import { SetBuilderError } from "./errors"
 import type {
@@ -203,14 +209,44 @@ export function buildSnapshot(
           weaponId: weapon.weaponId,
         })
       w.skills.forEach((s) => recordSkill(s.skillId))
+
+      // An Artian-family weapon always records its configuration (an empty one
+      // when the hunter set nothing) so the family/focus survive in the snapshot;
+      // the item's damage/affinity/specials are then the derived effective values.
+      let effective: Pick<SnapshotWeapon, "damage" | "affinity" | "specials"> = w
+      let customization: NonNullable<SnapshotWeapon["customization"]> | null = null
+      if (w.artian) {
+        // Validation already accepted the request, so parsing cannot fail here.
+        const parsed = weapon.customization
+          ? parseArtianCustomization(weapon.customization)
+          : { config: EMPTY_ARTIAN_CUSTOMIZATION }
+        if ("issue" in parsed)
+          throw new SetBuilderError("WEAPON_CUSTOMIZATION_INVALID", {
+            reason: parsed.issue.reason,
+          })
+        const config = parsed.config
+        const derived = deriveArtianStats(w, w.artian, config)
+        effective = derived
+        customization = {
+          family: w.artian.family,
+          tier: w.artian.tier,
+          focus: w.artian.focus,
+          config,
+          base: { damage: w.damage, affinity: w.affinity },
+          sharpnessBonus: derived.sharpnessBonus,
+          ammoBonus: derived.ammoBonus,
+          gameVersion: ARTIAN_RULES_GAME_VERSION,
+        }
+      }
+
       positions.weapon = {
         weaponId: w.id,
         name: w.name,
         kind: w.kind,
         rarity: w.rarity,
-        damage: w.damage,
-        affinity: w.affinity,
-        specials: w.specials,
+        damage: effective.damage,
+        affinity: effective.affinity,
+        specials: effective.specials,
         sharpness: w.sharpness,
         slots: w.slots,
         skills: w.skills.map((s) => ({
@@ -219,6 +255,7 @@ export function buildSnapshot(
           level: s.level,
         })),
         decorations: weapon.decorations.map(snapshotDecoration),
+        customization,
         setBonus,
         groupBonus,
       }

@@ -1,5 +1,11 @@
 import { z } from "zod"
-import { bonusThresholdSchema, weaponKindSchema } from "../mh-wilds-catalog/schema"
+import {
+  artianCustomizationRequestSchema,
+  artianCustomizationSchema,
+  bonusThresholdSchema,
+  weaponArtianSchema,
+  weaponKindSchema,
+} from "../mh-wilds-catalog/schema"
 import { searchResultSchema } from "../set-search/schema"
 
 /**
@@ -46,13 +52,21 @@ const talismanSelectionSchema = z.object({
  * working: the optimizer import carries only bonuses, and clients predating the
  * weapon catalog omit the field. A null `weaponId` has no slots, so it cannot
  * carry decorations. Each bonus reference is independently optional; the whole
- * weapon key is nullable to denote no weapon contribution.
+ * weapon key is nullable to denote no weapon contribution. Bonuses on a
+ * catalog weapon are only valid for a Gogma Artian (ADR-0014).
  */
 const weaponSelectionSchema = z.object({
   weaponId: z.string().min(1).nullable().default(null),
   decorations: z.array(decorationAssignmentSchema).default([]),
   setBonusId: z.string().min(1).nullable(),
   groupBonusId: z.string().min(1).nullable(),
+  /**
+   * The Artian / Gogma Artian configuration (ADR-0014): element, production
+   * bonuses and reinforcements, validated against the rules table. Only an
+   * Artian-family `weaponId` may carry one; `null` means "no customization".
+   * A Gogma Artian's rolled Set/Group Bonus stay in `setBonusId`/`groupBonusId`.
+   */
+  customization: artianCustomizationRequestSchema.nullish(),
 })
 
 /** All seven position keys are required; `null` denotes an empty position. */
@@ -197,8 +211,31 @@ const snapshotSharpnessSchema = z.object({
 })
 
 /**
- * The weapon's trusted catalog values, embedded like an armor piece (ADR-0013).
- * `slots` are weapon-type slot sizes; `decorations` index into them.
+ * The Artian / Gogma Artian configuration as saved (ADR-0014): the validated
+ * `config`, what the weapon was classified as, the catalog base it was derived
+ * from, the effective-only numbers that have no slot on the item itself, and the
+ * rules `gameVersion` the derivation used.
+ */
+const snapshotCustomizationSchema = z.object({
+  family: weaponArtianSchema.shape.family,
+  tier: weaponArtianSchema.shape.tier,
+  focus: weaponArtianSchema.shape.focus,
+  config: artianCustomizationSchema,
+  base: z.object({
+    damage: z.object({ raw: z.number(), display: z.number() }),
+    affinity: z.number(),
+  }),
+  sharpnessBonus: z.number(),
+  ammoBonus: z.number(),
+  gameVersion: z.string(),
+})
+export type SnapshotCustomization = z.infer<typeof snapshotCustomizationSchema>
+
+/**
+ * The weapon's trusted values, embedded like an armor piece (ADR-0013).
+ * `slots` are weapon-type slot sizes; `decorations` index into them. For a
+ * customized Artian weapon `damage`, `affinity` and `specials` are the *effective*
+ * values derived from `customization`, so every consumer reads one set of numbers.
  */
 const snapshotWeaponItemSchema = z.object({
   weaponId: z.string(),
@@ -212,6 +249,7 @@ const snapshotWeaponItemSchema = z.object({
   slots: z.array(z.number()),
   skills: z.array(snapshotSkillSchema),
   decorations: z.array(snapshotDecorationSchema),
+  customization: snapshotCustomizationSchema.nullable(),
 })
 
 /**
