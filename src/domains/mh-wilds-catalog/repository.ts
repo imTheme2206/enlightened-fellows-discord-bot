@@ -1,8 +1,8 @@
 import { asc, eq } from 'drizzle-orm'
 import { db } from '../../infra/db/client'
-import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill } from '../../infra/db/schema'
+import { armor, armorBonus, armorSkill, bonus, bonusThreshold, decoration, decorationSkill, skill, weapon, weaponSkill } from '../../infra/db/schema'
 import type { CatalogIndexProjection } from './projection'
-import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
+import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
 import { transcendSlots } from './transcend'
 
 /**
@@ -75,6 +75,43 @@ export abstract class CatalogRepository {
       type: d.type as DecorationCatalogItem['type'],
       slotSize: d.slotSize,
       skills: skillsByDeco.get(d.id) ?? [],
+    }))
+  }
+
+  static async findWeaponCatalog(filter: WeaponCatalogQuery = {}): Promise<WeaponCatalogItem[]> {
+    const weaponRows = await db
+      .select()
+      .from(weapon)
+      .where(filter.kind ? eq(weapon.kind, filter.kind) : undefined)
+      .orderBy(asc(weapon.kind), asc(weapon.rarity), asc(weapon.name))
+    const grantRows = await db
+      .select({ weaponId: weaponSkill.weaponId, skillId: skill.id, name: skill.name, level: weaponSkill.level })
+      .from(weaponSkill)
+      .innerJoin(skill, eq(weaponSkill.skillId, skill.id))
+
+    const skillsByWeapon = new Map<string, WeaponCatalogItem['skills']>()
+    for (const r of grantRows) {
+      const list = skillsByWeapon.get(r.weaponId) ?? []
+      list.push({ skillId: r.skillId, name: r.name, level: r.level })
+      skillsByWeapon.set(r.weaponId, list)
+    }
+
+    return weaponRows.map((w) => ({
+      id: w.id,
+      name: w.name,
+      kind: w.kind as WeaponCatalogItem['kind'],
+      rarity: w.rarity,
+      damage: { raw: w.raw, display: w.display },
+      affinity: w.affinity,
+      specials: w.specials,
+      sharpness: w.sharpness,
+      handicraft: w.handicraft,
+      slots: w.slots,
+      skills: skillsByWeapon.get(w.id) ?? [],
+      elderseal: w.elderseal,
+      defenseBonus: w.defenseBonus,
+      series: w.series,
+      kindSpecific: w.kindSpecific,
     }))
   }
 

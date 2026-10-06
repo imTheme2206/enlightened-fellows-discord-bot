@@ -41,6 +41,60 @@ export type CompactSetSkill = [string, number, number[]]
  */
 export type CompactGroupSkill = [string, number, number]
 
+export const WEAPON_KINDS = [
+  'great-sword',
+  'long-sword',
+  'sword-shield',
+  'dual-blades',
+  'hammer',
+  'hunting-horn',
+  'lance',
+  'gunlance',
+  'switch-axe',
+  'charge-blade',
+  'insect-glaive',
+  'bow',
+  'light-bowgun',
+  'heavy-bowgun',
+] as const
+export type WeaponKind = (typeof WEAPON_KINDS)[number]
+
+export type SeedWeaponSpecial = {
+  kind: 'element' | 'status'
+  name: string
+  damage: { raw: number; display: number }
+  hidden: boolean
+}
+
+export type SeedWeaponSharpness = {
+  red: number
+  orange: number
+  yellow: number
+  green: number
+  blue: number
+  white: number
+  purple: number
+}
+
+/** A weapon normalised from the MHDB wire format (names already de-kira'd). */
+export type SeedWeapon = {
+  name: string
+  kind: WeaponKind
+  rarity: number
+  damage: { raw: number; display: number }
+  affinity: number
+  specials: SeedWeaponSpecial[]
+  sharpness: SeedWeaponSharpness | null
+  handicraft: number[] | null
+  slots: number[]
+  skills: Record<string, number> // skill name → level
+  elderseal: string | null
+  defenseBonus: number
+  series: string | null
+  /** Weapon-kind-only fields (phial, shell, coatings, ammo, melody, ...). */
+  kindSpecific: Record<string, unknown>
+}
+
 export interface SeedData {
   armor: Record<ArmorType, Record<string, CompactArmor>>
   talisman: Record<string, CompactTalisman>
@@ -53,4 +107,5 @@ export interface SeedData {
   weaponSkills?: string[] // array of weapon skill names (subset of `skills`)
   // Raw MHDB icon category keyed by clean skill/set/group name, e.g. {"Attack Boost": "offense"}.
   skillIcons?: Record<string, string>
+  weapons?: SeedWeapon[]
 }

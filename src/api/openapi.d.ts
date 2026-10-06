@@ -127,6 +127,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mh-wilds/weapons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApiMh-wildsWeapons"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mh-wilds/search": {
         parameters: {
             query?: never;
@@ -440,6 +456,72 @@ export interface operations {
                             name: string;
                             level: number;
                         }[];
+                    }[];
+                };
+            };
+        };
+    };
+    "getApiMh-wildsWeapons": {
+        parameters: {
+            query?: {
+                /** @enum {string} */
+                kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        name: string;
+                        /** @enum {string} */
+                        kind: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                        rarity: number;
+                        damage: {
+                            raw: number;
+                            display: number;
+                        };
+                        affinity: number;
+                        specials: {
+                            /** @enum {string} */
+                            kind: "element" | "status";
+                            name: string;
+                            damage: {
+                                raw: number;
+                                display: number;
+                            };
+                            hidden: boolean;
+                        }[];
+                        sharpness: {
+                            red: number;
+                            orange: number;
+                            yellow: number;
+                            green: number;
+                            blue: number;
+                            white: number;
+                            purple: number;
+                        } | null;
+                        handicraft: number[] | null;
+                        slots: number[];
+                        skills: {
+                            skillId: string;
+                            name: string;
+                            level: number;
+                        }[];
+                        elderseal: string | null;
+                        defenseBonus: number;
+                        series: string | null;
+                        kindSpecific: {
+                            [key: string]: unknown;
+                        };
                     }[];
                 };
             };

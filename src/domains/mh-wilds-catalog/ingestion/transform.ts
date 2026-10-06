@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { SeedData } from './types'
+import { WEAPON_KINDS, type SeedData, type SeedWeaponSharpness, type SeedWeaponSpecial } from './types'
 
 const CompactArmorSchema = z.tuple([
   z.string(), // type
@@ -36,6 +36,40 @@ const CompactGroupSkillSchema = z.tuple([
   z.number(), // piecesRequired
 ])
 
+const SeedWeaponSchema = z.object({
+  name: z.string(),
+  kind: z.enum(WEAPON_KINDS),
+  rarity: z.number(),
+  damage: z.object({ raw: z.number(), display: z.number() }),
+  affinity: z.number(),
+  specials: z.array(
+    z.object({
+      kind: z.enum(['element', 'status']),
+      name: z.string(),
+      damage: z.object({ raw: z.number(), display: z.number() }),
+      hidden: z.boolean(),
+    }),
+  ),
+  sharpness: z
+    .object({
+      red: z.number(),
+      orange: z.number(),
+      yellow: z.number(),
+      green: z.number(),
+      blue: z.number(),
+      white: z.number(),
+      purple: z.number(),
+    })
+    .nullable(),
+  handicraft: z.array(z.number()).nullable(),
+  slots: z.array(z.number()),
+  skills: z.record(z.string(), z.number()),
+  elderseal: z.string().nullable(),
+  defenseBonus: z.number(),
+  series: z.string().nullable(),
+  kindSpecific: z.record(z.string(), z.unknown()),
+})
+
 export const SeedDataSchema = z.object({
   armor: z.object({
     head: z.record(z.string(), CompactArmorSchema),
@@ -54,6 +88,7 @@ export const SeedDataSchema = z.object({
   weaponSkills: z.array(z.string()).optional(),
   // Raw MHDB icon category keyed by clean skill/set/group name, e.g. {"Attack Boost": "offense"}.
   skillIcons: z.record(z.string(), z.string()).optional(),
+  weapons: z.array(SeedWeaponSchema).optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -125,6 +160,60 @@ export interface DecorationSkillInsert {
   level: number
 }
 
+/** A weapon catalog item (ADR-0013). Identity is `weaponKey` = kind + name. */
+export interface WeaponInsert {
+  name: string
+  kind: string
+  rarity: number
+  raw: number
+  display: number
+  affinity: number
+  specials: SeedWeaponSpecial[]
+  sharpness: SeedWeaponSharpness | null
+  handicraft: number[] | null
+  slots: number[]
+  elderseal: string | null
+  defenseBonus: number
+  series: string | null
+  kindSpecific: Record<string, unknown>
+}
+
+/** One skill grant of a weapon, keyed by the weapon's `weaponKey`. */
+export interface WeaponSkillInsert {
+  weaponKey: string
+  skillName: string
+  level: number
+}
+
+/** Stable weapon identity (ADR-0007): the canonical kind + name pair. */
+export const weaponKey = (w: { kind: string; name: string }): string => `${w.kind}:${w.name}`
+
+const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
+
+/**
+ * Upstream reuses a (kind, name) for several distinct weapons (the three Artian
+ * base templates, differing only in raw/affinity). Identity must be unique, so
+ * colliding names get a deterministic affinity suffix, e.g.
+ * "Calamitous Angel (-10% affinity)"; a residual tie gets a " #n" counter.
+ */
+export const disambiguateWeaponNames = <T extends { kind: string; name: string; affinity: number }>(weapons: T[]): T[] => {
+  const groups = new Map<string, number>()
+  for (const w of weapons) groups.set(weaponKey(w), (groups.get(weaponKey(w)) ?? 0) + 1)
+
+  const seen = new Set<string>()
+  return weapons.map((w) => {
+    if ((groups.get(weaponKey(w)) ?? 0) < 2) {
+      seen.add(weaponKey(w))
+      return w
+    }
+    const base = `${w.name} (${signed(w.affinity)}% affinity)`
+    let name = base
+    for (let n = 2; seen.has(weaponKey({ kind: w.kind, name })); n++) name = `${base} #${n}`
+    seen.add(weaponKey({ kind: w.kind, name }))
+    return { ...w, name }
+  })
+}
+
 function toCleanName(name: string): string {
   return name
     .toLowerCase()
@@ -141,6 +230,8 @@ export interface TransformResult {
   armorBonuses: ArmorBonusInsert[]
   decorations: DecorationInsert[]
   decorationSkills: DecorationSkillInsert[]
+  weapons: WeaponInsert[]
+  weaponSkills: WeaponSkillInsert[]
 }
 
 export function transformSeedData(data: SeedData): TransformResult {
@@ -246,6 +337,36 @@ export function transformSeedData(data: SeedData): TransformResult {
     }
   }
 
+  // --- Weapons (ADR-0013) ---
+  const weapons: WeaponInsert[] = []
+  const weaponSkills: WeaponSkillInsert[] = []
+  const missingWeaponSkills = new Set<string>()
+  for (const w of disambiguateWeaponNames(data.weapons ?? [])) {
+    weapons.push({
+      name: w.name,
+      kind: w.kind,
+      rarity: w.rarity,
+      raw: w.damage.raw,
+      display: w.damage.display,
+      affinity: w.affinity,
+      specials: w.specials,
+      sharpness: w.sharpness,
+      handicraft: w.handicraft,
+      slots: w.slots,
+      elderseal: w.elderseal,
+      defenseBonus: w.defenseBonus,
+      series: w.series,
+      kindSpecific: w.kindSpecific,
+    })
+    for (const [skillName, level] of Object.entries(w.skills)) {
+      if (!(skillName in data.skills)) missingWeaponSkills.add(skillName)
+      weaponSkills.push({ weaponKey: weaponKey(w), skillName, level })
+    }
+  }
+  if (missingWeaponSkills.size > 0) {
+    throw new Error(`Weapons reference unknown skill(s): ${[...missingWeaponSkills].join(', ')}`)
+  }
+
   return {
     skills,
     bonuses,
@@ -255,5 +376,7 @@ export function transformSeedData(data: SeedData): TransformResult {
     armorBonuses,
     decorations,
     decorationSkills,
+    weapons,
+    weaponSkills,
   }
 }

@@ -42,3 +42,39 @@ export interface MhdbDecoration {
   description: string
   skills: Array<{ skill: { name: string }; level: number }>
 }
+
+export interface MhdbWeaponSpecial {
+  kind: 'element' | 'status'
+  element?: string
+  status?: string
+  damage: { raw: number; display: number }
+  hidden: boolean
+}
+
+export interface MhdbWeapon {
+  id: number
+  name: string
+  kind: string
+  rarity: number
+  damage: { raw: number; display: number }
+  affinity: number
+  specials: MhdbWeaponSpecial[]
+  sharpness?: Record<string, number>
+  handicraft?: number[]
+  slots: number[]
+  skills: Array<{ skill: { name: string }; level: number }>
+  elderseal: string | null
+  defenseBonus: number
+  series: { name: string } | null
+  // Kind-specific fields (only some kinds carry each).
+  phial?: unknown
+  shell?: unknown
+  shellLevel?: unknown
+  coatings?: unknown
+  ammo?: unknown
+  specialAmmo?: unknown
+  kinsectLevel?: unknown
+  melody?: unknown
+  echoBubble?: unknown
+  echoWave?: unknown
+}

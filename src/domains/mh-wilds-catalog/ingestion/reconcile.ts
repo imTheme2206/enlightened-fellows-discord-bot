@@ -8,7 +8,10 @@ import type {
   DecorationSkillInsert,
   SkillInsert,
   TransformResult,
+  WeaponInsert,
+  WeaponSkillInsert,
 } from './transform'
+import { weaponKey } from './transform'
 
 /**
  * Snapshot of the current catalog, keyed by the stable canonical identity
@@ -68,6 +71,13 @@ export interface ExistingDecorationSkill {
   level: number
 }
 
+export type ExistingWeapon = WeaponInsert
+export interface ExistingWeaponSkill {
+  weaponKey: string
+  skillName: string
+  level: number
+}
+
 export interface ExistingCatalog {
   skills: ExistingSkill[]
   bonuses: ExistingBonus[]
@@ -77,11 +87,13 @@ export interface ExistingCatalog {
   armorBonuses: ExistingArmorBonus[]
   decorations: ExistingDecoration[]
   decorationSkills: ExistingDecorationSkill[]
+  weapons: ExistingWeapon[]
+  weaponSkills: ExistingWeaponSkill[]
 }
 
 /** A scraped value that differs from an existing identity's stored value. */
 export interface Conflict {
-  entity: 'skill' | 'bonus' | 'armor' | 'decoration'
+  entity: 'skill' | 'bonus' | 'armor' | 'decoration' | 'weapon'
   name: string
   reason: string
 }
@@ -100,9 +112,11 @@ export interface ReconcilePlan {
   armorBonuses: ArmorBonusInsert[]
   decorations: DecorationInsert[]
   decorationSkills: DecorationSkillInsert[]
+  weapons: WeaponInsert[]
+  weaponSkills: WeaponSkillInsert[]
   conflicts: Conflict[]
   /** Identities that already existed with identical values (for logging). */
-  unchanged: { skills: number; bonuses: number; armor: number; decorations: number }
+  unchanged: { skills: number; bonuses: number; armor: number; decorations: number; weapons: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +151,36 @@ function thresholdsEqual(
   return b.every((t) => setA.has(key(t)))
 }
 
+/** Key-order-independent JSON, since Postgres jsonb does not preserve key order. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(v ?? null)
+}
+
+function weaponScalarsEqual(a: WeaponInsert, b: WeaponInsert): boolean {
+  return (
+    a.rarity === b.rarity &&
+    a.raw === b.raw &&
+    a.display === b.display &&
+    a.affinity === b.affinity &&
+    a.defenseBonus === b.defenseBonus &&
+    nn(a.elderseal) === nn(b.elderseal) &&
+    nn(a.series) === nn(b.series) &&
+    canonical(a.specials) === canonical(b.specials) &&
+    canonical(a.sharpness) === canonical(b.sharpness) &&
+    canonical(a.handicraft) === canonical(b.handicraft) &&
+    canonical(a.slots) === canonical(b.slots) &&
+    canonical(a.kindSpecific) === canonical(b.kindSpecific)
+  )
+}
+
 function groupLevels<T extends { skillName: string; level: number }>(rows: T[], nameOf: (r: T) => string, target: string): Map<string, number> {
   const m = new Map<string, number>()
   for (const r of rows) if (nameOf(r) === target) m.set(r.skillName, r.level)
@@ -155,7 +199,7 @@ function groupLevels<T extends { skillName: string; level: number }>(rows: T[], 
  */
 export function reconcileCatalog(existing: ExistingCatalog, next: TransformResult): ReconcilePlan {
   const conflicts: Conflict[] = []
-  const unchanged = { skills: 0, bonuses: 0, armor: 0, decorations: 0 }
+  const unchanged = { skills: 0, bonuses: 0, armor: 0, decorations: 0, weapons: 0 }
 
   // --- skills ---
   const existingSkill = new Map(existing.skills.map((s) => [s.name, s]))
@@ -284,6 +328,32 @@ export function reconcileCatalog(existing: ExistingCatalog, next: TransformResul
     }
   }
 
+  // --- weapons (+ skills), identity = kind + name (ADR-0013) ---
+  const existingWeapon = new Map(existing.weapons.map((w) => [weaponKey(w), w]))
+  const levelsFor = (rows: { weaponKey: string; skillName: string; level: number }[], key: string) => {
+    const m = new Map<string, number>()
+    for (const r of rows) if (r.weaponKey === key) m.set(r.skillName, r.level)
+    return m
+  }
+  const newWeapons: WeaponInsert[] = []
+  const newWeaponSkills: WeaponSkillInsert[] = []
+  for (const w of next.weapons) {
+    const key = weaponKey(w)
+    const ex = existingWeapon.get(key)
+    if (!ex) {
+      newWeapons.push(w)
+      newWeaponSkills.push(...next.weaponSkills.filter((r) => r.weaponKey === key))
+      continue
+    }
+    if (!weaponScalarsEqual(ex, w)) {
+      conflicts.push({ entity: 'weapon', name: key, reason: 'weapon stats changed' })
+    } else if (!levelMapEqual(levelsFor(existing.weaponSkills, key), levelsFor(next.weaponSkills, key))) {
+      conflicts.push({ entity: 'weapon', name: key, reason: 'weapon skills changed' })
+    } else {
+      unchanged.weapons++
+    }
+  }
+
   return {
     skills: newSkills,
     bonuses: newBonuses,
@@ -293,6 +363,8 @@ export function reconcileCatalog(existing: ExistingCatalog, next: TransformResul
     armorBonuses: newArmorBonuses,
     decorations: newDecorations,
     decorationSkills: newDecorationSkills,
+    weapons: newWeapons,
+    weaponSkills: newWeaponSkills,
     conflicts,
     unchanged,
   }

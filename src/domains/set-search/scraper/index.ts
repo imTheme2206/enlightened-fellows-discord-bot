@@ -1,5 +1,7 @@
 import { CatalogIngestionService } from "../../mh-wilds-catalog/ingestion/service"
 import { OrphanedTalismanSkillError, ScrapeConflictError } from "../../mh-wilds-catalog/ingestion/errors"
+import { deKira } from "../../mh-wilds-catalog/ingestion/names"
+import { mapMhdbWeapons } from "../../mh-wilds-catalog/ingestion/weapons"
 import { SeedDataSchema, transformSeedData } from "../../mh-wilds-catalog/ingestion/transform"
 import logger from "../../../infra/logger"
 import { JobLogService } from "../../job-logs/service"
@@ -10,6 +12,7 @@ import type {
   MhdbCharmGroup,
   MhdbDecoration,
   MhdbSkill,
+  MhdbWeapon,
 } from "../../mh-wilds-catalog/ingestion/mhdb-types"
 
 // Re-exported so existing callers (db-init, any future operator tooling) can
@@ -17,15 +20,6 @@ import type {
 export { OrphanedTalismanSkillError, ScrapeConflictError }
 
 const BASE_URL = "https://wilds.mhdb.io/en"
-
-function deKira(name: string): string {
-  return name
-    .replace(/α/g, "Alpha")
-    .replace(/β/g, "Beta")
-    .replace(/γ/g, "Gamma")
-    .replace(/"/g, "'")
-    .replace(/G\. /g, "G ")
-}
 
 function getBaseName(names: string[]): string {
   const suffixRegex = /\s(I|II)\s*$/
@@ -47,13 +41,14 @@ async function fetchJson<T>(url: string): Promise<T> {
  * `CatalogIngestionService`.
  */
 async function fetchSeedData() {
-  const [armorList, skillList, armorSetList, charmList, decorationList] =
+  const [armorList, skillList, armorSetList, charmList, decorationList, weaponList] =
     await Promise.all([
       fetchJson<MhdbArmorPiece[]>(`${BASE_URL}/armor`),
       fetchJson<MhdbSkill[]>(`${BASE_URL}/skills`),
       fetchJson<MhdbArmorSet[]>(`${BASE_URL}/armor/sets`),
       fetchJson<MhdbCharmGroup[]>(`${BASE_URL}/charms`),
       fetchJson<MhdbDecoration[]>(`${BASE_URL}/decorations`),
+      fetchJson<MhdbWeapon[]>(`${BASE_URL}/weapons`),
     ])
 
   const pieceSetSkills = new Map<string, string[]>()
@@ -190,6 +185,7 @@ async function fetchSeedData() {
     armorSkills,
     weaponSkills,
     skillIcons,
+    weapons: mapMhdbWeapons(weaponList),
   }
   const parsed = SeedDataSchema.safeParse(raw)
   if (!parsed.success) {
@@ -205,6 +201,7 @@ export interface ScraperResult {
   armorCount: number
   skillCount: number
   decoCount: number
+  weaponCount: number
 }
 
 /**
@@ -221,17 +218,17 @@ export async function runScraper(
 
   logger.info(`[scraperService] Starting scraper (source: ${source})`)
 
-  let result: ScraperResult = { armorCount: 0, skillCount: 0, decoCount: 0 }
+  let result: ScraperResult = { armorCount: 0, skillCount: 0, decoCount: 0, weaponCount: 0 }
 
   try {
     const seedData = await fetchSeedData()
     const transformed = transformSeedData(seedData)
 
     const ingestResult = await CatalogIngestionService.reconcileAndPersist(transformed)
-    result = { armorCount: ingestResult.armorCount, skillCount: ingestResult.skillCount, decoCount: ingestResult.decoCount }
+    result = { armorCount: ingestResult.armorCount, skillCount: ingestResult.skillCount, decoCount: ingestResult.decoCount, weaponCount: ingestResult.weaponCount }
 
     logger.info(
-      `[scraperService] Success (insert-only): +${ingestResult.skillCount} skills, +${ingestResult.bonusCount} bonuses, +${ingestResult.armorCount} armor, +${ingestResult.decoCount} decorations`,
+      `[scraperService] Success (insert-only): +${ingestResult.skillCount} skills, +${ingestResult.bonusCount} bonuses, +${ingestResult.armorCount} armor, +${ingestResult.decoCount} decorations, +${ingestResult.weaponCount} weapons`,
     )
     await JobLogService.log(jobName, "SUCCESS", JSON.stringify({ inserted: result }))
 

@@ -11,10 +11,12 @@ import {
   decoration,
   decorationSkill,
   skill,
+  weapon,
+  weaponSkill,
 } from '../../../infra/db/schema'
 import { OrphanedTalismanSkillError, ScrapeConflictError } from './errors'
 import { reconcileCatalog, type ExistingCatalog } from './reconcile'
-import type { TransformResult } from './transform'
+import { weaponKey, type TransformResult, type WeaponInsert } from './transform'
 
 /** Counts of genuinely new identities inserted this run (0 on a no-op scrape). */
 export interface IngestResult {
@@ -22,6 +24,7 @@ export interface IngestResult {
   skillCount: number
   decoCount: number
   bonusCount: number
+  weaponCount: number
 }
 
 /**
@@ -58,12 +61,14 @@ export abstract class CatalogIngestionService {
       bonus: Map<string, string>
       armor: Map<string, string>
       decoration: Map<string, string>
+      weapon: Map<string, string>
     }
   }> {
     const skillRows = await db.select().from(skill)
     const bonusRows = await db.select().from(bonus)
     const armorRows = await db.select().from(armor)
     const decoRows = await db.select().from(decoration)
+    const weaponRows = await db.select().from(weapon)
 
     const bonusThresholdRows = await db
       .select({ bonusName: bonus.name, piecesRequired: bonusThreshold.piecesRequired, effectName: bonusThreshold.effectName, level: bonusThreshold.level })
@@ -84,6 +89,12 @@ export abstract class CatalogIngestionService {
       .from(decorationSkill)
       .innerJoin(decoration, eq(decorationSkill.decorationId, decoration.id))
       .innerJoin(skill, eq(decorationSkill.skillId, skill.id))
+
+    const weaponSkillRows = await db
+      .select({ weaponId: weaponSkill.weaponId, skillName: skill.name, level: weaponSkill.level })
+      .from(weaponSkill)
+      .innerJoin(skill, eq(weaponSkill.skillId, skill.id))
+    const weaponKeyById = new Map(weaponRows.map((w) => [w.id, weaponKey(w)]))
 
     return {
       catalog: {
@@ -107,12 +118,32 @@ export abstract class CatalogIngestionService {
         armorBonuses: armorBonusRows,
         decorations: decoRows.map((d) => ({ name: d.name, type: d.type, slotSize: d.slotSize })),
         decorationSkills: decorationSkillRows,
+        weapons: weaponRows.map(
+          (w): WeaponInsert => ({
+            name: w.name,
+            kind: w.kind,
+            rarity: w.rarity,
+            raw: w.raw,
+            display: w.display,
+            affinity: w.affinity,
+            specials: w.specials,
+            sharpness: w.sharpness,
+            handicraft: w.handicraft,
+            slots: w.slots,
+            elderseal: w.elderseal,
+            defenseBonus: w.defenseBonus,
+            series: w.series,
+            kindSpecific: w.kindSpecific,
+          }),
+        ),
+        weaponSkills: weaponSkillRows.map((r) => ({ weaponKey: weaponKeyById.get(r.weaponId)!, skillName: r.skillName, level: r.level })),
       },
       ids: {
         skill: new Map(skillRows.map((s) => [s.name, s.id])),
         bonus: new Map(bonusRows.map((b) => [b.name, b.id])),
         armor: new Map(armorRows.map((a) => [a.name, a.id])),
         decoration: new Map(decoRows.map((d) => [d.name, d.id])),
+        weapon: new Map(weaponRows.map((w) => [weaponKey(w), w.id])),
       },
     }
   }
@@ -198,6 +229,17 @@ export abstract class CatalogIngestionService {
         await tx.insert(decorationSkill).values(
           plan.decorationSkills.map((l) => ({ decorationId: decoId.get(l.decorationName)!, skillId: skillId.get(l.skillName)!, level: l.level })),
         )
+
+      const weaponId = new Map(ids.weapon)
+      for (const w of plan.weapons) weaponId.set(weaponKey(w), randomUUID())
+      // Chunked: 1,000+ rows x 15 columns would exceed Postgres' bind-parameter limit in one statement.
+      for (let i = 0; i < plan.weapons.length; i += 200) {
+        await tx.insert(weapon).values(plan.weapons.slice(i, i + 200).map((w) => ({ id: weaponId.get(weaponKey(w))!, ...w })))
+      }
+      const weaponSkillRows = plan.weaponSkills.map((l) => ({ weaponId: weaponId.get(l.weaponKey)!, skillId: skillId.get(l.skillName)!, level: l.level }))
+      for (let i = 0; i < weaponSkillRows.length; i += 500) {
+        await tx.insert(weaponSkill).values(weaponSkillRows.slice(i, i + 500))
+      }
     })
 
     return {
@@ -205,6 +247,7 @@ export abstract class CatalogIngestionService {
       skillCount: plan.skills.length,
       decoCount: plan.decorations.length,
       bonusCount: plan.bonuses.length,
+      weaponCount: plan.weapons.length,
     }
   }
 }

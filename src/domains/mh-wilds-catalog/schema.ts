@@ -83,3 +83,71 @@ export const skillCatalogResponseSchema = z.object({
   bonuses: z.array(bonusCatalogEntrySchema),
 })
 export type SkillCatalogResponse = z.infer<typeof skillCatalogResponseSchema>
+
+export const weaponKindSchema = z.enum([
+  'great-sword',
+  'long-sword',
+  'sword-shield',
+  'dual-blades',
+  'hammer',
+  'hunting-horn',
+  'lance',
+  'gunlance',
+  'switch-axe',
+  'charge-blade',
+  'insect-glaive',
+  'bow',
+  'light-bowgun',
+  'heavy-bowgun',
+])
+export type WeaponKind = z.infer<typeof weaponKindSchema>
+
+const weaponDamageSchema = z.object({ raw: z.number(), display: z.number() })
+
+/** ADR-0013: weapons are first-class catalog items. */
+export const weaponCatalogItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: weaponKindSchema,
+  rarity: z.number(),
+  damage: weaponDamageSchema,
+  affinity: z.number(),
+  /** Element/status specials; `name` is the element (e.g. 'fire') or status (e.g. 'paralysis'). */
+  specials: z.array(
+    z.object({
+      kind: z.enum(['element', 'status']),
+      name: z.string(),
+      damage: weaponDamageSchema,
+      hidden: z.boolean(),
+    })
+  ),
+  /** Null for ranged weapons. */
+  sharpness: z
+    .object({
+      red: z.number(),
+      orange: z.number(),
+      yellow: z.number(),
+      green: z.number(),
+      blue: z.number(),
+      white: z.number(),
+      purple: z.number(),
+    })
+    .nullable(),
+  /** Handicraft sharpness-gain breakpoints; null for ranged weapons. */
+  handicraft: z.array(z.number()).nullable(),
+  /** Weapon-type decoration slot sizes. */
+  slots: z.array(z.number()),
+  skills: z.array(skillGrantSchema),
+  elderseal: z.string().nullable(),
+  defenseBonus: z.number(),
+  series: z.string().nullable(),
+  /** Fields only some kinds carry: phial, shell, coatings, ammo, kinsectLevel, melody, ... */
+  kindSpecific: z.record(z.string(), z.unknown()),
+})
+export type WeaponCatalogItem = z.infer<typeof weaponCatalogItemSchema>
+export const weaponCatalogResponseSchema = z.array(weaponCatalogItemSchema)
+
+export const weaponCatalogQuerySchema = z.object({
+  kind: weaponKindSchema.optional(),
+})
+export type WeaponCatalogQuery = z.infer<typeof weaponCatalogQuerySchema>

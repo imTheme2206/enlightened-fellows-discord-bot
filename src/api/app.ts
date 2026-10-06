@@ -10,6 +10,7 @@ import { jobLogsRoutes } from "./routes/job-logs"
 import { searchRoutes } from "./routes/search"
 import { skillsRoutes } from "./routes/skills"
 import { talismansRoutes } from "./routes/talismans"
+import { weaponsRoutes } from "./routes/weapons"
 
 export function createApp() {
   return (
@@ -34,6 +35,7 @@ export function createApp() {
           .use(skillsRoutes)
           .use(armorsRoutes)
           .use(decorationsRoutes)
+          .use(weaponsRoutes)
           .use(searchRoutes)
           .use(buildsPublicRoutes)
           .use(buildsOwnerRoutes),

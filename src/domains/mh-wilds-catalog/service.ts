@@ -1,10 +1,10 @@
 import type { CatalogIndexProjection } from './projection'
 import { CatalogRepository } from './repository'
-import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse } from './schema'
+import type { ArmorCatalogItem, DecorationCatalogItem, SkillCatalogResponse, WeaponCatalogItem, WeaponCatalogQuery } from './schema'
 
 /**
  * MH Wilds Catalog domain service (ADR-0009): the shared read boundary over
- * armor, decorations, skills, and set/group bonuses. Set Search and Set Builder
+ * armor, weapons (ADR-0013), decorations, skills, and set/group bonuses. Set Search and Set Builder
  * both consume catalog reads from here rather than owning competing repositories.
  */
 export abstract class CatalogService {
@@ -14,6 +14,10 @@ export abstract class CatalogService {
 
   static getDecorations(): Promise<DecorationCatalogItem[]> {
     return CatalogRepository.findDecorationCatalog()
+  }
+
+  static getWeapons(query: WeaponCatalogQuery = {}): Promise<WeaponCatalogItem[]> {
+    return CatalogRepository.findWeaponCatalog(query)
   }
 
   static getSkills(): Promise<SkillCatalogResponse> {

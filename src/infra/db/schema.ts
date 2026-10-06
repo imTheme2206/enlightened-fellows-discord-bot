@@ -128,6 +128,74 @@ export const armorBonus = pgTable(
   (t) => [primaryKey({ columns: [t.armorId, t.bonusId] })],
 )
 
+/** Shape of one weapon special (element or status) as stored in `weapon.specials`. */
+export type WeaponSpecial = {
+  kind: "element" | "status"
+  /** Element (e.g. 'fire') or status (e.g. 'paralysis') name. */
+  name: string
+  damage: { raw: number; display: number }
+  hidden: boolean
+}
+
+/** Sharpness bar segment lengths, red (lowest) to purple (highest). */
+export type WeaponSharpness = {
+  red: number
+  orange: number
+  yellow: number
+  green: number
+  blue: number
+  white: number
+  purple: number
+}
+
+/**
+ * A weapon as a first-class catalog item (ADR-0013). Identity is `(kind, name)`
+ * (ADR-0007); the scrape disambiguates upstream name collisions (the Artian
+ * base templates) before they reach this table. Fields that only apply to some
+ * weapon kinds (phial, shell, coatings, ammo, kinsect level, melody, ...) live
+ * in `kindSpecific` rather than one sparse column each.
+ */
+export const weapon = pgTable(
+  "weapon",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(), // 'long-sword' | 'great-sword' | ...
+    rarity: integer("rarity").notNull(),
+    raw: integer("raw").notNull(),
+    display: integer("display").notNull(),
+    affinity: integer("affinity").notNull().default(0),
+    specials: jsonb("specials").$type<WeaponSpecial[]>().notNull().default([]),
+    sharpness: jsonb("sharpness").$type<WeaponSharpness | null>(),
+    handicraft: jsonb("handicraft").$type<number[] | null>(),
+    // Weapon-type decoration slot sizes.
+    slots: jsonb("slots").$type<number[]>().notNull().default([]),
+    elderseal: text("elderseal"),
+    defenseBonus: integer("defense_bonus").notNull().default(0),
+    series: text("series"),
+    kindSpecific: jsonb("kind_specific")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+  },
+  (t) => [unique("weapon_kind_name_unique").on(t.kind, t.name)],
+)
+
+/** A skill granted by a weapon; references an ordinary `skill` row. */
+export const weaponSkill = pgTable(
+  "weapon_skill",
+  {
+    weaponId: text("weapon_id")
+      .notNull()
+      .references(() => weapon.id, { onDelete: "cascade" }),
+    skillId: text("skill_id")
+      .notNull()
+      .references(() => skill.id, { onDelete: "cascade" }),
+    level: integer("level").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.weaponId, t.skillId] })],
+)
+
 export const jobLog = pgTable("job_log", {
   id: text("id").primaryKey(),
   jobName: text("job_name").notNull(),
@@ -257,6 +325,8 @@ export type NewBonus = typeof bonus.$inferInsert
 export type BonusThreshold = typeof bonusThreshold.$inferSelect
 export type ArmorBonus = typeof armorBonus.$inferSelect
 export type Armor = typeof armor.$inferSelect
+export type Weapon = typeof weapon.$inferSelect
+export type WeaponSkill = typeof weaponSkill.$inferSelect
 export type JobLog = typeof jobLog.$inferSelect
 export type NewJobLog = typeof jobLog.$inferInsert
 export type SearchHistory = typeof searchHistory.$inferSelect
