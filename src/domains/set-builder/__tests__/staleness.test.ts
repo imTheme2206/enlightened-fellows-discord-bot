@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { buildSnapshot } from "../snapshot"
 import { deriveStaleness, type StalenessCatalog } from "../staleness"
-import { ARMORS, DECORATIONS, SKILLS, makeRequest, makeView } from "./fixtures"
+import { ARMORS, DECORATIONS, SKILLS, WEAPONS, makeRequest, makeView } from "./fixtures"
 
 /** A fresh snapshot referencing armor, a decoration, a bonus, and a custom talisman. */
 function sampleSnapshot() {
@@ -22,6 +22,7 @@ function freshCatalog(): StalenessCatalog {
   return {
     armorsById: new Map(ARMORS.map((a) => [a.id, a])),
     decorationsById: new Map(DECORATIONS.map((d) => [d.id, d])),
+    weaponsById: new Map(WEAPONS.map((w) => [w.id, w])),
     skillMaxByName: new Map(SKILLS.skills.map((s) => [s.name, s.maxLevel])),
     bonusesByName: new Map(
       SKILLS.bonuses.map((b) => [
@@ -85,7 +86,7 @@ describe("deriveStaleness", () => {
   it("is not stale when a weapon's bonuses still exist in the catalog", () => {
     const snapshot = buildSnapshot(
       makeRequest({
-        weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+        weapon: { weaponId: null, decorations: [], setBonusId: "bn-set", groupBonusId: "bn-group" },
       }),
       makeView(),
     )
@@ -95,7 +96,7 @@ describe("deriveStaleness", () => {
   it("is stale when a weapon's referenced bonus is retired from the catalog", () => {
     const snapshot = buildSnapshot(
       makeRequest({
-        weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+        weapon: { weaponId: null, decorations: [], setBonusId: "bn-set", groupBonusId: "bn-group" },
       }),
       makeView(),
     )
@@ -106,7 +107,7 @@ describe("deriveStaleness", () => {
 
   it("is stale when a weapon's referenced bonus threshold changes", () => {
     const snapshot = buildSnapshot(
-      makeRequest({ weapon: { setBonusId: "bn-set", groupBonusId: null } }),
+      makeRequest({ weapon: { weaponId: null, decorations: [], setBonusId: "bn-set", groupBonusId: null } }),
       makeView(),
     )
     const catalog = freshCatalog()

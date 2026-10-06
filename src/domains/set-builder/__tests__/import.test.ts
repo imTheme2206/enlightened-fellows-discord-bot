@@ -66,7 +66,7 @@ describe("buildImportComposition", () => {
       waist: null,
       legs: null,
       talisman: null,
-      weapon: { setBonusId: null, groupBonusId: null },
+      weapon: { weaponId: null, decorations: [], setBonusId: null, groupBonusId: null },
     })
   })
 
@@ -184,6 +184,8 @@ describe("buildImportComposition", () => {
     })
     const composition = buildImportComposition(request, CATALOG, [])
     expect(composition.weapon).toEqual({
+      weaponId: null,
+      decorations: [],
       setBonusId: "bn-set",
       groupBonusId: "bn-group",
     })

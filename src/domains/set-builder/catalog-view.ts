@@ -3,6 +3,7 @@ import type {
   ArmorCatalogItem,
   DecorationCatalogItem,
   SkillCatalogResponse,
+  WeaponCatalogItem,
 } from "../mh-wilds-catalog/schema"
 
 type SkillCatalogEntry = SkillCatalogResponse["skills"][number]
@@ -23,6 +24,7 @@ type BonusCatalogEntry = SkillCatalogResponse["bonuses"][number]
 export type CatalogView = {
   armorsById: Map<string, ArmorCatalogItem>
   decorationsById: Map<string, DecorationCatalogItem>
+  weaponsById: Map<string, WeaponCatalogItem>
   skillsById: Map<string, SkillCatalogEntry>
   bonusesById: Map<string, BonusCatalogEntry>
   customTalisman: CustomTalisman | null
@@ -31,12 +33,15 @@ export type CatalogView = {
 export function buildCatalogView(input: {
   armors: ArmorCatalogItem[]
   decorations: DecorationCatalogItem[]
+  /** Optional: callers load the (large) weapon catalog only when a weapon is referenced. */
+  weapons?: WeaponCatalogItem[]
   skills: SkillCatalogResponse
   customTalisman: CustomTalisman | null
 }): CatalogView {
   return {
     armorsById: new Map(input.armors.map((a) => [a.id, a])),
     decorationsById: new Map(input.decorations.map((d) => [d.id, d])),
+    weaponsById: new Map((input.weapons ?? []).map((w) => [w.id, w])),
     skillsById: new Map(input.skills.skills.map((s) => [s.id, s])),
     bonusesById: new Map(input.skills.bonuses.map((b) => [b.id, b])),
     customTalisman: input.customTalisman,

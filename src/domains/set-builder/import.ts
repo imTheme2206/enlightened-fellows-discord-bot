@@ -215,7 +215,10 @@ function resolveWeapon(
   weapon: ImportBuildRequest["weapon"],
   bonuses: BonusCatalogEntry[],
 ): CompositionRequest["weapon"] {
+  // The optimizer has no weapon item, only its bonus contribution (by name).
   return {
+    weaponId: null,
+    decorations: [],
     setBonusId: weapon.setBonus
       ? resolveBonus(weapon.setBonus, "set", bonuses).id
       : null,

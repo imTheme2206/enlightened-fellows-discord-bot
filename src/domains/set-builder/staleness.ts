@@ -1,6 +1,7 @@
 import type {
   ArmorCatalogItem,
   DecorationCatalogItem,
+  WeaponCatalogItem,
 } from "../mh-wilds-catalog/schema"
 import type {
   BuildSnapshot,
@@ -27,6 +28,7 @@ import type {
 export type StalenessCatalog = {
   armorsById: Map<string, ArmorCatalogItem>
   decorationsById: Map<string, DecorationCatalogItem>
+  weaponsById: Map<string, WeaponCatalogItem>
   /** Skill name → current maximum level. */
   skillMaxByName: Map<string, number>
   /** Bonus name → current kind + ordered thresholds. */
@@ -149,10 +151,26 @@ function isWeaponStale(
   weapon: SnapshotWeapon,
   catalog: StalenessCatalog,
 ): boolean {
-  return (
+  if (
     isWeaponBonusStale(weapon.setBonus, catalog) ||
     isWeaponBonusStale(weapon.groupBonus, catalog)
+  ) {
+    return true
+  }
+  // Legacy bonus-only snapshots (pre ADR-0013) carry no weapon item to compare.
+  if (!weapon.weaponId) return false
+
+  const current = catalog.weaponsById.get(weapon.weaponId)
+  if (!current) return true
+  if (
+    current.damage.raw !== weapon.damage?.raw ||
+    current.damage.display !== weapon.damage?.display
   )
+    return true
+  if (current.affinity !== weapon.affinity) return true
+  if (!numbersEqual(current.slots, weapon.slots ?? [])) return true
+  if (grantsKey(current.skills) !== grantsKey(weapon.skills ?? [])) return true
+  return (weapon.decorations ?? []).some((d) => isDecorationStale(d, catalog))
 }
 
 // ── entry point ────────────────────────────────────────────────────────────────

@@ -133,12 +133,13 @@ describe("buildSnapshot", () => {
   it("snapshots a weapon's Set and Group Bonus contribution, embedding both thresholds", () => {
     const view = makeView()
     const request = makeRequest({
-      weapon: { setBonusId: "bn-set", groupBonusId: "bn-group" },
+      weapon: { weaponId: null, decorations: [], setBonusId: "bn-set", groupBonusId: "bn-group" },
     })
 
     const { positions, bonusDefinitions } = buildSnapshot(request, view)
 
     expect(positions.weapon).toEqual({
+      weaponId: null,
       setBonus: { bonusId: "bn-set", name: "Example Set", kind: "set" },
       groupBonus: { bonusId: "bn-group", name: "Example Group", kind: "group" },
     })
@@ -160,7 +161,7 @@ describe("buildSnapshot", () => {
   it("snapshots a weapon contributing only a Set Bonus, leaving the group slot null", () => {
     const view = makeView()
     const request = makeRequest({
-      weapon: { setBonusId: "bn-set", groupBonusId: null },
+      weapon: { weaponId: null, decorations: [], setBonusId: "bn-set", groupBonusId: null },
     })
 
     const weapon = buildSnapshot(request, view).positions.weapon!

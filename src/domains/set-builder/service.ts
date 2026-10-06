@@ -251,10 +251,13 @@ export abstract class SetBuilderService {
     userId: string,
     composition: CompositionRequest,
   ): Promise<CatalogView> {
-    const [armors, decorations, skills] = await Promise.all([
+    // The weapon catalog is large; load it only when a catalog weapon is referenced.
+    const needsWeapons = composition.weapon?.weaponId != null
+    const [armors, decorations, skills, weapons] = await Promise.all([
       CatalogService.getArmors(),
       CatalogService.getDecorations(),
       CatalogService.getSkills(),
+      needsWeapons ? CatalogService.getWeapons() : Promise.resolve([]),
     ])
 
     const talisman = composition.talisman
@@ -264,7 +267,13 @@ export abstract class SetBuilderService {
           null)
         : null
 
-    return buildCatalogView({ armors, decorations, skills, customTalisman })
+    return buildCatalogView({
+      armors,
+      decorations,
+      weapons,
+      skills,
+      customTalisman,
+    })
   }
 
   private static async loadOwnedAtRevision(
@@ -352,17 +361,21 @@ export abstract class SetBuilderService {
     const snapshots = rows.map((r) => r.composition as BuildSnapshot)
     const talismanIds = collectCustomTalismanIds(snapshots)
 
-    const [armors, decorations, skills, existingTalismanIds] =
+    const needsWeapons = snapshots.some((s) => s.positions.weapon?.weaponId)
+
+    const [armors, decorations, skills, weapons, existingTalismanIds] =
       await Promise.all([
         CatalogService.getArmors(),
         CatalogService.getDecorations(),
         CatalogService.getSkills(),
+        needsWeapons ? CatalogService.getWeapons() : Promise.resolve([]),
         SetBuilderRepository.findExistingTalismanIds(talismanIds),
       ])
 
     const catalog = buildStalenessCatalog(
       armors,
       decorations,
+      weapons,
       skills,
       existingTalismanIds,
     )
@@ -406,12 +419,14 @@ function collectCustomTalismanIds(snapshots: BuildSnapshot[]): string[] {
 function buildStalenessCatalog(
   armors: Awaited<ReturnType<typeof CatalogService.getArmors>>,
   decorations: Awaited<ReturnType<typeof CatalogService.getDecorations>>,
+  weapons: Awaited<ReturnType<typeof CatalogService.getWeapons>>,
   skills: SkillCatalogResponse,
   existingCustomTalismanIds: Set<string>,
 ): StalenessCatalog {
   return {
     armorsById: new Map(armors.map((a) => [a.id, a])),
     decorationsById: new Map(decorations.map((d) => [d.id, d])),
+    weaponsById: new Map(weapons.map((w) => [w.id, w])),
     skillMaxByName: new Map(skills.skills.map((s) => [s.name, s.maxLevel])),
     bonusesByName: new Map(
       skills.bonuses.map((b) => [

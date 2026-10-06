@@ -22,8 +22,8 @@ import type {
  *
  * The result is self-contained: `skillDefinitions` (name → maxLevel) and
  * `bonusDefinitions` (name → kind + thresholds) collect every Skill/Bonus
- * referenced anywhere in the build — including the weapon's Set/Group Bonus
- * contribution — so a web/bot calculator never has to consult the live catalog
+ * referenced anywhere in the build — including the weapon's skills, its
+ * decorations, and its Set/Group Bonus contribution — so a web/bot calculator never has to consult the live catalog
  * (ADR-0005, ADR-0010).
  */
 
@@ -193,7 +193,36 @@ export function buildSnapshot(
       groupBonus = { bonusId: b.id, name: b.name, kind: b.kind }
     }
 
-    positions.weapon = { setBonus, groupBonus }
+    if (weapon.weaponId === null) {
+      // Bonus-only weapon (optimizer import / pre-catalog client).
+      positions.weapon = { weaponId: null, setBonus, groupBonus }
+    } else {
+      const w = view.weaponsById.get(weapon.weaponId)
+      if (!w)
+        throw new SetBuilderError("WEAPON_NOT_FOUND", {
+          weaponId: weapon.weaponId,
+        })
+      w.skills.forEach((s) => recordSkill(s.skillId))
+      positions.weapon = {
+        weaponId: w.id,
+        name: w.name,
+        kind: w.kind,
+        rarity: w.rarity,
+        damage: w.damage,
+        affinity: w.affinity,
+        specials: w.specials,
+        sharpness: w.sharpness,
+        slots: w.slots,
+        skills: w.skills.map((s) => ({
+          skillId: s.skillId,
+          name: s.name,
+          level: s.level,
+        })),
+        decorations: weapon.decorations.map(snapshotDecoration),
+        setBonus,
+        groupBonus,
+      }
+    }
   }
 
   return { schemaVersion: 1, positions, skillDefinitions, bonusDefinitions }

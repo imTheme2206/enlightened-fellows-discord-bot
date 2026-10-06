@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { bonusThresholdSchema } from "../mh-wilds-catalog/schema"
+import { bonusThresholdSchema, weaponKindSchema } from "../mh-wilds-catalog/schema"
 import { searchResultSchema } from "../set-search/schema"
 
 /**
@@ -37,13 +37,20 @@ const talismanSelectionSchema = z.object({
 })
 
 /**
- * A weapon contributes only a Set Bonus and/or Group Bonus reference — no weapon
- * item, decoration slots, base stats, or (armor-type) skills — mirroring what the
- * Set Search optimizer's "gogma weapon" contribution already does (CONTEXT.md;
- * `search-set/state.ts` `gogmaSkills`). Each bonus reference is independently
- * optional; the whole weapon key is nullable to denote no weapon contribution.
+ * A weapon selection (ADR-0013): an optional catalog weapon (`weaponId`, resolved
+ * against the weapon catalog) with decorations assigned to its weapon-type slots,
+ * plus the optional Set/Group Bonus pair that mirrors what the Set Search
+ * optimizer's "gogma weapon" contributes (`search-set/state.ts` `gogmaSkills`).
+ *
+ * `weaponId` is nullable and defaults to `null` so bonus-only selections keep
+ * working: the optimizer import carries only bonuses, and clients predating the
+ * weapon catalog omit the field. A null `weaponId` has no slots, so it cannot
+ * carry decorations. Each bonus reference is independently optional; the whole
+ * weapon key is nullable to denote no weapon contribution.
  */
 const weaponSelectionSchema = z.object({
+  weaponId: z.string().min(1).nullable().default(null),
+  decorations: z.array(decorationAssignmentSchema).default([]),
   setBonusId: z.string().min(1).nullable(),
   groupBonusId: z.string().min(1).nullable(),
 })
@@ -172,15 +179,57 @@ const snapshotTalismanSchema = z.object({
   decorations: z.array(snapshotDecorationSchema),
 })
 
-/**
- * The weapon's resolved bonus contribution, mirroring the request 1:1: each of
- * the two bonus slots is independently nullable. Unlike other positions, a
- * weapon has no id/name of its own — it is nothing but this pair of bonuses.
- */
-const snapshotWeaponSchema = z.object({
-  setBonus: snapshotBonusSchema.nullable(),
-  groupBonus: snapshotBonusSchema.nullable(),
+const snapshotSpecialSchema = z.object({
+  kind: z.enum(["element", "status"]),
+  name: z.string(),
+  damage: z.object({ raw: z.number(), display: z.number() }),
+  hidden: z.boolean(),
 })
+
+const snapshotSharpnessSchema = z.object({
+  red: z.number(),
+  orange: z.number(),
+  yellow: z.number(),
+  green: z.number(),
+  blue: z.number(),
+  white: z.number(),
+  purple: z.number(),
+})
+
+/**
+ * The weapon's trusted catalog values, embedded like an armor piece (ADR-0013).
+ * `slots` are weapon-type slot sizes; `decorations` index into them.
+ */
+const snapshotWeaponItemSchema = z.object({
+  weaponId: z.string(),
+  name: z.string(),
+  kind: weaponKindSchema,
+  rarity: z.number(),
+  damage: z.object({ raw: z.number(), display: z.number() }),
+  affinity: z.number(),
+  specials: z.array(snapshotSpecialSchema),
+  sharpness: snapshotSharpnessSchema.nullable(),
+  slots: z.array(z.number()),
+  skills: z.array(snapshotSkillSchema),
+  decorations: z.array(snapshotDecorationSchema),
+})
+
+/**
+ * A weapon position: the resolved Set/Group Bonus pair (each independently
+ * nullable) plus, when a catalog weapon was selected, its item snapshot.
+ *
+ * Legacy snapshots (saved before ADR-0013) hold only the bonus pair — and
+ * ADR-0005 forbids rewriting them — so every item field is optional here:
+ * `weaponId` absent/null means a bonus-only weapon. Newly built snapshots always
+ * write the full item when `weaponId` is set, and `weaponId: null` otherwise.
+ */
+const snapshotWeaponSchema = snapshotWeaponItemSchema
+  .partial()
+  .extend({
+    weaponId: z.string().nullish(),
+    setBonus: snapshotBonusSchema.nullable(),
+    groupBonus: snapshotBonusSchema.nullable(),
+  })
 
 export const buildSnapshotSchema = z.object({
   schemaVersion: z.literal(1),

@@ -3,6 +3,7 @@ import type {
   ArmorCatalogItem,
   DecorationCatalogItem,
   SkillCatalogResponse,
+  WeaponCatalogItem,
 } from "../../mh-wilds-catalog/schema"
 import { buildCatalogView, type CatalogView } from "../catalog-view"
 import type { CompositionRequest, SaveBuildRequest } from "../schema"
@@ -72,6 +73,45 @@ export const DECORATIONS: DecorationCatalogItem[] = [
   },
 ]
 
+export const WEAPONS: WeaponCatalogItem[] = [
+  {
+    id: "weapon-gs",
+    name: "Test Greatsword",
+    kind: "great-sword",
+    rarity: 8,
+    damage: { raw: 1000, display: 200 },
+    affinity: 10,
+    specials: [
+      { kind: "element", name: "fire", damage: { raw: 150, display: 15 }, hidden: false },
+    ],
+    sharpness: { red: 40, orange: 50, yellow: 60, green: 70, blue: 80, white: 0, purple: 0 },
+    handicraft: [10, 20, 30, 40],
+    slots: [3, 1], // weapon slot 0 size 3, slot 1 size 1
+    skills: [{ skillId: "sk-attack", name: "Attack Boost", level: 1 }],
+    elderseal: null,
+    defenseBonus: 0,
+    series: null,
+    kindSpecific: {},
+  },
+  {
+    id: "weapon-bow",
+    name: "Test Bow",
+    kind: "bow",
+    rarity: 5,
+    damage: { raw: 200, display: 80 },
+    affinity: 0,
+    specials: [],
+    sharpness: null,
+    handicraft: null,
+    slots: [],
+    skills: [],
+    elderseal: null,
+    defenseBonus: 0,
+    series: null,
+    kindSpecific: {},
+  },
+]
+
 export const SKILLS: SkillCatalogResponse = {
   skills: [
     { id: "sk-attack", name: "Attack Boost", kind: "armor", maxLevel: 5, icon: null },
@@ -119,6 +159,7 @@ export function makeView(overrides?: {
   return buildCatalogView({
     armors: ARMORS,
     decorations: DECORATIONS,
+    weapons: WEAPONS,
     skills: SKILLS,
     customTalisman:
       overrides && "customTalisman" in overrides

@@ -945,6 +945,52 @@ export interface operations {
                                     }[];
                                 } | null;
                                 weapon: {
+                                    weaponId?: string | null;
+                                    name?: string;
+                                    /** @enum {string} */
+                                    kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                                    rarity?: number;
+                                    damage?: {
+                                        raw: number;
+                                        display: number;
+                                    };
+                                    affinity?: number;
+                                    specials?: {
+                                        /** @enum {string} */
+                                        kind: "element" | "status";
+                                        name: string;
+                                        damage: {
+                                            raw: number;
+                                            display: number;
+                                        };
+                                        hidden: boolean;
+                                    }[];
+                                    sharpness?: {
+                                        red: number;
+                                        orange: number;
+                                        yellow: number;
+                                        green: number;
+                                        blue: number;
+                                        white: number;
+                                        purple: number;
+                                    } | null;
+                                    slots?: number[];
+                                    skills?: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    decorations?: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -1049,6 +1095,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -1111,6 +1164,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -1173,6 +1233,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -1430,6 +1497,52 @@ export interface operations {
                                     }[];
                                 } | null;
                                 weapon: {
+                                    weaponId?: string | null;
+                                    name?: string;
+                                    /** @enum {string} */
+                                    kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                                    rarity?: number;
+                                    damage?: {
+                                        raw: number;
+                                        display: number;
+                                    };
+                                    affinity?: number;
+                                    specials?: {
+                                        /** @enum {string} */
+                                        kind: "element" | "status";
+                                        name: string;
+                                        damage: {
+                                            raw: number;
+                                            display: number;
+                                        };
+                                        hidden: boolean;
+                                    }[];
+                                    sharpness?: {
+                                        red: number;
+                                        orange: number;
+                                        yellow: number;
+                                        green: number;
+                                        blue: number;
+                                        white: number;
+                                        purple: number;
+                                    } | null;
+                                    slots?: number[];
+                                    skills?: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    decorations?: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -1756,6 +1869,52 @@ export interface operations {
                                     }[];
                                 } | null;
                                 weapon: {
+                                    weaponId?: string | null;
+                                    name?: string;
+                                    /** @enum {string} */
+                                    kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                                    rarity?: number;
+                                    damage?: {
+                                        raw: number;
+                                        display: number;
+                                    };
+                                    affinity?: number;
+                                    specials?: {
+                                        /** @enum {string} */
+                                        kind: "element" | "status";
+                                        name: string;
+                                        damage: {
+                                            raw: number;
+                                            display: number;
+                                        };
+                                        hidden: boolean;
+                                    }[];
+                                    sharpness?: {
+                                        red: number;
+                                        orange: number;
+                                        yellow: number;
+                                        green: number;
+                                        blue: number;
+                                        white: number;
+                                        purple: number;
+                                    } | null;
+                                    slots?: number[];
+                                    skills?: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    decorations?: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -1890,6 +2049,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -1952,6 +2118,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -2014,6 +2187,13 @@ export interface operations {
                             }[];
                         } | null;
                         weapon: {
+                            /** @default null */
+                            weaponId?: string | null;
+                            /** @default [] */
+                            decorations?: {
+                                slotIndex: number;
+                                decorationId: string;
+                            }[];
                             setBonusId: string | null;
                             groupBonusId: string | null;
                         } | null;
@@ -2271,6 +2451,52 @@ export interface operations {
                                     }[];
                                 } | null;
                                 weapon: {
+                                    weaponId?: string | null;
+                                    name?: string;
+                                    /** @enum {string} */
+                                    kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                                    rarity?: number;
+                                    damage?: {
+                                        raw: number;
+                                        display: number;
+                                    };
+                                    affinity?: number;
+                                    specials?: {
+                                        /** @enum {string} */
+                                        kind: "element" | "status";
+                                        name: string;
+                                        damage: {
+                                            raw: number;
+                                            display: number;
+                                        };
+                                        hidden: boolean;
+                                    }[];
+                                    sharpness?: {
+                                        red: number;
+                                        orange: number;
+                                        yellow: number;
+                                        green: number;
+                                        blue: number;
+                                        white: number;
+                                        purple: number;
+                                    } | null;
+                                    slots?: number[];
+                                    skills?: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    decorations?: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
                                     setBonus: {
                                         bonusId: string;
                                         name: string;
@@ -2668,6 +2894,52 @@ export interface operations {
                                     }[];
                                 } | null;
                                 weapon: {
+                                    weaponId?: string | null;
+                                    name?: string;
+                                    /** @enum {string} */
+                                    kind?: "great-sword" | "long-sword" | "sword-shield" | "dual-blades" | "hammer" | "hunting-horn" | "lance" | "gunlance" | "switch-axe" | "charge-blade" | "insect-glaive" | "bow" | "light-bowgun" | "heavy-bowgun";
+                                    rarity?: number;
+                                    damage?: {
+                                        raw: number;
+                                        display: number;
+                                    };
+                                    affinity?: number;
+                                    specials?: {
+                                        /** @enum {string} */
+                                        kind: "element" | "status";
+                                        name: string;
+                                        damage: {
+                                            raw: number;
+                                            display: number;
+                                        };
+                                        hidden: boolean;
+                                    }[];
+                                    sharpness?: {
+                                        red: number;
+                                        orange: number;
+                                        yellow: number;
+                                        green: number;
+                                        blue: number;
+                                        white: number;
+                                        purple: number;
+                                    } | null;
+                                    slots?: number[];
+                                    skills?: {
+                                        skillId: string;
+                                        name: string;
+                                        level: number;
+                                    }[];
+                                    decorations?: {
+                                        slotIndex: number;
+                                        decorationId: string;
+                                        name: string;
+                                        slotSize: number;
+                                        skills: {
+                                            skillId: string;
+                                            name: string;
+                                            level: number;
+                                        }[];
+                                    }[];
                                     setBonus: {
                                         bonusId: string;
                                         name: string;

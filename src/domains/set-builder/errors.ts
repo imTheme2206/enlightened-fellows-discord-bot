@@ -19,6 +19,7 @@ export type SetBuilderErrorCode =
   | "DECORATION_SLOT_TOO_SMALL"
   | "TALISMAN_NOT_FOUND"
   | "TALISMAN_NOT_OWNED"
+  | "WEAPON_NOT_FOUND"
   | "WEAPON_BONUS_NOT_FOUND"
   | "WEAPON_BONUS_KIND_MISMATCH"
   // Persistence / lifecycle (§Lifecycle and concurrency, §Ownership).
@@ -41,6 +42,7 @@ const STATUS: Record<SetBuilderErrorCode, number> = {
   TALISMAN_NOT_FOUND: 422,
   // Ownership of a Custom Talisman cannot be confirmed → 403 (never leaks existence).
   TALISMAN_NOT_OWNED: 403,
+  WEAPON_NOT_FOUND: 422,
   WEAPON_BONUS_NOT_FOUND: 422,
   WEAPON_BONUS_KIND_MISMATCH: 422,
   BUILD_NOT_FOUND: 404,
@@ -66,6 +68,7 @@ const DEFAULT_MESSAGE: Record<SetBuilderErrorCode, string> = {
   DECORATION_SLOT_TOO_SMALL: "The selected decoration does not fit this slot.",
   TALISMAN_NOT_FOUND: "The selected talisman no longer exists in the catalog.",
   TALISMAN_NOT_OWNED: "The selected custom talisman is not available.",
+  WEAPON_NOT_FOUND: "The selected weapon no longer exists in the catalog.",
   WEAPON_BONUS_NOT_FOUND:
     "A selected weapon bonus no longer exists in the catalog.",
   WEAPON_BONUS_KIND_MISMATCH:
