@@ -199,6 +199,43 @@ describe("weapon staleness", () => {
     }
   })
 
+  it("is stale when an element/status special changes, order-insensitively otherwise", () => {
+    const base = WEAPONS[0]
+    const el = base.specials[0]
+    const cases = [
+      [{ ...el, damage: { raw: 160, display: 16 } }],
+      [{ ...el, name: "water" }],
+      [{ ...el, hidden: true }],
+      [],
+      [el, { ...el, kind: "status" as const, name: "poison" }],
+    ]
+    for (const specials of cases) {
+      const catalog = freshCatalog()
+      catalog.weaponsById.set("weapon-gs", { ...base, specials })
+      expect(deriveStaleness(weaponSnapshot(), catalog)).toBe(true)
+    }
+    // Same specials in a different order are not stale.
+    const two = [el, { ...el, kind: "status" as const, name: "poison" }]
+    const snap = canonicalizeSaveComposition(makeRequest({ weapon: weapon() }), makeView())
+    snap.positions.weapon!.specials = two
+    const catalog = freshCatalog()
+    catalog.weaponsById.set("weapon-gs", { ...base, specials: [...two].reverse() })
+    expect(deriveStaleness(snap, catalog)).toBe(false)
+  })
+
+  it("is stale when sharpness changes or appears/disappears", () => {
+    const base = WEAPONS[0]
+    for (const sharpness of [
+      { ...base.sharpness!, blue: 90 },
+      { ...base.sharpness!, white: 10 },
+      null,
+    ]) {
+      const catalog = freshCatalog()
+      catalog.weaponsById.set("weapon-gs", { ...base, sharpness })
+      expect(deriveStaleness(weaponSnapshot(), catalog)).toBe(true)
+    }
+  })
+
   it("is stale when a weapon decoration is retired or changes", () => {
     const retired = freshCatalog()
     retired.decorationsById.delete("deco-weapon-1")

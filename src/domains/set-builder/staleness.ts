@@ -69,6 +69,37 @@ function thresholdsKey(
   )
 }
 
+function specialsKey(
+  specials: {
+    kind: string
+    name: string
+    damage: { raw: number; display: number }
+    hidden: boolean
+  }[],
+): string {
+  return JSON.stringify(
+    specials
+      .map((s) => [s.kind, s.name, s.damage.raw, s.damage.display, s.hidden])
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  )
+}
+
+function sharpnessTuple(
+  s: {
+    red: number
+    orange: number
+    yellow: number
+    green: number
+    blue: number
+    white: number
+    purple: number
+  } | null,
+): number[] | null {
+  return s
+    ? [s.red, s.orange, s.yellow, s.green, s.blue, s.white, s.purple]
+    : null
+}
+
 function resistancesEqual(
   a: SnapshotArmorPiece["resistances"],
   b: SnapshotArmorPiece["resistances"],
@@ -168,6 +199,13 @@ function isWeaponStale(
   )
     return true
   if (current.affinity !== weapon.affinity) return true
+  if (specialsKey(current.specials) !== specialsKey(weapon.specials ?? []))
+    return true
+  if (
+    JSON.stringify(sharpnessTuple(current.sharpness)) !==
+    JSON.stringify(sharpnessTuple(weapon.sharpness ?? null))
+  )
+    return true
   if (!numbersEqual(current.slots, weapon.slots ?? [])) return true
   if (grantsKey(current.skills) !== grantsKey(weapon.skills ?? [])) return true
   return (weapon.decorations ?? []).some((d) => isDecorationStale(d, catalog))
