@@ -32,6 +32,7 @@ export const mapMhdbWeapons = (list: MhdbWeapon[]): SeedWeapon[] =>
     }
 
     return {
+      gameId: w.gameId,
       name: deKira(w.name),
       kind: w.kind as WeaponKind,
       rarity: w.rarity,

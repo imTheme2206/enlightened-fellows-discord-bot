@@ -64,6 +64,13 @@
       "when": 1791266466765,
       "tag": "0008_weapon_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791266979456,
+      "tag": "0009_weapon_game_id",
+      "breakpoints": true
     }
   ]
 }

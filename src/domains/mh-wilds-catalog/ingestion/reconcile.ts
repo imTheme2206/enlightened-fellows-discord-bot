@@ -166,6 +166,7 @@ function canonical(v: unknown): string {
 
 function weaponScalarsEqual(a: WeaponInsert, b: WeaponInsert): boolean {
   return (
+    a.name === b.name &&
     a.rarity === b.rarity &&
     a.raw === b.raw &&
     a.display === b.display &&

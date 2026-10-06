@@ -149,9 +149,9 @@ export type WeaponSharpness = {
 }
 
 /**
- * A weapon as a first-class catalog item (ADR-0013). Identity is `(kind, name)`
- * (ADR-0007); the scrape disambiguates upstream name collisions (the Artian
- * base templates) before they reach this table. Fields that only apply to some
+ * A weapon as a first-class catalog item (ADR-0013). Identity is `(kind, game_id)`
+ * (ADR-0007/0013) -- never a mutable stat; `name` is display only (the scrape
+ * suffixes colliding upstream names such as the Artian base templates). Fields that only apply to some
  * weapon kinds (phial, shell, coatings, ammo, kinsect level, melody, ...) live
  * in `kindSpecific` rather than one sparse column each.
  */
@@ -159,6 +159,7 @@ export const weapon = pgTable(
   "weapon",
   {
     id: text("id").primaryKey(),
+    gameId: integer("game_id").notNull(),
     name: text("name").notNull(),
     kind: text("kind").notNull(), // 'long-sword' | 'great-sword' | ...
     rarity: integer("rarity").notNull(),
@@ -178,7 +179,7 @@ export const weapon = pgTable(
       .notNull()
       .default({}),
   },
-  (t) => [unique("weapon_kind_name_unique").on(t.kind, t.name)],
+  (t) => [unique("weapon_kind_game_id_unique").on(t.kind, t.gameId)],
 )
 
 /** A skill granted by a weapon; references an ordinary `skill` row. */

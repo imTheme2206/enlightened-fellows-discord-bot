@@ -6,6 +6,7 @@ import { mapMhdbWeapons } from '../weapons'
 
 const mhdbLongSword: MhdbWeapon = {
   id: 841,
+  gameId: 6,
   name: 'Rey Tonitrus I',
   kind: 'long-sword',
   rarity: 3,
@@ -23,6 +24,7 @@ const mhdbLongSword: MhdbWeapon = {
 
 const mhdbBow: MhdbWeapon = {
   id: 1139,
+  gameId: 91,
   name: 'Calamitous Angel',
   kind: 'bow',
   rarity: 8,
@@ -103,7 +105,13 @@ describe('transformSeedData weapons', () => {
     const result = transformSeedData(emptySeed(mapMhdbWeapons([mhdbLongSword]), { 'Punishing Draw': 3 }))
     expect(result.weapons).toHaveLength(1)
     expect(result.weapons[0]).toMatchObject({ name: 'Rey Tonitrus I', raw: 140, display: 462, series: 'Rey Dau Tree' })
-    expect(result.weaponSkills).toEqual([{ weaponKey: 'long-sword:Rey Tonitrus I', skillName: 'Punishing Draw', level: 1 }])
+    expect(result.weaponSkills).toEqual([{ weaponKey: 'long-sword:6', skillName: 'Punishing Draw', level: 1 }])
+  })
+
+  it('identity ignores the display suffix: weaponKey is kind + gameId', () => {
+    const [a] = transformSeedData(emptySeed(mapMhdbWeapons([mhdbBow, { ...mhdbBow, gameId: 92, affinity: 15 }]), {})).weapons
+    expect(a.gameId).toBe(91)
+    expect(a.name).toBe('Calamitous Angel (-10% affinity)')
   })
 
   it('rejects a weapon that references an unknown skill', () => {

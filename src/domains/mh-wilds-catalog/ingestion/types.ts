@@ -78,6 +78,7 @@ export type SeedWeaponSharpness = {
 
 /** A weapon normalised from the MHDB wire format (names already de-kira'd). */
 export type SeedWeapon = {
+  gameId: number
   name: string
   kind: WeaponKind
   rarity: number

@@ -38,6 +38,7 @@ const CompactGroupSkillSchema = z.tuple([
 
 const SeedWeaponSchema = z.object({
   name: z.string(),
+  gameId: z.number().int(),
   kind: z.enum(WEAPON_KINDS),
   rarity: z.number(),
   damage: z.object({ raw: z.number(), display: z.number() }),
@@ -160,8 +161,11 @@ export interface DecorationSkillInsert {
   level: number
 }
 
-/** A weapon catalog item (ADR-0013). Identity is `weaponKey` = kind + name. */
+/** A weapon catalog item (ADR-0013). Identity is `weaponKey` = kind + gameId. */
 export interface WeaponInsert {
+  /** The game's internal weapon id; stable, unique per kind. */
+  gameId: number
+  /** Display name; not identity (colliding upstream names get a suffix). */
   name: string
   kind: string
   rarity: number
@@ -185,31 +189,33 @@ export interface WeaponSkillInsert {
   level: number
 }
 
-/** Stable weapon identity (ADR-0007): the canonical kind + name pair. */
-export const weaponKey = (w: { kind: string; name: string }): string => `${w.kind}:${w.name}`
+/** Stable weapon identity (ADR-0007/0013): the kind + upstream gameId pair; never a mutable stat. */
+export const weaponKey = (w: { kind: string; gameId: number }): string => `${w.kind}:${w.gameId}`
+
+const nameKey = (w: { kind: string; name: string }): string => `${w.kind}:${w.name}`
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
 
 /**
  * Upstream reuses a (kind, name) for several distinct weapons (the three Artian
- * base templates, differing only in raw/affinity). Identity must be unique, so
- * colliding names get a deterministic affinity suffix, e.g.
+ * base templates, differing only in raw/affinity). Identity is (kind, gameId), so
+ * this is display-only: colliding names get a deterministic affinity suffix, e.g.
  * "Calamitous Angel (-10% affinity)"; a residual tie gets a " #n" counter.
  */
 export const disambiguateWeaponNames = <T extends { kind: string; name: string; affinity: number }>(weapons: T[]): T[] => {
   const groups = new Map<string, number>()
-  for (const w of weapons) groups.set(weaponKey(w), (groups.get(weaponKey(w)) ?? 0) + 1)
+  for (const w of weapons) groups.set(nameKey(w), (groups.get(nameKey(w)) ?? 0) + 1)
 
   const seen = new Set<string>()
   return weapons.map((w) => {
-    if ((groups.get(weaponKey(w)) ?? 0) < 2) {
-      seen.add(weaponKey(w))
+    if ((groups.get(nameKey(w)) ?? 0) < 2) {
+      seen.add(nameKey(w))
       return w
     }
     const base = `${w.name} (${signed(w.affinity)}% affinity)`
     let name = base
-    for (let n = 2; seen.has(weaponKey({ kind: w.kind, name })); n++) name = `${base} #${n}`
-    seen.add(weaponKey({ kind: w.kind, name }))
+    for (let n = 2; seen.has(nameKey({ kind: w.kind, name })); n++) name = `${base} #${n}`
+    seen.add(nameKey({ kind: w.kind, name }))
     return { ...w, name }
   })
 }
@@ -343,6 +349,7 @@ export function transformSeedData(data: SeedData): TransformResult {
   const missingWeaponSkills = new Set<string>()
   for (const w of disambiguateWeaponNames(data.weapons ?? [])) {
     weapons.push({
+      gameId: w.gameId,
       name: w.name,
       kind: w.kind,
       rarity: w.rarity,

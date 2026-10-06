@@ -16,7 +16,7 @@ A manually composed selection of up to five body armor pieces, an optional scrap
 _Avoid_: Weapon loadout, full equipment loadout.
 
 **Weapon**:
-A catalog item of one of 14 kinds (great sword ... heavy bowgun) with base raw/display damage, affinity, element/status specials, sharpness (melee), weapon-type decoration slots, ordinary weapon Skills, and kind-specific data (phial, shell, coatings, ammo, melody, ...). Identity is its canonical kind + name (ADR-0013). The three Artian base templates share a name upstream, so the catalog suffixes their names with their affinity.
+A catalog item of one of 14 kinds (great sword ... heavy bowgun) with base raw/display damage, affinity, element/status specials, sharpness (melee), weapon-type decoration slots, ordinary weapon Skills, and kind-specific data (phial, shell, coatings, ammo, melody, ...). Identity is its upstream kind + gameId (ADR-0013), not its name. The three Artian base templates share a name upstream, so the catalog suffixes their display names with their affinity.
 _Avoid_: Weapon bonus (that is the Set/Group Bonus contribution, a customization concern).
 
 **Working Build**:

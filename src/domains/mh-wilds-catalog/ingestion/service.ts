@@ -120,6 +120,7 @@ export abstract class CatalogIngestionService {
         decorationSkills: decorationSkillRows,
         weapons: weaponRows.map(
           (w): WeaponInsert => ({
+            gameId: w.gameId,
             name: w.name,
             kind: w.kind,
             rarity: w.rarity,

@@ -5,6 +5,7 @@ import type { TransformResult, WeaponInsert } from '../transform'
 // --- builders ---------------------------------------------------------------
 
 const sampleWeapon = (): WeaponInsert => ({
+  gameId: 6,
   name: 'Rey Tonitrus I',
   kind: 'long-sword',
   rarity: 3,
@@ -48,7 +49,7 @@ function sampleNext(): TransformResult {
       { decorationName: 'Crit Jwl', skillName: 'Handicraft', level: 1 },
     ],
     weapons: [sampleWeapon()],
-    weaponSkills: [{ weaponKey: 'long-sword:Rey Tonitrus I', skillName: 'Attack Boost', level: 1 }],
+    weaponSkills: [{ weaponKey: 'long-sword:6', skillName: 'Attack Boost', level: 1 }],
   }
 }
 
@@ -71,7 +72,7 @@ function sampleExisting(): ExistingCatalog {
     ],
     // jsonb does not preserve key order; reversed kindSpecific key order must not conflict.
     weapons: [{ ...sampleWeapon(), kindSpecific: { ammo: [{ b: 2, a: 1 }], phial: 'impact' } }],
-    weaponSkills: [{ weaponKey: 'long-sword:Rey Tonitrus I', skillName: 'Attack Boost', level: 1 }],
+    weaponSkills: [{ weaponKey: 'long-sword:6', skillName: 'Attack Boost', level: 1 }],
   }
 }
 
@@ -172,15 +173,15 @@ describe('reconcileCatalog', () => {
 
   it('new weapon is inserted with its skills; existing weapon untouched', () => {
     const next = sampleNext()
-    next.weapons.push({ ...sampleWeapon(), name: 'Rey Tonitrus II', raw: 150 })
-    next.weaponSkills.push({ weaponKey: 'long-sword:Rey Tonitrus II', skillName: 'Attack Boost', level: 2 })
+    next.weapons.push({ ...sampleWeapon(), gameId: 7, name: 'Rey Tonitrus II', raw: 150 })
+    next.weaponSkills.push({ weaponKey: 'long-sword:7', skillName: 'Attack Boost', level: 2 })
     const plan = reconcileCatalog(sampleExisting(), next)
     expect(plan.conflicts).toEqual([])
     expect(plan.weapons.map((w) => w.name)).toEqual(['Rey Tonitrus II'])
-    expect(plan.weaponSkills).toEqual([{ weaponKey: 'long-sword:Rey Tonitrus II', skillName: 'Attack Boost', level: 2 }])
+    expect(plan.weaponSkills).toEqual([{ weaponKey: 'long-sword:7', skillName: 'Attack Boost', level: 2 }])
   })
 
-  it('same name on a different weapon kind is a distinct identity', () => {
+  it('same gameId on a different weapon kind is a distinct identity', () => {
     const next = sampleNext()
     next.weapons.push({ ...sampleWeapon(), kind: 'great-sword' })
     const plan = reconcileCatalog(sampleExisting(), next)
@@ -192,7 +193,7 @@ describe('reconcileCatalog', () => {
     const next = sampleNext()
     next.weapons[0].raw = 999
     const plan = reconcileCatalog(sampleExisting(), next)
-    expect(plan.conflicts).toEqual([{ entity: 'weapon', name: 'long-sword:Rey Tonitrus I', reason: 'weapon stats changed' }])
+    expect(plan.conflicts).toEqual([{ entity: 'weapon', name: 'long-sword:6', reason: 'weapon stats changed' }])
     expect(plan.weapons).toHaveLength(0)
   })
 
@@ -206,7 +207,7 @@ describe('reconcileCatalog', () => {
     const next = sampleNext()
     next.weaponSkills[0].level = 2
     const plan = reconcileCatalog(sampleExisting(), next)
-    expect(plan.conflicts).toEqual([{ entity: 'weapon', name: 'long-sword:Rey Tonitrus I', reason: 'weapon skills changed' }])
+    expect(plan.conflicts).toEqual([{ entity: 'weapon', name: 'long-sword:6', reason: 'weapon skills changed' }])
   })
 
   it('weapon missing from scrape is retained', () => {
@@ -216,5 +217,22 @@ describe('reconcileCatalog', () => {
     const plan = reconcileCatalog(sampleExisting(), next)
     expect(plan.conflicts).toEqual([])
     expect(plan.weapons).toHaveLength(0)
+  })
+
+  it('affinity change on a weapon is a conflict on the same identity, not a new item', () => {
+    const next = sampleNext()
+    next.weapons[0] = { ...next.weapons[0], affinity: 15, name: 'Rey Tonitrus I (+15% affinity)' }
+    const plan = reconcileCatalog(sampleExisting(), next)
+    expect(plan.weapons).toHaveLength(0)
+    expect(plan.conflicts).toEqual([{ entity: 'weapon', name: 'long-sword:6', reason: 'weapon stats changed' }])
+  })
+
+  it('same name with a different gameId is a new weapon (name is not identity)', () => {
+    const next = sampleNext()
+    next.weapons.push({ ...sampleWeapon(), gameId: 99 })
+    next.weaponSkills.push({ weaponKey: 'long-sword:99', skillName: 'Attack Boost', level: 1 })
+    const plan = reconcileCatalog(sampleExisting(), next)
+    expect(plan.conflicts).toEqual([])
+    expect(plan.weapons.map((w) => w.gameId)).toEqual([99])
   })
 })

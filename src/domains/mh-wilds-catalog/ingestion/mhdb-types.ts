@@ -53,6 +53,7 @@ export interface MhdbWeaponSpecial {
 
 export interface MhdbWeapon {
   id: number
+  gameId: number
   name: string
   kind: string
   rarity: number
