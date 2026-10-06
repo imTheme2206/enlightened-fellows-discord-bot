@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "bun --watch src/index.ts",
+    "dev:api": "bun --watch src/api/dev.ts",
     "start": "bun dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -15,7 +16,7 @@
     "format": "prettier --check src",
     "gen:search-fixture": "tsx src/domains/set-search/__tests__/fixtures/generate-fixture.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "bun --bun drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
   },
   "keywords": [],

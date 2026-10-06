@@ -5,3 +5,4 @@ config.json
 dashboard
 
 dist
+.env.local
