@@ -278,6 +278,17 @@ export const jobLog = pgTable("job_log", {
     .defaultNow(),
 })
 
+/**
+ * Last successfully synced upstream payload hash per catalog source (ADR-0016).
+ * The scheduled refresh skips reconcile when the freshly fetched payload hashes
+ * to the stored value. Written only after the owning domain's transaction commits.
+ */
+export const catalogSyncState = pgTable("catalog_sync_state", {
+  source: text("source").primaryKey(), // e.g. 'equipment:armor', 'monsters'
+  contentHash: text("content_hash").notNull(),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const searchHistory = pgTable("search_history", {
   id: text("id").primaryKey(),
   // Discord snowflake — intentionally text, not a FK to auth.users.

@@ -1,4 +1,5 @@
 import dotenv from "dotenv"
+import cron from "node-cron"
 import { z } from "zod"
 
 dotenv.config()
@@ -20,6 +21,11 @@ const envSchema = z.object({
   WEB_ADMIN_TOKEN: z.string().optional(),
   DISCORD_OWNER_ID: z.string().optional(),
   CORS_ORIGIN: z.string().optional(),
+  // Scheduled MH Wilds catalog refresh (UTC). Default: daily at 04:00.
+  CATALOG_REFRESH_CRON: z
+    .string()
+    .refine((v) => cron.validate(v), "must be a valid cron expression")
+    .default("0 4 * * *"),
 })
 
 const parsed = envSchema.safeParse(process.env)

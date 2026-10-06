@@ -56,6 +56,16 @@ curl localhost:3003/api/mh-wilds/skills    # 200, seeded data
 curl localhost:3003/api/mh-wilds/armors    # 200, seeded data
 ```
 
+### Scheduled catalog refresh
+
+A daily job (`CATALOG_REFRESH_CRON`, default `0 4 * * *` UTC) re-fetches wilds.mhdb.io and
+reconciles equipment (ADR-0007) and monsters (ADR-0015); unchanged payloads are skipped via
+`catalog_sync_state` hashes (ADR-0016). In production it is started by the Discord `ready` handler
+(the single bot+API process, `src/index.ts`); `bun run dev:api` starts it too, so it also runs
+locally without Discord. To try it, set `CATALOG_REFRESH_CRON="* * * * *"` in `.env.local`, restart,
+and look for `scraper:cron` / `scraper:cron:monsters` rows via `GET /api/job-logs` (admin token) or the
+`job_log` table. The second run should log `{"unchanged":true}` for both.
+
 ## 4. Get a test JWT without Discord
 
 ```bash

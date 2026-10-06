@@ -2,6 +2,7 @@ import { Client } from "discord.js"
 import logger from "../../infra/logger"
 import { deployCommands, loadCommands } from "../handlers/command-handler"
 import { seedOnBoot } from "../jobs/db-init"
+import { startCatalogRefreshJob } from "../jobs/catalog-refresh-job"
 import { startEventsJob } from "../jobs/events-job"
 import { startGenshinFetchJob } from "../jobs/genshin-fetch-job"
 import { commandRegistry } from "../registry"
@@ -30,4 +31,5 @@ export async function execute(client: Client): Promise<void> {
   })
 
   startGenshinFetchJob(client)
+  startCatalogRefreshJob()
 }
